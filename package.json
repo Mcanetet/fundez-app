@@ -2,12 +2,12 @@
   "name": "zilo-app",
   "version": "1.0.0",
   "description": "Zilo - servicios del hogar Express.js",
-  "main": "app.js",
+  "main": "index.js",
   "private": true,
   "scripts": {
-    "start": "node app.js",
+    "start": "node index.js",
     "build": "node scripts/hostinger-build.js",
-    "dev": "node app.js"
+    "dev": "node index.js"
   },
   "engines": {
     "node": "20.x"
