@@ -1,0 +1,7 @@
+{
+  "framework": "express",
+  "entry": "server.js",
+  "buildCommand": "npm run build",
+  "startCommand": "npm start",
+  "nodeVersion": "20"
+}

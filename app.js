@@ -82,6 +82,10 @@ app.use('/pagos', paymentRoutes);
 app.use('/legal', legalRoutes);
 app.use('/seguimiento', trackingRoutes);
 
+app.get('/health', (req, res) => {
+  res.status(200).json({ ok: true, app: 'zilo', uptime: process.uptime() });
+});
+
 io.on('connection', (socket) => {
   socket.on('register_provider', (providerId) => {
     store.providerSockets.set(providerId, socket.id);
