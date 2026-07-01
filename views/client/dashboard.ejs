@@ -1,0 +1,97 @@
+<%- include('../partials/head') %>
+
+<div class="max-w-lg mx-auto min-h-screen flex flex-col" id="clientDashboard">
+  <header class="sticky top-0 z-50 bg-zilo-bg/90 backdrop-blur-xl border-b border-white/8 px-5 py-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <span class="text-xs text-white/40">Hola,</span>
+        <h1 class="text-xl font-bold"><%= user.name.split(' ')[0] %></h1>
+      </div>
+      <a href="/logout" class="w-10 h-10 rounded-full bg-zilo-card border border-white/8 flex items-center justify-center text-white/50 hover:text-white transition" title="Cerrar sesión">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </a>
+    </div>
+    <div class="flex items-center gap-1.5 mt-2 text-sm text-white/50">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      Santiago, Chile
+    </div>
+  </header>
+
+  <main class="flex-1 px-5 py-5 pb-24">
+    <h2 class="text-lg font-semibold mb-4">¿Qué necesitas hoy?</h2>
+
+    <div id="servicesGrid" class="grid grid-cols-2 gap-3">
+      <% services.forEach(service => { %>
+        <a href="/cliente/servicio/<%= service.id %>" data-service-id="<%= service.id %>"
+          class="service-item group flex flex-col items-center gap-2 p-5 rounded-2xl bg-zilo-card border border-white/8 hover:border-blue-500/50 hover:-translate-y-0.5 transition-all duration-300">
+          <span class="text-3xl group-hover:scale-110 transition-transform"><%= service.icon %></span>
+          <span class="font-semibold text-sm text-center"><%= service.name %></span>
+          <span class="text-xs text-white/40">desde <%= formatCLP(service.visitPrice) %></span>
+        </a>
+      <% }); %>
+    </div>
+
+    <% if (services.length === 0) { %>
+      <div class="text-center py-16 text-white/40">
+        <p class="text-4xl mb-3">🔒</p>
+        <p class="text-sm">No hay servicios disponibles en este momento.</p>
+      </div>
+    <% } %>
+
+    <% if (activeRequests.length > 0) { %>
+    <section class="mt-8">
+      <h2 class="text-lg font-semibold mb-3">Solicitudes recientes</h2>
+      <div class="space-y-2">
+        <% activeRequests.forEach(req => { %>
+          <div class="flex justify-between items-center p-4 rounded-xl bg-zilo-card border border-white/8">
+            <div class="flex items-center gap-3">
+              <strong class="text-sm"><%= req.serviceName %></strong>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-yellow-500/15 text-yellow-400"><%= req.status %></span>
+            </div>
+            <span class="text-xs text-white/40"><%= new Date(req.createdAt).toLocaleDateString('es-CL') %></span>
+          </div>
+        <% }); %>
+      </div>
+    </section>
+    <% } %>
+  </main>
+
+  <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg bg-zilo-bg/95 backdrop-blur-xl border-t border-white/8 flex safe-bottom z-50">
+    <a href="/cliente" class="flex-1 flex flex-col items-center gap-1 py-3 text-blue-400 text-[10px] font-medium">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+      Inicio
+    </a>
+    <a href="#" class="flex-1 flex flex-col items-center gap-1 py-3 text-white/30 text-[10px]">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      Historial
+    </a>
+    <a href="#" class="flex-1 flex flex-col items-center gap-1 py-3 text-white/30 text-[10px]">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Perfil
+    </a>
+  </nav>
+</div>
+
+<script>
+  const socket = io();
+  socket.on('services_updated', ({ services }) => {
+    const grid = document.getElementById('servicesGrid');
+    const active = services.filter(s => s.enabled);
+    if (active.length === 0) {
+      grid.innerHTML = '<div class="col-span-2 text-center py-16 text-white/40"><p class="text-4xl mb-3">🔒</p><p class="text-sm">No hay servicios disponibles.</p></div>';
+      ZiloNotify.show('Algunos servicios fueron desactivados', 'warning');
+      return;
+    }
+    const fmt = n => new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(n);
+    grid.innerHTML = active.map(s => `
+      <a href="/cliente/servicio/${s.id}" class="group flex flex-col items-center gap-2 p-5 rounded-2xl bg-zilo-card border border-white/8 hover:border-blue-500/50 hover:-translate-y-0.5 transition-all duration-300 animate-fade-in">
+        <span class="text-3xl group-hover:scale-110 transition-transform">${s.icon}</span>
+        <span class="font-semibold text-sm text-center">${s.name}</span>
+        <span class="text-xs text-white/40">desde ${fmt(s.visitPrice)}</span>
+      </a>
+    `).join('');
+    ZiloNotify.show('Servicios actualizados', 'info');
+  });
+</script>
+
+<%- include('../partials/footer') %>

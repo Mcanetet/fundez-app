@@ -1,0 +1,113 @@
+<%- include('../partials/head') %>
+
+<div class="max-w-lg mx-auto min-h-screen flex flex-col" id="adminDashboard">
+  <header class="sticky top-0 z-50 bg-zilo-bg/90 backdrop-blur-xl border-b border-white/8 px-5 py-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <span class="text-xs text-white/40">Panel Admin</span>
+        <h1 class="text-xl font-bold">Zilo Control</h1>
+      </div>
+      <a href="/logout" class="w-10 h-10 rounded-full bg-zilo-card border border-white/8 flex items-center justify-center text-white/50 hover:text-white transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </a>
+    </div>
+  </header>
+
+  <main class="flex-1 px-5 py-5 pb-8">
+    <!-- Stats -->
+    <div class="grid grid-cols-2 gap-2 mb-6">
+      <div class="p-4 rounded-2xl bg-zilo-card border border-white/8 text-center">
+        <span class="block text-2xl font-extrabold"><%= stats.totalRequests %></span>
+        <span class="text-[10px] text-white/40 uppercase">Solicitudes</span>
+      </div>
+      <div class="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/25 text-center">
+        <span class="block text-2xl font-extrabold text-blue-300"><%= stats.activeRequests %></span>
+        <span class="text-[10px] text-white/40 uppercase">Activas</span>
+      </div>
+      <div class="p-4 rounded-2xl bg-zilo-card border border-white/8 text-center">
+        <span class="block text-2xl font-extrabold"><%= stats.completedRequests %></span>
+        <span class="text-[10px] text-white/40 uppercase">Completadas</span>
+      </div>
+      <div class="p-4 rounded-2xl bg-zilo-card border border-white/8 text-center">
+        <span class="block text-2xl font-extrabold"><%= stats.onlineProviders %>/<%= stats.totalProviders %></span>
+        <span class="text-[10px] text-white/40 uppercase">En línea</span>
+      </div>
+    </div>
+
+    <!-- Toggles de servicios -->
+    <section class="mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-semibold">Servicios</h3>
+        <span class="text-xs text-white/40"><%= stats.activeServices %>/<%= stats.totalServices %> activos</span>
+      </div>
+      <div id="servicesList" class="space-y-2">
+        <% services.forEach(service => { %>
+          <div class="service-toggle-item flex items-center justify-between p-4 rounded-2xl bg-zilo-card border border-white/8 transition-all duration-300 <%= service.enabled ? '' : 'opacity-50' %>" data-service-id="<%= service.id %>">
+            <div class="flex items-center gap-3">
+              <span class="text-2xl"><%= service.icon %></span>
+              <div>
+                <strong class="text-sm block"><%= service.name %></strong>
+                <span class="text-xs text-white/40"><%= formatCLP(service.visitPrice) %> visita</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="service-status text-[10px] font-bold uppercase <%= service.enabled ? 'text-emerald-400' : 'text-red-400' %>">
+                <%= service.enabled ? 'ON' : 'OFF' %>
+              </span>
+              <label class="toggle-ios">
+                <input type="checkbox" class="service-toggle" data-id="<%= service.id %>" <%= service.enabled ? 'checked' : '' %>>
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+    </section>
+
+    <!-- Proveedores -->
+    <section class="mb-6">
+      <h3 class="text-lg font-semibold mb-3">Proveedores</h3>
+      <div class="space-y-2">
+        <% providers.forEach(p => { %>
+          <div class="flex items-center justify-between p-4 rounded-xl bg-zilo-card border border-white/8">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-xs font-bold"><%= p.avatar %></div>
+              <div>
+                <strong class="text-sm block"><%= p.name %></strong>
+                <span class="text-xs text-white/40"><%= p.rating %>★ · <%= p.reviewsCount %> reseñas</span>
+              </div>
+            </div>
+            <span class="text-xs font-semibold <%= p.online ? 'text-emerald-400' : 'text-white/30' %>">
+              <%= p.online ? '● En línea' : '○ Offline' %>
+            </span>
+          </div>
+        <% }); %>
+      </div>
+    </section>
+
+    <!-- Solicitudes -->
+    <section>
+      <h3 class="text-lg font-semibold mb-3">Solicitudes recientes</h3>
+      <% if (requests.length === 0) { %>
+        <p class="text-center py-10 text-white/30 text-sm">No hay solicitudes aún.</p>
+      <% } else { %>
+        <div class="space-y-2">
+          <% requests.forEach(req => { %>
+            <div class="grid grid-cols-[1fr_auto] gap-2 p-4 rounded-xl bg-zilo-card border border-white/8 text-sm">
+              <div>
+                <strong class="block"><%= req.serviceName %></strong>
+                <span class="text-xs text-white/40"><%= req.clientName %></span>
+              </div>
+              <div class="text-right">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-white/5"><%= req.status %></span>
+                <span class="block text-xs text-white/40 mt-1"><%= formatCLP(req.estimatedVisit) %></span>
+              </div>
+            </div>
+          <% }); %>
+        </div>
+      <% } %>
+    </section>
+  </main>
+</div>
+
+<%- include('../partials/footer', { pageScript: '/js/admin.js' }) %>

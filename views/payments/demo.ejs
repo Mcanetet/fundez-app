@@ -1,0 +1,44 @@
+<%- include('../partials/head') %>
+
+<div class="max-w-lg mx-auto min-h-screen flex flex-col items-center justify-center p-6">
+  <div class="w-full bg-zilo-card border border-white/8 rounded-3xl p-8 text-center">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[#009EE3]/20 flex items-center justify-center">
+      <svg class="w-10 h-10" viewBox="0 0 24 24" fill="#009EE3"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+    </div>
+    <h1 class="text-xl font-bold mb-1">Pagar visita técnica</h1>
+    <p class="text-white/50 text-sm mb-6"><%= service.name %> · <%= request.address %></p>
+
+    <div class="p-4 rounded-2xl bg-zilo-bg border border-white/8 mb-6">
+      <span class="text-xs text-white/40 uppercase">Total a pagar</span>
+      <p class="text-3xl font-extrabold text-emerald-400 mt-1"><%= formatCLP(request.estimatedVisit) %></p>
+    </div>
+
+    <p class="text-xs text-yellow-400/80 mb-6 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+      Modo demo: Mercado Pago no configurado. Simula el pago para continuar.
+    </p>
+
+    <button id="btnPayDemo" data-request-id="<%= request.id %>"
+      class="w-full py-4 rounded-full bg-[#009EE3] font-bold text-lg shadow-xl shadow-[#009EE3]/30 hover:-translate-y-0.5 transition-all mb-3">
+      Pagar con Mercado Pago (Demo)
+    </button>
+    <a href="/cliente" class="text-sm text-white/40 hover:text-white/60">Cancelar</a>
+  </div>
+</div>
+
+<script>
+  document.getElementById('btnPayDemo').addEventListener('click', async function() {
+    const btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Procesando...';
+    const res = await fetch('/pagos/demo/confirmar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId: btn.dataset.requestId })
+    });
+    const data = await res.json();
+    if (data.success) window.location.href = data.redirect;
+    else { btn.disabled = false; btn.textContent = 'Pagar con Mercado Pago (Demo)'; }
+  });
+</script>
+
+<%- include('../partials/footer') %>

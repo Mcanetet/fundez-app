@@ -1,0 +1,76 @@
+/* Animaciones y utilidades complementarias a Tailwind */
+.hidden { display: none !important; }
+
+#toast-container {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: calc(100% - 2rem);
+  max-width: 400px;
+  pointer-events: none;
+}
+
+.toast {
+  padding: 0.875rem 1.25rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  backdrop-filter: blur(12px);
+  animation: toastIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), toastOut 0.3s ease 2.7s forwards;
+  pointer-events: auto;
+}
+
+.toast-success { background: rgba(16,185,129,0.9); border: 1px solid rgba(16,185,129,0.5); }
+.toast-info { background: rgba(59,130,246,0.9); border: 1px solid rgba(59,130,246,0.5); }
+.toast-warning { background: rgba(245,158,11,0.9); border: 1px solid rgba(245,158,11,0.5); }
+.toast-error { background: rgba(239,68,68,0.9); border: 1px solid rgba(239,68,68,0.5); }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-12px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes toastOut {
+  to { opacity: 0; transform: translateY(-8px); }
+}
+
+/* Leaflet dark theme fix */
+.leaflet-container { background: #141B2D !important; border-radius: 1rem; }
+.leaflet-popup-content-wrapper { background: #1C2540; color: white; border-radius: 12px; }
+.leaflet-popup-tip { background: #1C2540; }
+.leaflet-control-zoom a { background: #1C2540 !important; color: white !important; border-color: rgba(255,255,255,0.1) !important; }
+
+/* Toggle switch iOS-style */
+.toggle-ios { position: relative; width: 56px; height: 32px; flex-shrink: 0; }
+.toggle-ios input { opacity: 0; width: 0; height: 0; }
+.toggle-ios .slider {
+  position: absolute; inset: 0;
+  background: #1C2540;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: 0.3s;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.toggle-ios .slider::before {
+  content: '';
+  position: absolute;
+  width: 24px; height: 24px;
+  left: 3px; bottom: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: 0.3s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.toggle-ios input:checked + .slider { background: #10B981; border-color: #10B981; }
+.toggle-ios input:checked + .slider::before { transform: translateX(24px); }
+
+/* Countdown circular */
+.countdown-ring { transform: rotate(-90deg); }
+.countdown-ring circle { transition: stroke-dashoffset 1s linear; }
+
+/* Safe area */
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }

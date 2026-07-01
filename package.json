@@ -1,0 +1,22 @@
+{
+  "name": "zilo",
+  "version": "1.0.0",
+  "description": "Plataforma premium bajo demanda para servicios del hogar - Santiago, Chile",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node app.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "mercadopago": "^2.0.15",
+    "socket.io": "^4.8.1",
+    "uuid": "^11.0.5"
+  }
+}
