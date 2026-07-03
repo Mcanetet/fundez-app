@@ -64,8 +64,12 @@
 <script>
   document.querySelectorAll('.demo-card').forEach(card => {
     card.addEventListener('click', () => {
+      const form = document.querySelector('form[action="/login"]');
       document.getElementById('email').value = card.dataset.email;
       document.getElementById('password').value = card.dataset.password;
+      const consent = document.querySelector('input[name="consent"]');
+      if (consent) consent.checked = true;
+      if (form) form.requestSubmit();
     });
   });
 </script>

@@ -508,7 +508,8 @@ function updateProviderLocation(providerId, lat, lng) {
 }
 
 function getUserByEmail(email) {
-  const user = USERS.find(u => u.email === email);
+  const normalized = String(email || '').trim().toLowerCase();
+  const user = USERS.find(u => u.email.toLowerCase() === normalized);
   if (user?.role === 'provider') ensureProviderFields(user);
   return user;
 }

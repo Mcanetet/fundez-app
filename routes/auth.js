@@ -14,7 +14,17 @@ router.get('/login', (req, res) => {
 });
 
 router.post('/login', (req, res) => {
-  const { email, password } = req.body;
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const password = String(req.body.password || '');
+
+  if (!store.isReady()) {
+    return res.render('login', {
+      title: 'Iniciar sesión',
+      error: 'La base de datos aún está conectando. Espera unos segundos e intenta de nuevo.',
+      referralCode: req.session.pendingReferral || null
+    });
+  }
+
   const user = store.getUserByEmail(email);
 
   if (!user || user.password !== password) {
