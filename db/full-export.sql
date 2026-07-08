@@ -1,6 +1,6 @@
 -- Fundez full export (schema + demo data)
+-- Idempotent import for existing Hostinger databases
 -- Generated automatically
--- Import this file directly in MySQL/Hostinger
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -69,11 +69,6 @@ CREATE TABLE IF NOT EXISTS users (
   INDEX idx_users_role (role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-ALTER TABLE users ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1;
-ALTER TABLE users ADD COLUMN parent_id VARCHAR(64) DEFAULT NULL;
-ALTER TABLE users ADD COLUMN billing JSON DEFAULT NULL;
-ALTER TABLE users ADD COLUMN mfa JSON DEFAULT NULL;
-ALTER TABLE users MODIFY COLUMN role ENUM('client', 'provider', 'admin', 'tecnico') NOT NULL;
 
 CREATE TABLE IF NOT EXISTS service_requests (
   id VARCHAR(64) PRIMARY KEY,
@@ -171,7 +166,6 @@ CREATE TABLE IF NOT EXISTS notifications (
   INDEX idx_notifications_request (request_id),
   INDEX idx_notifications_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 
 -- ============================
 -- Demo data
