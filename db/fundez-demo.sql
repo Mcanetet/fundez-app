@@ -9,9 +9,9 @@
 -- Se puede re-importar sin duplicar (usa ON DUPLICATE KEY / INSERT IGNORE).
 --
 -- Credenciales demo:
---   Cliente:   cliente@zilo.cl   / cliente123
---   Proveedor: pedro@zilo.cl     / proveedor123
---   Admin:     admin@zilo.cl     / admin123
+--   Cliente:   cliente@fundez.cl   / cliente123
+--   Proveedor: pedro@fundez.cl     / proveedor123
+--   Admin:     admin@fundez.cl     / admin123
 -- ============================================================
 
 SET NAMES utf8mb4;
@@ -170,13 +170,13 @@ INSERT INTO users (
   specialties, rating, reviews_count, online, avatar, bio, reviews, verification, location_share
 ) VALUES
 (
-  'client-1', 'cliente@zilo.cl', 'cliente123', 'María González', 'client',
+  'client-1', 'cliente@fundez.cl', 'cliente123', 'María González', 'client',
   '+56 9 8765 4321', 'Av. Providencia 2650, Providencia, Santiago', 'MARIA2026',
   350, 5000, 2, 4, 0, 0, '2025-11-01', 0, NULL,
   '[]', NULL, 0, 0, NULL, NULL, '[]', NULL, NULL
 ),
 (
-  'provider-pedro', 'pedro@zilo.cl', 'proveedor123', 'Pedro Gómez', 'provider',
+  'provider-pedro', 'pedro@fundez.cl', 'proveedor123', 'Pedro Gómez', 'provider',
   '+56 9 2234 5678', NULL, NULL, 0, 0, 0, 0, 0, 0, NULL, 0, NULL,
   '["gasfiter"]', 4.80, 94, 0, 'PG',
   'Gásfiter maestro con 10 años de experiencia en edificios y hogares de Santiago.',
@@ -185,7 +185,7 @@ INSERT INTO users (
   '{"consent":true,"consentAt":"2025-10-01T12:00:00.000Z","lat":-33.442,"lng":-70.654,"updatedAt":"2025-10-01T12:00:00.000Z"}'
 ),
 (
-  'provider-marta', 'marta@zilo.cl', 'proveedor123', 'Marta Quiroz', 'provider',
+  'provider-marta', 'marta@fundez.cl', 'proveedor123', 'Marta Quiroz', 'provider',
   '+56 9 3345 6789', NULL, NULL, 0, 0, 0, 0, 0, 0, NULL, 0, NULL,
   '["electrico"]', 4.90, 112, 0, 'MQ',
   'Electricista certificada SEC. Especialista en instalaciones residenciales y comerciales.',
@@ -194,7 +194,7 @@ INSERT INTO users (
   '{"consent":false,"consentAt":null,"lat":null,"lng":null,"updatedAt":null}'
 ),
 (
-  'provider-juan', 'juancarlos@zilo.cl', 'proveedor123', 'Juan Carlos', 'provider',
+  'provider-juan', 'juancarlos@fundez.cl', 'proveedor123', 'Juan Carlos', 'provider',
   '+56 9 4456 7890', NULL, NULL, 0, 0, 0, 0, 0, 0, NULL, 0, NULL,
   '["cerrajero"]', 4.70, 78, 0, 'JC',
   'Cerrajero profesional 24/7. Apertura sin daños y cambio de cerraduras de seguridad.',
@@ -203,7 +203,7 @@ INSERT INTO users (
   '{"consent":false,"consentAt":null,"lat":null,"lng":null,"updatedAt":null}'
 ),
 (
-  'provider-ana', 'ana@zilo.cl', 'proveedor123', 'Ana Rojas', 'provider',
+  'provider-ana', 'ana@fundez.cl', 'proveedor123', 'Ana Rojas', 'provider',
   '+56 9 5567 8901', NULL, NULL, 0, 0, 0, 0, 0, 0, NULL, 0, NULL,
   '["termos","lavavajillas","lavadora"]', 4.90, 67, 0, 'AR',
   'Técnica certificada en electrodomésticos. Especialista en termos, lavadoras y lavavajillas.',
@@ -212,7 +212,7 @@ INSERT INTO users (
   '{"consent":false,"consentAt":null,"lat":null,"lng":null,"updatedAt":null}'
 ),
 (
-  'admin-1', 'admin@zilo.cl', 'admin123', 'Admin Fundez', 'admin',
+  'admin-1', 'admin@fundez.cl', 'admin123', 'Admin Fundez', 'admin',
   '+56 9 0000 0000', NULL, NULL, 0, 0, 0, 0, 0, 0, NULL, 0, NULL,
   '[]', NULL, 0, 0, NULL, NULL, '[]', NULL, NULL
 )
@@ -258,8 +258,8 @@ INSERT IGNORE INTO consent_records (id, user_id, ip, type, granted, version, use
 -- ---------- Registros de seguridad ----------
 
 INSERT IGNORE INTO security_logs (id, event, detail, `user`, ip, created_at) VALUES
-('sec-1', 'login_ok', NULL, 'admin@zilo.cl', '10.0.0.1', '2026-06-30 08:00:00'),
-('sec-2', 'login_ok', NULL, 'cliente@zilo.cl', '10.0.0.2', '2026-06-30 09:30:00'),
+('sec-1', 'login_ok', NULL, 'admin@fundez.cl', '10.0.0.1', '2026-06-30 08:00:00'),
+('sec-2', 'login_ok', NULL, 'cliente@fundez.cl', '10.0.0.2', '2026-06-30 09:30:00'),
 ('sec-3', 'pago_demo', 'Pago simulado aprobado', NULL, '10.0.0.2', '2026-06-30 10:00:00');
 
 SET FOREIGN_KEY_CHECKS = 1;

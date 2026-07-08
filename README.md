@@ -22,9 +22,9 @@ Abre http://localhost:3000
 
 | Rol | Email | Contraseña |
 |-----|-------|------------|
-| Cliente | cliente@zilo.cl | cliente123 |
-| Proveedor | marta@zilo.cl | proveedor123 |
-| Admin | admin@zilo.cl | admin123 |
+| Cliente | cliente@fundez.cl | cliente123 |
+| Proveedor | marta@fundez.cl | proveedor123 |
+| Admin | admin@fundez.cl | admin123 |
 
 ## Despliegue en Hostinger
 

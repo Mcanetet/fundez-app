@@ -43,7 +43,7 @@ Ese error aparece en el asistente **quick-install-node-addon** (Codex). Fundez e
 
 ---
 
-## Si sale error 503 en zilo.cl
+## Si sale error 503 en fundez.cl
 
 Significa que **la app Node.js no arrancó**. Casi siempre es por variables de entorno o MySQL.
 
@@ -126,10 +126,10 @@ Esto crea las tablas e inserta los usuarios demo:
 
 | Rol | Email | Contraseña |
 |-----|-------|------------|
-| Cliente | `cliente@zilo.cl` | `cliente123` |
-| Proveedor verificado | `pedro@zilo.cl` | `proveedor123` |
-| Proveedor nuevo | `marta@zilo.cl` | `proveedor123` |
-| Admin | `admin@zilo.cl` | `admin123` |
+| Cliente | `cliente@fundez.cl` | `cliente123` |
+| Proveedor verificado | `pedro@fundez.cl` | `proveedor123` |
+| Proveedor nuevo | `marta@fundez.cl` | `proveedor123` |
+| Admin | `admin@fundez.cl` | `admin123` |
 
 > Si la BD ya tiene usuarios, el seed se omite (no borra datos existentes).
 

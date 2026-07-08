@@ -1,12 +1,12 @@
 module.exports = {
   name: 'Fundez SpA',
   rut: '77.777.777-7',
-  email: 'contacto@zilo.cl',
+  email: 'contacto@fundez.cl',
   address: 'Santiago, Región Metropolitana, Chile',
   whatsapp: process.env.WHATSAPP_NUMBER || '56912345678',
   whatsappDisplay: process.env.WHATSAPP_DISPLAY || '+56 9 1234 5678',
   commissionRate: parseFloat(process.env.PLATFORM_COMMISSION || '0.15'),
-  dpoEmail: process.env.DPO_EMAIL || 'privacidad@zilo.cl',
+  dpoEmail: process.env.DPO_EMAIL || 'privacidad@fundez.cl',
   appUrl: process.env.APP_URL || 'http://localhost:3000',
 
   whatsappLink(message) {

@@ -64,7 +64,7 @@ function pedroLocationShare() {
 const SEED_USERS = [
   {
     id: 'client-1',
-    email: 'cliente@zilo.cl',
+    email: 'cliente@fundez.cl',
     password: 'cliente123',
     name: 'María González',
     role: 'client',
@@ -80,7 +80,7 @@ const SEED_USERS = [
   },
   {
     id: 'provider-pedro',
-    email: 'pedro@zilo.cl',
+    email: 'pedro@fundez.cl',
     password: 'proveedor123',
     name: 'Pedro Gómez',
     role: 'provider',
@@ -101,7 +101,7 @@ const SEED_USERS = [
   },
   {
     id: 'provider-marta',
-    email: 'marta@zilo.cl',
+    email: 'marta@fundez.cl',
     password: 'proveedor123',
     name: 'Marta Quiroz',
     role: 'provider',
@@ -122,7 +122,7 @@ const SEED_USERS = [
   },
   {
     id: 'provider-juan',
-    email: 'juancarlos@zilo.cl',
+    email: 'juancarlos@fundez.cl',
     password: 'proveedor123',
     name: 'Juan Carlos',
     role: 'provider',
@@ -143,7 +143,7 @@ const SEED_USERS = [
   },
   {
     id: 'provider-ana',
-    email: 'ana@zilo.cl',
+    email: 'ana@fundez.cl',
     password: 'proveedor123',
     name: 'Ana Rojas',
     role: 'provider',
@@ -163,7 +163,7 @@ const SEED_USERS = [
   },
   {
     id: 'admin-1',
-    email: 'admin@zilo.cl',
+    email: 'admin@fundez.cl',
     password: 'admin123',
     name: 'Admin Fundez',
     role: 'admin',
@@ -196,8 +196,8 @@ const SEED_CONSENTS = [
 ];
 
 const SEED_SECURITY_LOGS = [
-  { id: 'sec-1', event: 'login_ok', user: 'admin@zilo.cl', ip: '10.0.0.1', createdAt: '2026-06-30T08:00:00.000Z' },
-  { id: 'sec-2', event: 'login_ok', user: 'cliente@zilo.cl', ip: '10.0.0.2', createdAt: '2026-06-30T09:30:00.000Z' },
+  { id: 'sec-1', event: 'login_ok', user: 'admin@fundez.cl', ip: '10.0.0.1', createdAt: '2026-06-30T08:00:00.000Z' },
+  { id: 'sec-2', event: 'login_ok', user: 'cliente@fundez.cl', ip: '10.0.0.2', createdAt: '2026-06-30T09:30:00.000Z' },
   { id: 'sec-3', event: 'pago_demo', detail: 'Pago simulado aprobado', ip: '10.0.0.2', createdAt: '2026-06-30T10:00:00.000Z' }
 ];
 
