@@ -13,6 +13,7 @@ router.get('/', requireRole('admin'), (req, res) => {
   const clients = store.USERS.filter(u => u.role === 'client');
   const onlineCount = providers.filter(p => p.online).length;
   const adminStats = store.getAdminStats();
+  const pricing = store.getPricingConfig();
 
   const stats = {
     totalRequests: allRequests.length,
@@ -44,6 +45,7 @@ router.get('/', requireRole('admin'), (req, res) => {
     providers,
     demoAccounts: store.getDemoAccounts(),
     company,
+    pricing,
     formatCLP: store.formatCLP,
     backupConfig: backup.loadConfig(),
     backups: backup.listBackups().slice(0, 20),
@@ -169,6 +171,56 @@ router.delete('/backups/:id', requireRole('admin'), (req, res) => {
   if (!ok) return res.status(404).json({ error: 'Backup no encontrado' });
   store.logSecurityEvent('backup_delete', req.params.id, req);
   res.json({ success: true, backups: backup.listBackups() });
+});
+
+router.get('/precios', requireRole('admin'), (req, res) => {
+  const pricing = store.getPricingConfig();
+  res.render('admin/precios', {
+    title: 'Configuración de precios — Fundez Admin',
+    user: req.session.user,
+    pricing,
+    query: req.query,
+    formatCLP: store.formatCLP
+  });
+});
+
+router.post('/precios', requireRole('admin'), (req, res) => {
+  const body = req.body;
+  const tiers = [];
+  const tierIds = Array.isArray(body.tierId) ? body.tierId : (body.tierId ? [body.tierId] : []);
+  const tierLabels = Array.isArray(body.tierLabel) ? body.tierLabel : (body.tierLabel ? [body.tierLabel] : []);
+  const tierDescs = Array.isArray(body.tierDesc) ? body.tierDesc : (body.tierDesc ? [body.tierDesc] : []);
+  const tierPercents = Array.isArray(body.tierPercent) ? body.tierPercent : (body.tierPercent ? [body.tierPercent] : []);
+  const tierEnabledRaw = body.tierEnabled;
+  const enabledSet = new Set(Array.isArray(tierEnabledRaw) ? tierEnabledRaw : (tierEnabledRaw ? [tierEnabledRaw] : []));
+  const tierOrders = Array.isArray(body.tierOrder) ? body.tierOrder : (body.tierOrder ? [body.tierOrder] : []);
+
+  for (let i = 0; i < tierIds.length; i++) {
+    tiers.push({
+      id: tierIds[i],
+      label: tierLabels[i] || `Opción ${i + 1}`,
+      description: tierDescs[i] || '',
+      adjustmentPercent: parseInt(tierPercents[i], 10) || 0,
+      enabled: enabledSet.has(tierIds[i]),
+      sortOrder: parseInt(tierOrders[i], 10) || i + 1
+    });
+  }
+
+  const updated = store.updatePricingConfig({
+    visitPrice: parseInt(body.visitPrice, 10),
+    servicePrice: parseInt(body.servicePrice, 10),
+    cancellationFee: parseInt(body.cancellationFee, 10),
+    laborCommissionRate: parseFloat(body.laborCommissionPercent) / 100,
+    materialsCommissionRate: parseFloat(body.materialsCommissionPercent) / 100,
+    urgencyTiers: tiers.length ? tiers : undefined
+  });
+
+  store.logSecurityEvent('pricing_update', 'config', req);
+
+  if (req.xhr || (req.get('accept') || '').includes('application/json')) {
+    return res.json({ success: true, pricing: updated });
+  }
+  res.redirect('/admin/precios?ok=1');
 });
 
 module.exports = router;

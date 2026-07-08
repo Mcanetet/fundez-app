@@ -1,0 +1,106 @@
+<%- include('../partials/head', { bodyClass: 'admin-page' }) %>
+
+<div class="max-w-2xl mx-auto min-h-screen flex flex-col zilo-page-enter">
+  <header class="sticky top-0 z-50 bg-zilo-bg/95 backdrop-blur-xl border-b border-zilo-border px-5 py-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/admin" class="zilo-icon-btn" title="Volver al admin">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </a>
+        <div>
+          <span class="zilo-label !text-[9px]">Admin</span>
+          <h1 class="text-base font-semibold">Configuración de precios</h1>
+        </div>
+      </div>
+      <a href="/logout" class="zilo-icon-btn" title="Cerrar sesión">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </a>
+    </div>
+  </header>
+
+  <main class="flex-1 px-5 py-5 pb-10">
+    <% if (typeof query !== 'undefined' && query.ok) { %>
+      <div class="mb-4 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-sm text-emerald-700">Precios actualizados correctamente.</div>
+    <% } %>
+
+    <form method="POST" action="/admin/precios" id="pricingForm" class="space-y-5">
+      <section class="zilo-card-premium rounded-2xl p-5 border border-gray-200">
+        <h2 class="text-sm font-semibold mb-4">Tarifas base</h2>
+        <div class="grid grid-cols-1 gap-3">
+          <div>
+            <label class="text-xs text-gray-500">Visita técnica (CLP)</label>
+            <input type="number" name="visitPrice" value="<%= pricing.visitPrice %>" min="0" step="1000" class="zilo-input w-full mt-1" required>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500">Servicio en sitio (CLP)</label>
+            <input type="number" name="servicePrice" value="<%= pricing.servicePrice %>" min="0" step="1000" class="zilo-input w-full mt-1" required>
+            <p class="text-[10px] text-gray-400 mt-1">Se confirma o ajusta con el técnico en terreno.</p>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500">Cargo por cancelación (CLP)</label>
+            <input type="number" name="cancellationFee" value="<%= pricing.cancellationFee %>" min="0" step="1000" class="zilo-input w-full mt-1" required>
+          </div>
+        </div>
+      </section>
+
+      <section class="zilo-card-premium rounded-2xl p-5 border border-gray-200">
+        <h2 class="text-sm font-semibold mb-4">Comisiones Fundez</h2>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-500">Mano de obra — App (%)</label>
+            <input type="number" name="laborCommissionPercent" value="<%= Math.round(pricing.laborCommissionRate * 100) %>" min="0" max="100" class="zilo-input w-full mt-1" required>
+            <p class="text-[10px] text-gray-400 mt-1">Socio recibe el resto (visita + servicio).</p>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500">Materiales — App (%)</label>
+            <input type="number" name="materialsCommissionPercent" value="<%= Math.round(pricing.materialsCommissionRate * 100) %>" min="0" max="100" class="zilo-input w-full mt-1" required>
+            <p class="text-[10px] text-gray-400 mt-1">El socio recibe el resto de materiales.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="zilo-card-premium rounded-2xl p-5 border border-gray-200">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-sm font-semibold">Urgencia y horarios</h2>
+          <span class="text-[10px] text-gray-500">% sobre la visita</span>
+        </div>
+        <p class="text-xs text-gray-500 mb-4">El cliente elige cuándo necesita el servicio. El porcentaje se aplica sobre el precio de la visita al pagar.</p>
+
+        <div class="space-y-3" id="tiersList">
+          <% pricing.urgencyTiers.forEach((tier, i) => { %>
+            <div class="p-4 rounded-xl bg-gray-50 border border-gray-200 tier-row">
+              <input type="hidden" name="tierId" value="<%= tier.id %>">
+              <input type="hidden" name="tierOrder" value="<%= tier.sortOrder %>">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <label class="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                  <input type="checkbox" name="tierEnabled" value="<%= tier.id %>" <%= tier.enabled !== false ? 'checked' : '' %> class="rounded accent-[#2563EB]">
+                  Activo
+                </label>
+                <span class="text-[10px] font-mono text-gray-400"><%= tier.id %></span>
+              </div>
+              <div class="grid gap-2">
+                <input type="text" name="tierLabel" value="<%= tier.label %>" placeholder="Nombre" class="zilo-input w-full !py-2 text-sm" required>
+                <input type="text" name="tierDesc" value="<%= tier.description %>" placeholder="Descripción para el cliente" class="zilo-input w-full !py-2 text-sm">
+                <div class="flex items-center gap-2">
+                  <label class="text-xs text-gray-500 shrink-0">Ajuste %</label>
+                  <input type="number" name="tierPercent" value="<%= tier.adjustmentPercent %>" step="1" class="zilo-input flex-1 !py-2 text-sm" required>
+                  <span class="text-xs text-gray-500">
+                    <% if (tier.adjustmentPercent > 0) { %>+<%= tier.adjustmentPercent %>%<% } else if (tier.adjustmentPercent < 0) { %><%= tier.adjustmentPercent %>%<% } else { %>Normal<% } %>
+                  </span>
+                </div>
+              </div>
+            </div>
+          <% }); %>
+        </div>
+      </section>
+
+      <button type="submit" class="w-full py-3 rounded-xl zilo-btn-primary">Guardar configuración</button>
+    </form>
+
+    <section class="mt-6 p-4 rounded-2xl bg-zilo-accent/5 border border-zilo-accent/20">
+      <p class="text-xs text-gray-600"><strong>Vista previa:</strong> Visita <%= formatCLP(pricing.visitPrice) %> + Servicio <%= formatCLP(pricing.servicePrice) %>. Comisión app: <%= Math.round(pricing.laborCommissionRate * 100) %>% mano de obra, <%= Math.round(pricing.materialsCommissionRate * 100) %>% materiales.</p>
+    </section>
+  </main>
+</div>
+
+<%- include('../partials/footer') %>

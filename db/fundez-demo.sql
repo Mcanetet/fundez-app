@@ -41,6 +41,12 @@ CREATE TABLE IF NOT EXISTS modules (
   enabled TINYINT(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS pricing_config (
+  id VARCHAR(32) PRIMARY KEY,
+  config JSON NOT NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS users (
   id VARCHAR(64) PRIMARY KEY,
   email VARCHAR(190) NOT NULL UNIQUE,
@@ -192,6 +198,23 @@ INSERT INTO modules (id, audience, name, description, sort_order, enabled) VALUE
 ('provider_perfil', 'provider', 'Perfil público', 'Editar datos visibles para clientes', 7, 1)
 ON DUPLICATE KEY UPDATE
   name = VALUES(name), description = VALUES(description), sort_order = VALUES(sort_order);
+
+-- ---------- Configuración de precios ----------
+
+INSERT INTO pricing_config (id, config) VALUES ('default', JSON_OBJECT(
+  'visitPrice', 50000,
+  'servicePrice', 60000,
+  'cancellationFee', 35000,
+  'laborCommissionRate', 0.25,
+  'materialsCommissionRate', 0.05,
+  'urgencyTiers', JSON_ARRAY(
+    JSON_OBJECT('id','immediate','label','Inmediato (1-3 h)','description','Un técnico puede llegar entre 1 y 3 horas','adjustmentPercent',50,'enabled',true,'sortOrder',1),
+    JSON_OBJECT('id','today','label','Hoy (4-8 h)','description','Servicio programado para hoy, entre 4 y 8 horas','adjustmentPercent',25,'enabled',true,'sortOrder',2),
+    JSON_OBJECT('id','tomorrow','label','Mañana','description','Al día siguiente — precio normal','adjustmentPercent',0,'enabled',true,'sortOrder',3),
+    JSON_OBJECT('id','two_days','label','En 2 días','description','Programado con anticipación — 10% de descuento en la visita','adjustmentPercent',-10,'enabled',true,'sortOrder',4)
+  )
+))
+ON DUPLICATE KEY UPDATE id = id;
 
 -- ---------- Usuarios demo ----------
 

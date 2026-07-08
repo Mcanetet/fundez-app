@@ -22,18 +22,48 @@
       <p class="text-zilo-muted text-sm relative leading-relaxed"><%= service.description %></p>
     </div>
 
-    <div class="p-5 rounded-2xl zilo-card-premium mb-5 zilo-page-enter-delay-1">
+    <div class="p-5 rounded-2xl zilo-card-premium mb-5 zilo-page-enter-delay-1" id="pricingBox">
       <p class="zilo-label mb-4">Tarifas estimadas · Santiago</p>
       <div class="flex justify-between py-3 border-b border-zilo-border">
         <span class="text-zilo-muted text-sm">Visita técnica</span>
-        <strong class="text-zilo-accent font-semibold"><%= formatCLP(service.visitPrice) %></strong>
+        <strong class="text-zilo-accent font-semibold" id="displayVisitPrice"><%= formatCLP(pricing.visitPrice) %></strong>
+      </div>
+      <div id="urgencyAdjustmentRow" class="hidden flex justify-between py-2 border-b border-zilo-border text-sm">
+        <span class="text-zilo-muted" id="urgencyAdjustmentLabel">Recargo urgencia</span>
+        <strong id="displayUrgencyAdj" class="text-orange-600">—</strong>
+      </div>
+      <div class="flex justify-between py-3 border-b border-zilo-border">
+        <span class="text-zilo-muted text-sm">Servicio estimado</span>
+        <strong class="text-zilo-accent font-semibold" id="displayServicePrice"><%= formatCLP(pricing.servicePrice) %></strong>
       </div>
       <div class="flex justify-between py-3">
-        <span class="text-zilo-muted text-sm">Servicios básicos</span>
-        <strong class="text-zilo-accent font-semibold text-sm"><%= formatCLP(service.basicMin) %> – <%= formatCLP(service.basicMax) %></strong>
+        <span class="text-zilo-muted text-sm font-medium">Total estimado</span>
+        <strong class="text-zilo-accent font-semibold" id="displayTotalPrice"><%= formatCLP(pricing.visitPrice + pricing.servicePrice) %></strong>
       </div>
-      <p class="text-[11px] text-zilo-muted/70 mt-3">El técnico confirmará el valor final en sitio. Puedes aplicar crédito y puntos en el checkout.</p>
+      <p class="text-[11px] text-zilo-muted/70 mt-3">Pagas la visita ahora; el servicio se confirma en terreno. Puedes aplicar crédito y puntos en el checkout.</p>
     </div>
+
+    <% if (urgencyTiers && urgencyTiers.length) { %>
+    <div class="p-5 rounded-2xl zilo-card-premium mb-5 zilo-page-enter-delay-1">
+      <p class="zilo-label mb-3">¿Cuándo lo necesitas?</p>
+      <div class="space-y-2" id="urgencyOptions">
+        <% urgencyTiers.forEach((tier, i) => { %>
+          <label class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer urgency-option <%= tier.id === 'tomorrow' ? 'border-zilo-accent bg-zilo-accent/5' : 'border-zilo-border' %>" data-tier="<%= tier.id %>">
+            <input type="radio" name="urgencyTier" value="<%= tier.id %>" class="mt-1 accent-[#2563EB]" <%= tier.id === 'tomorrow' ? 'checked' : '' %>>
+            <div class="flex-1 min-w-0">
+              <div class="flex justify-between items-start gap-2">
+                <strong class="text-sm"><%= tier.label %></strong>
+                <span class="text-xs font-medium shrink-0 urgency-pct <%= tier.adjustmentPercent > 0 ? 'text-orange-600' : (tier.adjustmentPercent < 0 ? 'text-emerald-600' : 'text-zilo-muted') %>">
+                  <% if (tier.adjustmentPercent > 0) { %>+<%= tier.adjustmentPercent %>%<% } else if (tier.adjustmentPercent < 0) { %><%= tier.adjustmentPercent %>%<% } else { %>Normal<% } %>
+                </span>
+              </div>
+              <% if (tier.description) { %><p class="text-[11px] text-zilo-muted mt-0.5"><%= tier.description %></p><% } %>
+            </div>
+          </label>
+        <% }); %>
+      </div>
+    </div>
+    <% } %>
 
     <section id="requestForm" class="space-y-4 zilo-page-enter-delay-2">
       <% if (mod('client_regalo')) { %>

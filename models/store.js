@@ -2,9 +2,17 @@ const { v4: uuidv4 } = require('uuid');
 const { geocodeAddress } = require('../lib/geocode');
 const db = require('../lib/db');
 const repository = require('./repository');
+const {
+  DEFAULT_PRICING,
+  normalizePricing,
+  getActiveUrgencyTiers,
+  calculateVisitPricing,
+  computeRequestFinancials
+} = require('../lib/pricing');
 
 let SERVICES = [];
 let MODULES = [];
+let PRICING_CONFIG = null;
 let USERS = [];
 let requests = [];
 let homeLogbook = [];
@@ -32,6 +40,7 @@ async function init() {
 
   SERVICES = data.services;
   MODULES = data.modules;
+  PRICING_CONFIG = data.pricing || normalizePricing(DEFAULT_PRICING);
   USERS = data.users;
   requests = data.requests;
   homeLogbook = data.homeLogbook;
@@ -53,10 +62,13 @@ function ensureReady() {
   }
 }
 
-async function createRequest({ clientId, serviceId, address, notes, coords: inputCoords, gift, clientPhotoUrl }) {
+async function createRequest({ clientId, serviceId, address, notes, coords: inputCoords, gift, clientPhotoUrl, urgencyTier }) {
   const service = getServiceById(serviceId);
   const client = getUserById(clientId);
   const fullAddress = address || client.address;
+  const pricing = getPricingConfig();
+  const visitCalc = calculateVisitPricing(pricing, urgencyTier);
+  if (!visitCalc) return Promise.reject(new Error('Opción de urgencia no válida'));
 
   let coords;
   if (inputCoords?.lat && inputCoords?.lng) {
@@ -89,9 +101,16 @@ async function createRequest({ clientId, serviceId, address, notes, coords: inpu
     preferenceId: null,
     providerId: null,
     createdAt: new Date().toISOString(),
-    basePrice: service.visitPrice,
-    estimatedVisit: service.visitPrice,
-    amountDue: service.visitPrice,
+    urgencyTier: visitCalc.tier.id,
+    urgencyTierLabel: visitCalc.tier.label,
+    urgencyAdjustmentPercent: visitCalc.adjustmentPercent,
+    urgencyAdjustmentAmount: visitCalc.adjustmentAmount,
+    visitBasePrice: visitCalc.baseVisit,
+    visitTotal: visitCalc.visitTotal,
+    servicePriceBase: visitCalc.servicePrice,
+    basePrice: visitCalc.visitTotal,
+    estimatedVisit: visitCalc.visitTotal,
+    amountDue: visitCalc.visitTotal,
     discountCredits: 0,
     discountPoints: 0,
     discountPromo: 0,
@@ -170,6 +189,10 @@ function getCheckoutSummary(userId, requestId) {
 
   return {
     basePrice,
+    visitBasePrice: request.visitBasePrice ?? basePrice,
+    urgencyAdjustmentAmount: request.urgencyAdjustmentAmount || 0,
+    urgencyTierLabel: request.urgencyTierLabel || null,
+    servicePriceBase: request.servicePriceBase ?? getPricingConfig().servicePrice,
     creditsAvailable: user.creditsCLP || 0,
     pointsAvailable: user.ziloPoints || 0,
     pointsValueCLP: (user.ziloPoints || 0) * POINTS_VALUE_CLP,
@@ -341,6 +364,7 @@ function markPaymentApproved(requestId, paymentId) {
   request.paymentStatus = 'approved';
   request.paymentId = paymentId;
   request.paidAt = new Date().toISOString();
+  request.visitPricePaid = request.amountDue ?? request.visitTotal ?? request.basePrice;
   commitCheckoutDiscounts(request.clientId, requestId);
   repository.persist(() => repository.saveRequest(request), `solicitud ${requestId}`);
   return request;
@@ -405,6 +429,30 @@ function toggleModule(moduleId, enabled) {
   mod.enabled = enabled;
   repository.persist(() => repository.saveModule(mod), `módulo ${moduleId}`);
   return mod;
+}
+
+function getPricingConfig() {
+  return PRICING_CONFIG || normalizePricing(DEFAULT_PRICING);
+}
+
+function updatePricingConfig(updates) {
+  const current = getPricingConfig();
+  const merged = normalizePricing({
+    ...current,
+    ...updates,
+    urgencyTiers: updates.urgencyTiers || current.urgencyTiers
+  });
+  PRICING_CONFIG = merged;
+  repository.persist(() => repository.savePricingConfig(merged), 'pricing');
+  return merged;
+}
+
+function getUrgencyTiersForClient() {
+  return getActiveUrgencyTiers(getPricingConfig());
+}
+
+function previewVisitPrice(tierId) {
+  return calculateVisitPricing(getPricingConfig(), tierId);
 }
 
 function getUserById(id) {
@@ -919,6 +967,7 @@ function completeSiteWork(requestId, technicianId, { workNotes, photoEnd }) {
   request.status = 'completed';
   request.completedAt = new Date().toISOString();
   request.payoutStatus = request.payoutStatus || 'pendiente';
+  request.financials = computeRequestFinancials(request, getPricingConfig());
   addLogbookEntryFromRequest(request);
   repository.persist(() => repository.saveRequest(request), `solicitud ${requestId}`);
   return { success: true, request };
@@ -1020,23 +1069,31 @@ function logSecurityEvent(event, detail, req) {
 }
 
 function getPayments() {
+  const pricing = getPricingConfig();
   return requests
     .filter(r => r.paymentStatus === 'approved')
     .map(r => {
-      const commission = Math.round(r.estimatedVisit * 0.15);
-      const providerPayout = r.estimatedVisit - commission;
+      const fin = r.status === 'completed' && r.financials
+        ? r.financials
+        : computeRequestFinancials(r, pricing);
       const provider = r.providerId ? getUserById(r.providerId) : null;
       return {
         id: r.id,
         clientName: r.clientName,
         serviceName: r.serviceName,
-        amount: r.estimatedVisit,
-        commission,
-        providerPayout,
+        amount: fin.grandTotal || r.visitPricePaid || r.amountDue || r.basePrice,
+        visitPaid: fin.visitPaid,
+        serviceAmount: fin.serviceAmount,
+        materialsTotal: fin.materialsTotal,
+        commission: fin.appTotal,
+        laborCommission: fin.laborCommission,
+        materialsCommission: fin.materialsCommission,
+        providerPayout: fin.providerTotal,
         providerName: provider?.name || '—',
         paymentId: r.paymentId,
         paidAt: r.paidAt,
         status: r.status,
+        urgencyTierLabel: r.urgencyTierLabel,
         payoutStatus: r.status === 'completed' ? (r.payoutStatus || 'pendiente') : 'n/a'
       };
     });
@@ -1045,7 +1102,7 @@ function getPayments() {
 function getProviderPayouts() {
   const payouts = {};
   USERS.filter(u => u.role === 'provider').forEach(p => {
-    payouts[p.id] = { provider: p, completed: 0, pending: 0, paid: 0, jobs: 0 };
+    payouts[p.id] = { provider: p, completed: 0, pending: 0, paid: 0, jobs: 0, materials: 0 };
   });
 
   getPayments().forEach(pay => {
@@ -1054,6 +1111,7 @@ function getProviderPayouts() {
     const bucket = payouts[req.providerId];
     bucket.jobs++;
     if (req.status === 'completed') {
+      bucket.materials += pay.materialsTotal || 0;
       if (req.payoutStatus === 'pagado') bucket.paid += pay.providerPayout;
       else bucket.pending += pay.providerPayout;
       bucket.completed++;
@@ -1144,6 +1202,10 @@ module.exports = {
   getEnabledModules,
   isModuleEnabled,
   toggleModule,
+  getPricingConfig,
+  updatePricingConfig,
+  getUrgencyTiersForClient,
+  previewVisitPrice,
   getUserByEmail,
   registerUser,
   createTechnician,

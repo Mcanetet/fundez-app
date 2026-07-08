@@ -113,18 +113,40 @@ router.get('/servicio/:id', requireRole('client'), requireModule('client_solicit
     });
   }
   const profile = store.getUserById(req.session.user.id);
+  const pricing = store.getPricingConfig();
+  const urgencyTiers = store.getUrgencyTiersForClient();
   res.render('client/service', {
     title: `${service.name} — Fundez`,
     user: req.session.user,
     profile,
     service,
+    pricing,
+    urgencyTiers,
     formatCLP: store.formatCLP,
     tracking: req.query.tracking || null
   });
 });
 
+router.get('/precio-preview', requireRole('client'), (req, res) => {
+  const preview = store.previewVisitPrice(req.query.tier || 'tomorrow');
+  if (!preview) return res.status(400).json({ error: 'Urgencia no válida' });
+  res.json({
+    success: true,
+    preview: {
+      ...preview,
+      formatted: {
+        baseVisit: store.formatCLP(preview.baseVisit),
+        adjustment: store.formatCLP(preview.adjustmentAmount),
+        visitTotal: store.formatCLP(preview.visitTotal),
+        servicePrice: store.formatCLP(preview.servicePrice),
+        estimatedTotal: store.formatCLP(preview.estimatedTotal)
+      }
+    }
+  });
+});
+
 router.post('/solicitar', requireRole('client'), requireModule('client_solicitar'), async (req, res) => {
-  const { serviceId, address, notes, lat, lng, gift, clientPhoto } = req.body;
+  const { serviceId, address, notes, lat, lng, gift, clientPhoto, urgencyTier } = req.body;
   const service = store.getServiceById(serviceId);
   if (!service || !service.enabled) {
     return res.status(400).json({ error: 'Servicio no disponible' });
@@ -152,7 +174,8 @@ router.post('/solicitar', requireRole('client'), requireModule('client_solicitar
       notes,
       coords: lat && lng ? { lat, lng } : null,
       gift: gift?.name ? gift : null,
-      clientPhotoUrl
+      clientPhotoUrl,
+      urgencyTier: urgencyTier || 'tomorrow'
     });
 
     if (clientPhotoUrl && clientPhotoUrl.includes('/tmp-')) {

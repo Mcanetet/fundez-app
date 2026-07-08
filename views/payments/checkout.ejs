@@ -19,6 +19,9 @@
   <main class="flex-1 px-5 py-5 space-y-4">
     <div class="zilo-card-premium rounded-2xl p-5">
       <p class="text-xs text-zilo-muted mb-1"><%= request.address %></p>
+      <% if (request.urgencyTierLabel) { %>
+        <p class="text-xs text-zilo-accent mt-2">Urgencia: <strong><%= request.urgencyTierLabel %></strong></p>
+      <% } %>
       <% if (request.isGift) { %>
         <p class="text-xs text-zilo-accent mt-2">Regalo para <strong><%= request.beneficiaryName %></strong></p>
       <% } %>
@@ -73,8 +76,27 @@
       <h2 class="zilo-label mb-4">Resumen</h2>
       <div class="space-y-2 text-sm">
         <div class="flex justify-between checkout-line pb-2">
-          <span class="text-zilo-muted">Visita técnica</span>
-          <span id="lineBase"><%= formatCLP(summary.basePrice) %></span>
+          <span class="text-zilo-muted">Visita técnica (base)</span>
+          <span id="lineVisitBase"><%= formatCLP(summary.visitBasePrice || summary.basePrice) %></span>
+        </div>
+        <% if (summary.urgencyAdjustmentAmount) { %>
+        <div class="flex justify-between checkout-line pb-2" id="lineUrgencyRow">
+          <span class="text-zilo-muted" id="lineUrgencyLabel"><%= summary.urgencyTierLabel || 'Ajuste urgencia' %></span>
+          <span id="lineUrgency" class="<%= summary.urgencyAdjustmentAmount > 0 ? 'text-orange-600' : 'text-emerald-600' %>"><%= summary.urgencyAdjustmentAmount > 0 ? '+' : '' %><%= formatCLP(summary.urgencyAdjustmentAmount) %></span>
+        </div>
+        <% } else { %>
+        <div class="flex justify-between checkout-line pb-2 hidden" id="lineUrgencyRow">
+          <span class="text-zilo-muted" id="lineUrgencyLabel">Ajuste urgencia</span>
+          <span id="lineUrgency">—</span>
+        </div>
+        <% } %>
+        <div class="flex justify-between checkout-line pb-2 border-b border-zilo-border">
+          <span class="text-zilo-muted font-medium">Visita a pagar ahora</span>
+          <span id="lineBase" class="font-medium"><%= formatCLP(summary.basePrice) %></span>
+        </div>
+        <div class="flex justify-between checkout-line pb-2 text-zilo-muted/80">
+          <span class="text-xs">Servicio estimado <span class="text-[10px]">(se paga en sitio)</span></span>
+          <span id="lineService" class="text-xs"><%= formatCLP(summary.servicePriceBase || 0) %></span>
         </div>
         <div class="flex justify-between checkout-line pb-2 hidden" id="linePromoRow">
           <span class="text-zilo-muted">Promoción</span>
@@ -138,7 +160,16 @@
       return;
     }
     const s = data.summary;
+    document.getElementById('lineVisitBase').textContent = fmt(s.visitBasePrice || s.basePrice);
     document.getElementById('lineBase').textContent = fmt(s.basePrice);
+    if (s.servicePriceBase) document.getElementById('lineService').textContent = fmt(s.servicePriceBase);
+    const urgRow = document.getElementById('lineUrgencyRow');
+    if (urgRow && s.urgencyAdjustmentAmount) {
+      urgRow.classList.remove('hidden');
+      const urgEl = document.getElementById('lineUrgency');
+      urgEl.textContent = (s.urgencyAdjustmentAmount > 0 ? '+' : '') + fmt(s.urgencyAdjustmentAmount);
+      if (s.urgencyTierLabel) document.getElementById('lineUrgencyLabel').textContent = s.urgencyTierLabel;
+    }
     document.getElementById('lineTotal').textContent = fmt(s.amountDue);
     document.getElementById('btnPayLabel').textContent = s.amountDue === 0 ? 'Confirmar servicio gratis' : `Pagar ${fmt(s.amountDue)}`;
 

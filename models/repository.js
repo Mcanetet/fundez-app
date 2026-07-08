@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const db = require('../lib/db');
+const { DEFAULT_PRICING, normalizePricing } = require('../lib/pricing');
 
 const SCHEMA_PATH = path.join(__dirname, '../db/schema.sql');
 
@@ -407,6 +408,13 @@ async function ensureDemoModules() {
   }
 }
 
+async function ensureDemoPricing() {
+  const existing = await db.query('SELECT id FROM pricing_config WHERE id = ?', ['default']);
+  if (!existing.rows.length) {
+    await savePricingConfig(DEFAULT_PRICING);
+  }
+}
+
 async function ensureDemoUsers() {
   for (const user of SEED_USERS) {
     await upsertSeedUser(user);
@@ -460,6 +468,7 @@ async function ensureDemoData() {
   console.log('Verificando datos demo en MySQL...');
   await ensureDemoServices();
   await ensureDemoModules();
+  await ensureDemoPricing();
   await ensureDemoUsers();
   await ensureDemoExtras();
   console.log(`✓ ${SEED_USERS.length} usuarios demo listos (${SEED_USERS.map((u) => u.email).join(', ')})`);
@@ -472,10 +481,11 @@ async function seedIfEmpty() {
 }
 
 async function loadAll() {
-  const [usersRes, servicesRes, modulesRes, requestsRes, logbookRes, complaintsRes, chatsRes, consentsRes, logsRes] = await Promise.all([
+  const [usersRes, servicesRes, modulesRes, pricingRes, requestsRes, logbookRes, complaintsRes, chatsRes, consentsRes, logsRes] = await Promise.all([
     db.query('SELECT * FROM users ORDER BY created_at ASC'),
     db.query('SELECT * FROM services ORDER BY name ASC'),
     db.query('SELECT * FROM modules ORDER BY audience ASC, sort_order ASC'),
+    db.query('SELECT * FROM pricing_config WHERE id = ?', ['default']).catch(() => ({ rows: [] })),
     db.query('SELECT * FROM service_requests ORDER BY created_at DESC'),
     db.query('SELECT * FROM home_logbook ORDER BY entry_date DESC'),
     db.query('SELECT * FROM complaints ORDER BY created_at DESC'),
@@ -484,10 +494,16 @@ async function loadAll() {
     db.query('SELECT * FROM security_logs ORDER BY created_at DESC LIMIT 200')
   ]);
 
+  let pricing = DEFAULT_PRICING;
+  if (pricingRes.rows?.[0]?.config) {
+    pricing = normalizePricing(parseJson(pricingRes.rows[0].config, DEFAULT_PRICING));
+  }
+
   return {
     users: usersRes.rows.map(rowToUser),
     services: servicesRes.rows.map(rowToService),
     modules: modulesRes.rows.map(rowToModule),
+    pricing,
     requests: requestsRes.rows.map(rowToRequest),
     homeLogbook: logbookRes.rows.map((row) => ({
       id: row.id,
@@ -624,6 +640,16 @@ async function saveModule(mod, { preserveEnabled = false } = {}) {
   );
 }
 
+async function savePricingConfig(config) {
+  const normalized = normalizePricing(config);
+  await db.query(
+    `INSERT INTO pricing_config (id, config) VALUES ('default', ?)
+     ON DUPLICATE KEY UPDATE config = VALUES(config)`,
+    [JSON.stringify(normalized)]
+  );
+  return normalized;
+}
+
 async function saveRequest(request) {
   const row = requestToRow(request);
   await db.query(
@@ -696,6 +722,7 @@ module.exports = {
   saveUser,
   saveService,
   saveModule,
+  savePricingConfig,
   saveRequest,
   saveLogbookEntry,
   saveComplaint,

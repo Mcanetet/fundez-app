@@ -10,9 +10,14 @@
           <h1 class="text-base font-semibold">Fundez Admin</h1>
         </div>
       </div>
-      <a href="/logout" class="zilo-icon-btn" title="Cerrar sesión">
+      <div class="flex items-center gap-2">
+        <a href="/admin/precios" class="zilo-icon-btn" title="Configurar precios">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        </a>
+        <a href="/logout" class="zilo-icon-btn" title="Cerrar sesión">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-      </a>
+        </a>
+      </div>
     </div>
     <nav class="admin-tabs flex gap-1 px-3 pb-3 overflow-x-auto scrollbar-hide" id="adminTabs">
       <% [['resumen','Resumen'],['modulos','Módulos'],['servicios','Servicios'],['demo','Cuentas demo'],['pagos','Pagos'],['proveedores','Socios'],['reclamos','Reclamos'],['whatsapp','WhatsApp'],['datos','Datos'],['backups','Backups'],['seguridad','Seguridad']].forEach(([id,label]) => { %>
@@ -58,8 +63,9 @@
         </div>
       </div>
       <div class="p-4 rounded-2xl bg-zilo-card border border-gray-200">
-        <h3 class="text-sm font-semibold mb-2">Enlaces legales públicos</h3>
+        <h3 class="text-sm font-semibold mb-2">Configuración y legales</h3>
         <div class="flex flex-wrap gap-2">
+          <a href="/admin/precios" class="text-xs px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-700 hover:border-blue-500/50 font-medium">Precios y urgencia</a>
           <a href="/legal/privacidad" target="_blank" class="text-xs px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 hover:border-blue-500/50">Privacidad</a>
           <a href="/legal/terminos" target="_blank" class="text-xs px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 hover:border-blue-500/50">Términos</a>
           <a href="/legal/cookies" target="_blank" class="text-xs px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 hover:border-blue-500/50">Cookies</a>
@@ -189,9 +195,10 @@
                 <span class="text-gray-500">ID: <%= p.paymentId || '—' %></span>
                 <span class="px-2 py-0.5 rounded-full bg-gray-50 uppercase"><%= p.status %></span>
               </div>
-              <div class="flex gap-3 mt-2 text-xs text-gray-600">
+              <div class="flex gap-3 mt-2 text-xs text-gray-600 flex-wrap">
                 <span>Comisión: <%= formatCLP(p.commission) %></span>
                 <span>Proveedor: <%= formatCLP(p.providerPayout) %></span>
+                <% if (p.urgencyTierLabel) { %><span class="text-gray-400"><%= p.urgencyTierLabel %></span><% } %>
               </div>
             </div>
           <% }); %>
@@ -202,7 +209,7 @@
     <!-- PROVEEDORES / PAYOUTS -->
     <section class="admin-panel hidden" data-panel="proveedores">
       <h3 class="text-lg font-semibold mb-1">Liquidación proveedores</h3>
-      <p class="text-xs text-gray-500 mb-4">Comisión plataforma: 15% · Pago pendiente tras servicio completado</p>
+      <p class="text-xs text-gray-500 mb-4">Comisión Fundez: <%= Math.round(pricing.laborCommissionRate * 100) %>% mano de obra · <%= Math.round(pricing.materialsCommissionRate * 100) %>% materiales · Pago pendiente tras servicio completado</p>
       <div class="space-y-3">
         <% payouts.forEach(p => { %>
           <div class="p-4 rounded-2xl bg-zilo-card border border-gray-200">

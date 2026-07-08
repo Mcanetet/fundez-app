@@ -15,8 +15,10 @@
   const giftToggle = document.getElementById('giftToggle');
   const giftFields = document.getElementById('giftFields');
   const addressLabel = document.getElementById('addressLabel');
+  const urgencyRadios = document.querySelectorAll('input[name="urgencyTier"]');
 
   let currentRequestId = trackingId || null;
+  let selectedUrgencyTier = document.querySelector('input[name="urgencyTier"]:checked')?.value || 'tomorrow';
   let geocodeTimer = null;
   const socket = io();
 
@@ -28,6 +30,8 @@
         lat: SANTIAGO.lat, lng: SANTIAGO.lng, label: 'Santiago, Chile', zoom: 12
       });
     }
+
+    updatePricePreview();
 
     if (new URLSearchParams(window.location.search).get('gift') === '1' && giftToggle) {
       giftToggle.checked = true;
@@ -57,6 +61,51 @@
           : 'Dirección del servicio';
       }
     });
+  }
+
+  urgencyRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (!radio.checked) return;
+      selectedUrgencyTier = radio.value;
+      document.querySelectorAll('.urgency-option').forEach(el => {
+        const active = el.dataset.tier === selectedUrgencyTier;
+        el.classList.toggle('border-zilo-accent', active);
+        el.classList.toggle('bg-zilo-accent/5', active);
+        el.classList.toggle('border-zilo-border', !active);
+      });
+      updatePricePreview();
+    });
+  });
+
+  async function updatePricePreview() {
+    const visitEl = document.getElementById('displayVisitPrice');
+    if (!visitEl) return;
+    try {
+      const res = await fetch(`/cliente/precio-preview?tier=${encodeURIComponent(selectedUrgencyTier)}`);
+      const data = await res.json();
+      if (!data.success) return;
+      const p = data.preview;
+      const f = data.preview.formatted;
+      visitEl.textContent = f.visitTotal;
+      document.getElementById('displayServicePrice').textContent = f.servicePrice;
+      document.getElementById('displayTotalPrice').textContent = f.estimatedTotal;
+
+      const adjRow = document.getElementById('urgencyAdjustmentRow');
+      if (adjRow) {
+        if (p.adjustmentAmount !== 0) {
+          adjRow.classList.remove('hidden');
+          adjRow.classList.add('flex');
+          document.getElementById('urgencyAdjustmentLabel').textContent =
+            p.adjustmentPercent > 0 ? `Recargo (${p.tier.label})` : `Descuento (${p.tier.label})`;
+          const adjEl = document.getElementById('displayUrgencyAdj');
+          adjEl.textContent = (p.adjustmentAmount > 0 ? '+' : '') + f.adjustment;
+          adjEl.className = p.adjustmentAmount > 0 ? 'text-orange-600' : 'text-emerald-600';
+        } else {
+          adjRow.classList.add('hidden');
+          adjRow.classList.remove('flex');
+        }
+      }
+    } catch (_) { /* silent */ }
   }
 
   const clientPhotoInput = document.getElementById('clientPhoto');
@@ -355,7 +404,8 @@
           lat: latInput.value,
           lng: lngInput.value,
           gift,
-          clientPhoto
+          clientPhoto,
+          urgencyTier: selectedUrgencyTier
         })
       });
 
