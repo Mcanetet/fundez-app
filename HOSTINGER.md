@@ -55,11 +55,11 @@ Significa que **la app Node.js no arrancó**. Casi siempre es por variables de e
 ```
 NODE_ENV=production
 SESSION_SECRET=clave-larga-aleatoria-min-32-caracteres
-APP_URL=https://zilo.cl
-DB_HOST=localhost
+APP_URL=https://tudominio.cl
+DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_NAME=u482073296_zilo_bd
-DB_USER=u482073296_zilo_user
+DB_NAME=u482073296_fundezapp_bd
+DB_USER=u482073296_fundezapp_user
 DB_PASSWORD=tu-clave-mysql
 ```
 
@@ -84,15 +84,15 @@ DB_PASSWORD=tu-clave-mysql
 NODE_ENV=production
 PORT=3000
 SESSION_SECRET=clave-larga-aleatoria-min-32-chars
-APP_URL=https://zilo.cl
-DB_HOST=localhost
+APP_URL=https://tudominio.cl
+DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_NAME=u482073296_zilo_bd
-DB_USER=u482073296_zilo_user
+DB_NAME=u482073296_fundezapp_bd
+DB_USER=u482073296_fundezapp_user
 DB_PASSWORD=tu-clave-mysql
 ```
 
-(O usa `DATABASE_URL=mysql://usuario:clave@localhost:3306/u482073296_zilo_bd`)
+(O usa `DATABASE_URL=mysql://usuario:clave@127.0.0.1:3306/u482073296_fundezapp_bd`)
 
 ---
 
@@ -103,16 +103,16 @@ Fundez guarda usuarios, servicios y solicitudes en **MySQL**. Sin `DATABASE_URL`
 ### 1. Base de datos en Hostinger
 
 Ya tienes:
-- **Base de datos:** `u482073296_zilo_bd`
-- **Usuario:** `u482073296_zilo_user`
+- **Base de datos:** `u482073296_fundezapp_bd`
+- **Usuario:** `u482073296_fundezapp_user`
 
 En variables de entorno del Node.js app, añade:
 
 ```
-DATABASE_URL=mysql://u482073296_zilo_user:TU_CLAVE@localhost:3306/u482073296_zilo_bd
+DATABASE_URL=mysql://u482073296_fundezapp_user:TU_CLAVE@127.0.0.1:3306/u482073296_fundezapp_bd
 ```
 
-> En Hostinger el host suele ser `localhost` cuando la app y MySQL están en el mismo servidor.
+> En Hostinger usa `127.0.0.1` (no `localhost`) para forzar IPv4 y evitar el error de acceso `@'::1'`.
 
 ### 2. Inicializar tablas y usuarios demo
 
