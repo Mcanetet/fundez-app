@@ -39,11 +39,14 @@ CREATE TABLE IF NOT EXISTS users (
   reviews JSON,
   verification JSON,
   location_share JSON,
+  active TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_users_email (email),
   INDEX idx_users_role (role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE users ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1;
 
 CREATE TABLE IF NOT EXISTS service_requests (
   id VARCHAR(64) PRIMARY KEY,

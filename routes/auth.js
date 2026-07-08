@@ -9,6 +9,7 @@ router.get('/login', (req, res) => {
   res.render('login', {
     title: 'Iniciar sesión',
     error: null,
+    demoAccounts: store.getDemoAccounts(),
     referralCode: req.session.pendingReferral || null
   });
 });
@@ -22,6 +23,17 @@ router.post('/login', (req, res) => {
     return res.render('login', {
       title: 'Iniciar sesión',
       error: 'Credenciales incorrectas. Intenta nuevamente.',
+      demoAccounts: store.getDemoAccounts(),
+      referralCode: req.session.pendingReferral || null
+    });
+  }
+
+  if (user.active === false) {
+    store.logSecurityEvent('login_blocked', email, req);
+    return res.render('login', {
+      title: 'Iniciar sesión',
+      error: 'Esta cuenta está desactivada. Contacta al administrador.',
+      demoAccounts: store.getDemoAccounts(),
       referralCode: req.session.pendingReferral || null
     });
   }

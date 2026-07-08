@@ -15,7 +15,7 @@
       </a>
     </div>
     <nav class="admin-tabs flex gap-1 px-3 pb-3 overflow-x-auto scrollbar-hide" id="adminTabs">
-      <% [['resumen','Resumen'],['servicios','Servicios'],['pagos','Pagos'],['proveedores','Proveedores'],['reclamos','Reclamos'],['whatsapp','WhatsApp'],['datos','Datos'],['backups','Backups'],['seguridad','Seguridad']].forEach(([id,label]) => { %>
+      <% [['resumen','Resumen'],['servicios','Servicios'],['demo','Cuentas demo'],['pagos','Pagos'],['proveedores','Proveedores'],['reclamos','Reclamos'],['whatsapp','WhatsApp'],['datos','Datos'],['backups','Backups'],['seguridad','Seguridad']].forEach(([id,label]) => { %>
         <button type="button" data-tab="<%= id %>" class="admin-tab <%= id === 'resumen' ? 'admin-tab-active' : '' %>"><%= label %></button>
       <% }); %>
     </nav>
@@ -92,6 +92,35 @@
             </div>
           </div>
         <% }); %>
+      </div>
+    </section>
+
+    <!-- CUENTAS DEMO -->
+    <section class="admin-panel hidden" data-panel="demo">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-lg font-semibold">Cuentas demo del login</h3>
+        <span class="text-xs text-gray-500"><%= demoAccounts.filter(a => a.active).length %>/<%= demoAccounts.length %> visibles</span>
+      </div>
+      <p class="text-xs text-gray-500 mb-4">Activa o desactiva las cuentas de prueba. Al desactivar, desaparecen del acceso demo en el login y no podrán iniciar sesión.</p>
+      <div id="demoAccountsList" class="space-y-2">
+        <% demoAccounts.forEach(acc => { %>
+          <div class="demo-account-item flex items-center justify-between p-4 rounded-2xl bg-zilo-card border border-gray-200 <%= acc.active ? '' : 'opacity-50' %>" data-user-id="<%= acc.id %>">
+            <div>
+              <strong class="text-sm block"><%= acc.label %> · <%= acc.name %></strong>
+              <span class="text-xs text-gray-500"><%= acc.email %></span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="demo-status text-[10px] font-bold uppercase <%= acc.active ? 'text-emerald-600' : 'text-red-600' %>"><%= acc.active ? 'ACTIVA' : 'INACTIVA' %></span>
+              <label class="toggle-ios">
+                <input type="checkbox" class="demo-toggle" data-id="<%= acc.id %>" <%= acc.active ? 'checked' : '' %>>
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+        <% }); %>
+        <% if (!demoAccounts.length) { %>
+          <p class="text-xs text-gray-500 p-4 rounded-2xl bg-zilo-card border border-gray-200">No se encontraron cuentas demo. Importa <code>db/fundez-demo.sql</code> o revisa la conexión a la base de datos.</p>
+        <% } %>
       </div>
     </section>
 

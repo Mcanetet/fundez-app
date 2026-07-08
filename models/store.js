@@ -590,6 +590,31 @@ async function registerUser({ name, email, password, phone, role, address, speci
   return { success: true, user };
 }
 
+function setUserActive(userId, active) {
+  const user = getUserById(userId);
+  if (!user) return null;
+  user.active = Boolean(active);
+  repository.persist(() => repository.saveUser(user), `usuario ${userId}`);
+  return user;
+}
+
+const DEMO_ACCOUNT_IDS = ['client-1', 'provider-pedro', 'admin-1'];
+const DEMO_ACCOUNT_LABELS = { 'client-1': 'Cliente', 'provider-pedro': 'Proveedor', 'admin-1': 'Admin' };
+
+function getDemoAccounts() {
+  return DEMO_ACCOUNT_IDS
+    .map(id => USERS.find(u => u.id === id))
+    .filter(Boolean)
+    .map(u => ({
+      id: u.id,
+      label: DEMO_ACCOUNT_LABELS[u.id] || u.role,
+      name: u.name,
+      email: u.email,
+      password: u.password,
+      active: u.active !== false
+    }));
+}
+
 function getOnlineProviders(serviceId) {
   return USERS.filter(
     u => u.role === 'provider' && u.online && u.specialties.includes(serviceId)
@@ -806,6 +831,8 @@ module.exports = {
   toggleService,
   getUserByEmail,
   registerUser,
+  setUserActive,
+  getDemoAccounts,
   getUserById,
   getOnlineProviders,
   createRequest,

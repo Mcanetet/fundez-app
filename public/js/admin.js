@@ -43,6 +43,36 @@
     });
   });
 
+  document.querySelectorAll('.demo-toggle').forEach(toggle => {
+    toggle.addEventListener('change', async () => {
+      const userId = toggle.dataset.id;
+      const active = toggle.checked;
+      const item = toggle.closest('.demo-account-item');
+      const statusLabel = item.querySelector('.demo-status');
+
+      try {
+        const res = await fetch('/admin/toggle-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, active })
+        });
+        const data = await res.json();
+        if (data.success) {
+          item.classList.toggle('opacity-50', !active);
+          statusLabel.textContent = active ? 'ACTIVA' : 'INACTIVA';
+          statusLabel.className = `demo-status text-[10px] font-bold uppercase ${active ? 'text-emerald-600' : 'text-red-600'}`;
+          FundezNotify.show(`Cuenta demo ${active ? 'activada' : 'desactivada'}`, active ? 'success' : 'warning');
+        } else {
+          toggle.checked = !active;
+          FundezNotify.show(data.error || 'No se pudo actualizar', 'error');
+        }
+      } catch (_) {
+        toggle.checked = !active;
+        FundezNotify.show('Error al actualizar la cuenta', 'error');
+      }
+    });
+  });
+
   document.querySelectorAll('.btn-complaint').forEach(btn => {
     btn.addEventListener('click', async () => {
       const res = await fetch(`/admin/complaint/${btn.dataset.id}/status`, {

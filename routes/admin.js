@@ -39,6 +39,7 @@ router.get('/', requireRole('admin'), (req, res) => {
     consents: store.consentRecords.slice(0, 20),
     securityLogs: store.securityLogs.slice(0, 25),
     providers,
+    demoAccounts: store.getDemoAccounts(),
     company,
     formatCLP: store.formatCLP,
     backupConfig: backup.loadConfig(),
@@ -56,6 +57,21 @@ router.post('/toggle-service', requireRole('admin'), (req, res) => {
   store.logSecurityEvent('service_toggle', `${serviceId}=${enabled}`, req);
   req.app.get('io').emit('services_updated', { services: store.SERVICES });
   res.json({ success: true, service });
+});
+
+router.post('/toggle-user', requireRole('admin'), (req, res) => {
+  const { userId, active } = req.body;
+  const enable = active === true || active === 'true';
+
+  if (userId === req.session.user.id && !enable) {
+    return res.status(400).json({ error: 'No puedes desactivar tu propia cuenta con la que iniciaste sesión.' });
+  }
+
+  const user = store.setUserActive(userId, enable);
+  if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+  store.logSecurityEvent('user_toggle', `${userId}=${enable ? 'activo' : 'inactivo'}`, req);
+  res.json({ success: true, id: user.id, active: user.active !== false });
 });
 
 router.post('/complaint/:id/status', requireRole('admin'), (req, res) => {

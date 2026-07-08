@@ -46,23 +46,20 @@
       <a href="/registro" class="text-zilo-accent font-semibold hover:underline">Regístrate</a>
     </p>
 
+    <% var activeDemos = (typeof demoAccounts !== 'undefined' ? demoAccounts : []).filter(function(a){ return a.active; }); %>
+    <% if (activeDemos.length) { %>
     <details class="mt-6 pt-6 border-t border-zilo-border">
       <summary class="text-xs text-zilo-muted text-center cursor-pointer uppercase tracking-wider">Acceso demo</summary>
       <div class="space-y-2 mt-4">
-        <button type="button" class="demo-card w-full flex justify-between items-center p-3 rounded-xl zilo-card-premium hover:border-zilo-accent/30 transition text-left text-sm" data-email="cliente@zilo.cl" data-password="cliente123">
-          <span class="font-medium">Cliente</span>
-          <span class="text-xs text-zilo-muted">María González</span>
+        <% activeDemos.forEach(function(acc){ %>
+        <button type="button" class="demo-card w-full flex justify-between items-center p-3 rounded-xl zilo-card-premium hover:border-zilo-accent/30 transition text-left text-sm" data-email="<%= acc.email %>" data-password="<%= acc.password %>">
+          <span class="font-medium"><%= acc.label %></span>
+          <span class="text-xs text-zilo-muted"><%= acc.name %></span>
         </button>
-        <button type="button" class="demo-card w-full flex justify-between items-center p-3 rounded-xl zilo-card-premium text-left text-sm" data-email="pedro@zilo.cl" data-password="proveedor123">
-          <span class="font-medium">Proveedor</span>
-          <span class="text-xs text-zilo-muted">Pedro Gómez</span>
-        </button>
-        <button type="button" class="demo-card w-full flex justify-between items-center p-3 rounded-xl zilo-card-premium text-left text-sm" data-email="admin@zilo.cl" data-password="admin123">
-          <span class="font-medium">Admin</span>
-          <span class="text-xs text-zilo-muted">Panel</span>
-        </button>
+        <% }); %>
       </div>
     </details>
+    <% } %>
   </div>
 </div>
 
