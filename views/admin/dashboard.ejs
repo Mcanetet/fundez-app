@@ -179,7 +179,30 @@
 
     <!-- PAGOS -->
     <section class="admin-panel hidden" data-panel="pagos">
-      <h3 class="text-lg font-semibold mb-3">Pagos Mercado Pago</h3>
+      <h3 class="text-lg font-semibold mb-3">Pagos y transferencias</h3>
+
+      <% if (pendingTransfers.length > 0) { %>
+        <div class="mb-5">
+          <h4 class="text-sm font-semibold mb-2 text-yellow-600">Transferencias por confirmar (<%= pendingTransfers.length %>)</h4>
+          <div class="space-y-2">
+            <% pendingTransfers.forEach(r => { %>
+              <div class="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/25 text-sm">
+                <div class="flex justify-between items-start gap-2 mb-1">
+                  <div>
+                    <strong><%= r.serviceName %></strong>
+                    <p class="text-xs text-gray-500"><%= r.clientName %> · <%= formatCLP(r.amountDue) %></p>
+                    <% if (r.billingSnapshot) { %>
+                      <p class="text-[10px] text-gray-500 mt-1">Factura: <%= r.billingSnapshot.legalName %> · <%= r.billingSnapshot.rut %></p>
+                    <% } %>
+                  </div>
+                  <button type="button" class="btn-approve-transfer px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold shrink-0" data-id="<%= r.id %>">Confirmar pago</button>
+                </div>
+              </div>
+            <% }); %>
+          </div>
+        </div>
+      <% } %>
+
       <% if (payments.length === 0) { %>
         <p class="text-center py-10 text-gray-500 text-sm">Sin pagos registrados aún.</p>
       <% } else { %>

@@ -2,7 +2,10 @@
 
 <div class="max-w-lg mx-auto min-h-screen flex flex-col pb-8 zilo-page-enter" id="checkoutPage"
   data-request-id="<%= request.id %>"
-  data-can-welcome="<%= summary.canUseWelcome %>">
+  data-can-welcome="<%= summary.canUseWelcome %>"
+  data-card-enabled="<%= summary.cardEnabled %>"
+  data-transfer-enabled="<%= summary.transferEnabled %>"
+  data-card-surcharge="<%= summary.cardSurchargePercent %>">
 
   <header class="sticky top-0 z-50 bg-zilo-bg/90 backdrop-blur-xl border-b border-zilo-border px-5 py-4">
     <div class="flex items-center gap-3">
@@ -26,6 +29,53 @@
         <p class="text-xs text-zilo-accent mt-2">Regalo para <strong><%= request.beneficiaryName %></strong></p>
       <% } %>
     </div>
+
+    <!-- Facturación -->
+    <% const billing = summary.billingSnapshot || profile.billing || { type: 'natural', rut: '', legalName: profile.name, giro: '', fiscalAddress: profile.address || '', invoiceEmail: profile.email }; %>
+    <section class="zilo-card-premium rounded-2xl p-5" id="billingSection">
+      <h2 class="zilo-label mb-3">Datos para factura</h2>
+      <div class="grid grid-cols-2 gap-2 mb-3">
+        <label class="flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer billing-type-option text-xs <%= billing.type !== 'empresa' ? 'border-zilo-accent bg-zilo-accent/5' : 'border-zilo-border' %>">
+          <input type="radio" name="billingType" value="natural" <%= billing.type !== 'empresa' ? 'checked' : '' %> class="accent-[#2563EB]">
+          Persona natural
+        </label>
+        <label class="flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer billing-type-option text-xs <%= billing.type === 'empresa' ? 'border-zilo-accent bg-zilo-accent/5' : 'border-zilo-border' %>">
+          <input type="radio" name="billingType" value="empresa" <%= billing.type === 'empresa' ? 'checked' : '' %> class="accent-[#2563EB]">
+          Empresa
+        </label>
+      </div>
+      <div class="space-y-2">
+        <input type="text" id="billRut" value="<%= billing.rut %>" placeholder="RUT" class="zilo-input !py-2 text-sm">
+        <input type="text" id="billLegalName" value="<%= billing.legalName %>" placeholder="Nombre o razón social" class="zilo-input !py-2 text-sm">
+        <input type="text" id="billGiro" value="<%= billing.giro %>" placeholder="Giro comercial (empresa)" class="zilo-input !py-2 text-sm <%= billing.type === 'empresa' ? '' : 'hidden' %>">
+        <input type="text" id="billFiscalAddress" value="<%= billing.fiscalAddress %>" placeholder="Dirección fiscal" class="zilo-input !py-2 text-sm">
+        <input type="email" id="billInvoiceEmail" value="<%= billing.invoiceEmail %>" placeholder="Email facturación" class="zilo-input !py-2 text-sm">
+      </div>
+    </section>
+
+    <!-- Método de pago -->
+    <section class="zilo-card-premium rounded-2xl p-5 space-y-3">
+      <h2 class="zilo-label">Método de pago</h2>
+      <% if (summary.cardEnabled) { %>
+      <label class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer payment-option <%= (summary.paymentMethod || 'card') === 'card' ? 'border-zilo-accent bg-zilo-accent/5' : 'border-zilo-border' %>" data-method="card">
+        <input type="radio" name="paymentMethod" value="card" <%= (summary.paymentMethod || 'card') === 'card' ? 'checked' : '' %> class="mt-0.5 accent-[#2563EB]">
+        <div class="flex-1">
+          <strong class="text-sm block">Tarjeta débito / crédito</strong>
+          <span class="text-xs text-orange-600">+<%= summary.cardSurchargePercent %>% recargo</span>
+          <% if (cardGateway) { %><p class="text-[10px] text-zilo-muted mt-0.5">Procesado por <%= cardGateway.label %></p><% } %>
+        </div>
+      </label>
+      <% } %>
+      <% if (summary.transferEnabled) { %>
+      <label class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer payment-option <%= summary.paymentMethod === 'transfer' ? 'border-zilo-accent bg-zilo-accent/5' : 'border-zilo-border' %>" data-method="transfer">
+        <input type="radio" name="paymentMethod" value="transfer" <%= summary.paymentMethod === 'transfer' ? 'checked' : '' %> class="mt-0.5 accent-[#2563EB]">
+        <div class="flex-1">
+          <strong class="text-sm block">Transferencia bancaria</strong>
+          <span class="text-xs text-emerald-600">Sin recargo</span>
+        </div>
+      </label>
+      <% } %>
+    </section>
 
     <!-- Descuentos -->
     <section class="zilo-card-premium rounded-2xl p-5 space-y-4">
@@ -77,21 +127,18 @@
       <div class="space-y-2 text-sm">
         <div class="flex justify-between checkout-line pb-2">
           <span class="text-zilo-muted">Visita técnica (base)</span>
-          <span id="lineVisitBase"><%= formatCLP(summary.visitBasePrice || summary.basePrice) %></span>
+          <span id="lineVisitBase"><%= formatCLP(summary.visitBasePrice || summary.visitSubtotal) %></span>
         </div>
-        <% if (summary.urgencyAdjustmentAmount) { %>
-        <div class="flex justify-between checkout-line pb-2" id="lineUrgencyRow">
+        <div class="flex justify-between checkout-line pb-2 <%= summary.urgencyAdjustmentAmount ? '' : 'hidden' %>" id="lineUrgencyRow">
           <span class="text-zilo-muted" id="lineUrgencyLabel"><%= summary.urgencyTierLabel || 'Ajuste urgencia' %></span>
-          <span id="lineUrgency" class="<%= summary.urgencyAdjustmentAmount > 0 ? 'text-orange-600' : 'text-emerald-600' %>"><%= summary.urgencyAdjustmentAmount > 0 ? '+' : '' %><%= formatCLP(summary.urgencyAdjustmentAmount) %></span>
+          <span id="lineUrgency"><%= summary.urgencyAdjustmentAmount ? ((summary.urgencyAdjustmentAmount > 0 ? '+' : '') + formatCLP(summary.urgencyAdjustmentAmount)) : '—' %></span>
         </div>
-        <% } else { %>
-        <div class="flex justify-between checkout-line pb-2 hidden" id="lineUrgencyRow">
-          <span class="text-zilo-muted" id="lineUrgencyLabel">Ajuste urgencia</span>
-          <span id="lineUrgency">—</span>
+        <div class="flex justify-between checkout-line pb-2 hidden" id="lineCardRow">
+          <span class="text-zilo-muted" id="lineCardLabel">Recargo tarjeta</span>
+          <span id="lineCard" class="text-orange-600">—</span>
         </div>
-        <% } %>
         <div class="flex justify-between checkout-line pb-2 border-b border-zilo-border">
-          <span class="text-zilo-muted font-medium">Visita a pagar ahora</span>
+          <span class="text-zilo-muted font-medium">Subtotal visita</span>
           <span id="lineBase" class="font-medium"><%= formatCLP(summary.basePrice) %></span>
         </div>
         <div class="flex justify-between checkout-line pb-2 text-zilo-muted/80">
@@ -117,14 +164,14 @@
       </div>
     </section>
 
-    <% if (!mpConfigured) { %>
+    <% if (!mpConfigured && (summary.paymentMethod || 'card') === 'card') { %>
     <p class="text-xs text-zilo-warning/90 p-3 rounded-xl border border-zilo-warning/20 bg-zilo-warning/5 text-center">
-      Modo demo — Mercado Pago no configurado
+      Modo demo — pasarela de tarjeta no configurada en servidor
     </p>
     <% } %>
 
     <button type="button" id="btnPay" class="zilo-btn-primary">
-      <span id="btnPayLabel">Pagar <%= formatCLP(summary.amountDue) %></span>
+      <span id="btnPayLabel">Continuar al pago</span>
     </button>
     <a href="/cliente" class="block text-center text-sm text-zilo-muted hover:text-gray-700 py-2">Cancelar</a>
   </main>
@@ -141,6 +188,62 @@
   const usePoints = document.getElementById('usePoints');
   const promoCode = document.getElementById('promoCode');
   const btnPay = document.getElementById('btnPay');
+  const billGiro = document.getElementById('billGiro');
+
+  function selectedPaymentMethod() {
+    return document.querySelector('input[name="paymentMethod"]:checked')?.value || 'card';
+  }
+
+  function getBillingPayload() {
+    const type = document.querySelector('input[name="billingType"]:checked')?.value || 'natural';
+    return {
+      type,
+      rut: document.getElementById('billRut').value.trim(),
+      legalName: document.getElementById('billLegalName').value.trim(),
+      giro: document.getElementById('billGiro').value.trim(),
+      fiscalAddress: document.getElementById('billFiscalAddress').value.trim(),
+      invoiceEmail: document.getElementById('billInvoiceEmail').value.trim()
+    };
+  }
+
+  document.querySelectorAll('input[name="billingType"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      const isEmpresa = radio.value === 'empresa' && radio.checked;
+      document.querySelectorAll('.billing-type-option').forEach(el => {
+        const active = el.querySelector('input').value === (isEmpresa ? 'empresa' : 'natural');
+        el.classList.toggle('border-zilo-accent', active);
+        el.classList.toggle('bg-zilo-accent/5', active);
+        el.classList.toggle('border-zilo-border', !active);
+      });
+      billGiro.classList.toggle('hidden', !isEmpresa);
+    });
+  });
+
+  document.querySelectorAll('input[name="paymentMethod"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      document.querySelectorAll('.payment-option').forEach(el => {
+        const active = el.dataset.method === selectedPaymentMethod();
+        el.classList.toggle('border-zilo-accent', active);
+        el.classList.toggle('bg-zilo-accent/5', active);
+        el.classList.toggle('border-zilo-border', !active);
+      });
+      recalc();
+      updatePayLabel();
+    });
+  });
+
+  function updatePayLabel(total) {
+    const method = selectedPaymentMethod();
+    const amount = total ?? 0;
+    const label = document.getElementById('btnPayLabel');
+    if (amount === 0) {
+      label.textContent = 'Confirmar servicio gratis';
+    } else if (method === 'transfer') {
+      label.textContent = `Ver datos transferencia · ${fmt(amount)}`;
+    } else {
+      label.textContent = `Pagar con tarjeta · ${fmt(amount)}`;
+    }
+  }
 
   async function recalc() {
     const code = promoCode.value.trim() || (usePromo?.checked ? 'BIENVENIDO' : '');
@@ -151,7 +254,8 @@
         requestId,
         useCredits: useCredits?.checked,
         usePoints: usePoints?.checked,
-        promoCode: code
+        promoCode: code,
+        paymentMethod: selectedPaymentMethod()
       })
     });
     const data = await res.json();
@@ -160,18 +264,27 @@
       return;
     }
     const s = data.summary;
-    document.getElementById('lineVisitBase').textContent = fmt(s.visitBasePrice || s.basePrice);
+    document.getElementById('lineVisitBase').textContent = fmt(s.visitBasePrice || s.visitSubtotal);
     document.getElementById('lineBase').textContent = fmt(s.basePrice);
+
+    const cardRow = document.getElementById('lineCardRow');
+    if (s.paymentSurchargeAmount > 0) {
+      cardRow.classList.remove('hidden');
+      document.getElementById('lineCard').textContent = '+' + fmt(s.paymentSurchargeAmount);
+      document.getElementById('lineCardLabel').textContent = `Recargo tarjeta (+${s.paymentSurchargePercent}%)`;
+    } else {
+      cardRow.classList.add('hidden');
+    }
+
     if (s.servicePriceBase) document.getElementById('lineService').textContent = fmt(s.servicePriceBase);
     const urgRow = document.getElementById('lineUrgencyRow');
     if (urgRow && s.urgencyAdjustmentAmount) {
       urgRow.classList.remove('hidden');
-      const urgEl = document.getElementById('lineUrgency');
-      urgEl.textContent = (s.urgencyAdjustmentAmount > 0 ? '+' : '') + fmt(s.urgencyAdjustmentAmount);
+      document.getElementById('lineUrgency').textContent = (s.urgencyAdjustmentAmount > 0 ? '+' : '') + fmt(s.urgencyAdjustmentAmount);
       if (s.urgencyTierLabel) document.getElementById('lineUrgencyLabel').textContent = s.urgencyTierLabel;
     }
     document.getElementById('lineTotal').textContent = fmt(s.amountDue);
-    document.getElementById('btnPayLabel').textContent = s.amountDue === 0 ? 'Confirmar servicio gratis' : `Pagar ${fmt(s.amountDue)}`;
+    updatePayLabel(s.amountDue);
 
     const show = (id, val) => {
       const row = document.getElementById(id + 'Row');
@@ -197,17 +310,19 @@
         requestId,
         useCredits: useCredits?.checked,
         usePoints: usePoints?.checked,
-        promoCode: code
+        promoCode: code,
+        paymentMethod: selectedPaymentMethod(),
+        billing: getBillingPayload()
       })
     });
     const data = await res.json();
+    btnPay.disabled = false;
     if (!data.success) {
-      btnPay.disabled = false;
       FundezNotify.show(data.error || 'Error', 'error');
       return;
     }
     if (data.free) window.location.href = data.redirect;
-    else window.location.href = data.checkoutUrl;
+    else window.location.href = data.redirect || data.checkoutUrl;
   });
 
   recalc();

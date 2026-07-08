@@ -1,0 +1,83 @@
+<%- include('../partials/head') %>
+
+<div class="max-w-lg mx-auto min-h-screen flex flex-col pb-8 zilo-page-enter">
+  <header class="sticky top-0 z-50 bg-zilo-bg/90 backdrop-blur-xl border-b border-zilo-border px-5 py-4">
+    <div class="flex items-center gap-3">
+      <a href="/pagos/checkout?ref=<%= request.id %>" class="w-10 h-10 rounded-full zilo-card-premium flex items-center justify-center">
+        <svg class="w-5 h-5 text-zilo-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      </a>
+      <div>
+        <p class="zilo-label">Transferencia</p>
+        <h1 class="font-semibold">Pago bancario</h1>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 px-5 py-5 space-y-4">
+    <% if (typeof query !== 'undefined' && query.enviado) { %>
+      <div class="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-sm text-emerald-700">
+        Transferencia registrada. Confirmaremos tu pago y activaremos el servicio en breve.
+      </div>
+    <% } %>
+
+    <section class="zilo-card-premium rounded-2xl p-5">
+      <p class="zilo-label mb-3">Monto a transferir</p>
+      <p class="text-3xl font-bold text-zilo-accent mb-1"><%= formatCLP(summary.amountDue) %></p>
+      <p class="text-xs text-zilo-muted">Referencia: <strong class="font-mono">FUNDEZ-<%= request.id.slice(0, 8).toUpperCase() %></strong></p>
+    </section>
+
+    <section class="zilo-card-premium rounded-2xl p-5 space-y-3">
+      <p class="zilo-label">Datos bancarios Fundez</p>
+      <div class="text-sm space-y-2">
+        <div class="flex justify-between"><span class="text-zilo-muted">Banco</span><strong><%= bank.bankName %></strong></div>
+        <div class="flex justify-between"><span class="text-zilo-muted">Tipo cuenta</span><strong><%= bank.accountType %></strong></div>
+        <div class="flex justify-between"><span class="text-zilo-muted">N° cuenta</span><strong class="font-mono"><%= bank.accountNumber %></strong></div>
+        <div class="flex justify-between"><span class="text-zilo-muted">Titular</span><strong><%= bank.holderName %></strong></div>
+        <div class="flex justify-between"><span class="text-zilo-muted">RUT</span><strong><%= bank.holderRut %></strong></div>
+        <div class="flex justify-between"><span class="text-zilo-muted">Email</span><strong><%= bank.email %></strong></div>
+      </div>
+    </section>
+
+    <% if (request.billingSnapshot) { %>
+    <section class="zilo-card-premium rounded-2xl p-5 text-sm">
+      <p class="zilo-label mb-2">Factura a nombre de</p>
+      <p class="font-medium"><%= request.billingSnapshot.legalName %></p>
+      <p class="text-xs text-zilo-muted"><%= request.billingSnapshot.rut %> · <%= request.billingSnapshot.invoiceEmail %></p>
+    </section>
+    <% } %>
+
+    <p class="text-xs text-zilo-muted text-center px-2">Usa la referencia en el asunto o mensaje de la transferencia para agilizar la confirmación.</p>
+
+    <% if (request.paymentStatus !== 'pending_transfer') { %>
+      <button type="button" id="btnConfirmTransfer" class="zilo-btn-primary" data-id="<%= request.id %>">
+        Ya realicé la transferencia
+      </button>
+    <% } else { %>
+      <div class="p-4 rounded-2xl bg-zilo-accent/5 border border-zilo-accent/20 text-center text-sm">
+        Esperando confirmación del equipo Fundez
+      </div>
+    <% } %>
+
+    <a href="/cliente" class="block text-center text-sm text-zilo-muted py-2">Volver al inicio</a>
+  </main>
+</div>
+
+<script>
+document.getElementById('btnConfirmTransfer')?.addEventListener('click', async (e) => {
+  const el = e.currentTarget;
+  el.disabled = true;
+  const res = await fetch('/pagos/transferencia/confirmar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestId: el.dataset.id })
+  });
+  const data = await res.json();
+  if (data.success) window.location.href = data.redirect;
+  else {
+    el.disabled = false;
+    FundezNotify.show(data.error || 'Error', 'error');
+  }
+});
+</script>
+
+<%- include('../partials/footer') %>

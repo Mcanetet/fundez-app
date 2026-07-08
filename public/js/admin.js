@@ -129,6 +129,19 @@
     });
   });
 
+  document.querySelectorAll('.btn-approve-transfer').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const res = await fetch(`/admin/transfer/${btn.dataset.id}/aprobar`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        FundezNotify.show('Transferencia confirmada — servicio activado', 'success');
+        setTimeout(() => location.reload(), 800);
+      } else {
+        FundezNotify.show(data.error || 'No se pudo confirmar', 'error');
+      }
+    });
+  });
+
   const socket = io();
   socket.on('services_updated', ({ services }) => {
     services.forEach(service => {

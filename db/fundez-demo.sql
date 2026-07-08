@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS users (
   reviews JSON,
   verification JSON,
   location_share JSON,
+  billing JSON,
   active TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -207,6 +208,17 @@ INSERT INTO pricing_config (id, config) VALUES ('default', JSON_OBJECT(
   'cancellationFee', 35000,
   'laborCommissionRate', 0.25,
   'materialsCommissionRate', 0.05,
+  'cardSurchargePercent', 5,
+  'cardEnabled', true,
+  'transferEnabled', true,
+  'bankTransfer', JSON_OBJECT(
+    'bankName', 'Banco de Chile',
+    'accountType', 'Cuenta corriente',
+    'accountNumber', '1234567890',
+    'holderName', 'Fundez SpA',
+    'holderRut', '77.777.777-7',
+    'email', 'pagos@fundez.cl'
+  ),
   'urgencyTiers', JSON_ARRAY(
     JSON_OBJECT('id','immediate','label','Inmediato (1-3 h)','description','Un técnico puede llegar entre 1 y 3 horas','adjustmentPercent',50,'enabled',true,'sortOrder',1),
     JSON_OBJECT('id','today','label','Hoy (4-8 h)','description','Servicio programado para hoy, entre 4 y 8 horas','adjustmentPercent',25,'enabled',true,'sortOrder',2),

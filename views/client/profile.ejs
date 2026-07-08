@@ -45,6 +45,45 @@
       <button type="submit" class="zilo-btn-primary !py-3">Guardar cambios</button>
     </form>
 
+    <% const billing = profile.billing || { type: 'natural', rut: '', legalName: profile.name, giro: '', fiscalAddress: profile.address || '', invoiceEmail: profile.email }; %>
+    <form id="billingForm" class="space-y-4 p-5 rounded-2xl zilo-card-premium zilo-page-enter-delay-2">
+      <p class="zilo-label">Datos de facturación</p>
+      <p class="text-xs text-zilo-muted mb-2">Necesarios para emitir boleta o factura al pagar un servicio.</p>
+
+      <div class="grid grid-cols-2 gap-2">
+        <label class="flex items-center gap-2 p-3 rounded-xl border cursor-pointer billing-type-option <%= billing.type !== 'empresa' ? 'border-zilo-accent bg-zilo-accent/5' : 'border-zilo-border' %>">
+          <input type="radio" name="billingType" value="natural" <%= billing.type !== 'empresa' ? 'checked' : '' %> class="accent-[#2563EB]">
+          <span class="text-sm">Persona natural</span>
+        </label>
+        <label class="flex items-center gap-2 p-3 rounded-xl border cursor-pointer billing-type-option <%= billing.type === 'empresa' ? 'border-zilo-accent bg-zilo-accent/5' : 'border-zilo-border' %>">
+          <input type="radio" name="billingType" value="empresa" <%= billing.type === 'empresa' ? 'checked' : '' %> class="accent-[#2563EB]">
+          <span class="text-sm">Empresa</span>
+        </label>
+      </div>
+
+      <div>
+        <label class="zilo-label block mb-1.5">RUT</label>
+        <input type="text" name="rut" value="<%= billing.rut %>" placeholder="12.345.678-9" class="zilo-input" required>
+      </div>
+      <div>
+        <label class="zilo-label block mb-1.5" id="billingNameLabel"><%= billing.type === 'empresa' ? 'Razón social' : 'Nombre completo' %></label>
+        <input type="text" name="legalName" value="<%= billing.legalName %>" class="zilo-input" required>
+      </div>
+      <div id="giroField" class="<%= billing.type === 'empresa' ? '' : 'hidden' %>">
+        <label class="zilo-label block mb-1.5">Giro comercial</label>
+        <input type="text" name="giro" value="<%= billing.giro %>" class="zilo-input">
+      </div>
+      <div>
+        <label class="zilo-label block mb-1.5">Dirección fiscal</label>
+        <input type="text" name="fiscalAddress" value="<%= billing.fiscalAddress %>" class="zilo-input" required>
+      </div>
+      <div>
+        <label class="zilo-label block mb-1.5">Email de facturación</label>
+        <input type="email" name="invoiceEmail" value="<%= billing.invoiceEmail %>" class="zilo-input" required>
+      </div>
+      <button type="submit" class="zilo-btn-ghost w-full !py-3">Guardar facturación</button>
+    </form>
+
     <a href="/cliente/hogar" class="block p-4 rounded-2xl zilo-card-premium border border-zilo-accent/15 zilo-page-enter-delay-3">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-zilo-accent/10 flex items-center justify-center">
@@ -84,6 +123,45 @@
     });
     const data = await res.json();
     if (data.success) FundezNotify.show('Perfil actualizado', 'success');
+    else FundezNotify.show(data.error || 'Error', 'error');
+  });
+
+  const billingForm = document.getElementById('billingForm');
+  const giroField = document.getElementById('giroField');
+  const billingNameLabel = document.getElementById('billingNameLabel');
+
+  billingForm.querySelectorAll('input[name="billingType"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      const isEmpresa = radio.value === 'empresa' && radio.checked;
+      billingForm.querySelectorAll('.billing-type-option').forEach(el => {
+        const active = el.querySelector('input').value === (isEmpresa ? 'empresa' : 'natural');
+        el.classList.toggle('border-zilo-accent', active);
+        el.classList.toggle('bg-zilo-accent/5', active);
+        el.classList.toggle('border-zilo-border', !active);
+      });
+      giroField.classList.toggle('hidden', !isEmpresa);
+      billingNameLabel.textContent = isEmpresa ? 'Razón social' : 'Nombre completo';
+    });
+  });
+
+  billingForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const type = fd.get('billingType') || 'natural';
+    const res = await fetch('/cliente/facturacion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type,
+        rut: fd.get('rut'),
+        legalName: fd.get('legalName'),
+        giro: fd.get('giro'),
+        fiscalAddress: fd.get('fiscalAddress'),
+        invoiceEmail: fd.get('invoiceEmail')
+      })
+    });
+    const data = await res.json();
+    if (data.success) FundezNotify.show('Datos de facturación guardados', 'success');
     else FundezNotify.show(data.error || 'Error', 'error');
   });
 </script>

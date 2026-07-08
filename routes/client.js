@@ -60,6 +60,12 @@ router.post('/perfil', requireRole('client'), (req, res) => {
   res.json({ success: true, user: { name: user.name, phone: user.phone, address: user.address } });
 });
 
+router.post('/facturacion', requireRole('client'), (req, res) => {
+  const result = store.updateUserBilling(req.session.user.id, req.body);
+  if (result.error) return res.status(400).json({ success: false, error: result.error });
+  res.json({ success: true, billing: result.billing });
+});
+
 router.get('/hogar', requireRole('client'), requireModule('client_pasaporte'), (req, res) => {
   const passport = store.getHomePassport(req.session.user.id);
   res.render('client/hogar', {

@@ -7,8 +7,10 @@ const {
   normalizePricing,
   getActiveUrgencyTiers,
   calculateVisitPricing,
+  calculatePaymentSurcharge,
   computeRequestFinancials
 } = require('../lib/pricing');
+const { normalizeBilling, validateBilling, createBillingSnapshot } = require('../lib/billing');
 
 let SERVICES = [];
 let MODULES = [];
@@ -117,6 +119,10 @@ async function createRequest({ clientId, serviceId, address, notes, coords: inpu
     pointsUsed: 0,
     promoCode: null,
     clientPhotoUrl: clientPhotoUrl || null,
+    billingSnapshot: createBillingSnapshot(client.billing) || null,
+    paymentMethod: null,
+    paymentSurchargePercent: 0,
+    paymentSurchargeAmount: 0,
     guardianToken: uuidv4().replace(/-/g, '').slice(0, 12),
     coords
   };
@@ -141,6 +147,42 @@ function updateUserProfile(userId, data) {
   }
   repository.persist(() => repository.saveUser(user), `usuario ${user.id}`);
   return user;
+}
+
+function isBillingComplete(user) {
+  if (!user || user.role !== 'client') return false;
+  return validateBilling(user.billing || {}).ok;
+}
+
+function updateUserBilling(userId, data) {
+  const user = getUserById(userId);
+  if (!user || user.role !== 'client') return { error: 'Usuario no encontrado' };
+  const result = validateBilling(data);
+  if (!result.ok) return { error: result.errors[0] };
+  user.billing = result.billing;
+  repository.persist(() => repository.saveUser(user), `facturación ${user.id}`);
+  return { success: true, billing: user.billing };
+}
+
+function setRequestBillingSnapshot(requestId, userId, billingData) {
+  const request = requests.find(r => r.id === requestId && r.clientId === userId);
+  if (!request) return { error: 'Solicitud no encontrada' };
+  const snapshot = billingData ? createBillingSnapshot(billingData) : createBillingSnapshot(getUserById(userId)?.billing);
+  if (!snapshot) return { error: 'Completa los datos de facturación' };
+  request.billingSnapshot = snapshot;
+  repository.persist(() => repository.saveRequest(request), `facturación solicitud ${requestId}`);
+  return { success: true, billingSnapshot: snapshot };
+}
+
+function applyPaymentMethodToRequest(request, paymentMethod) {
+  const pricing = getPricingConfig();
+  const visitSubtotal = request.visitTotal ?? request.basePrice ?? pricing.visitPrice;
+  const surcharge = calculatePaymentSurcharge(pricing, visitSubtotal, paymentMethod);
+  request.paymentMethod = surcharge.method;
+  request.paymentSurchargePercent = surcharge.percent;
+  request.paymentSurchargeAmount = surcharge.amount;
+  request.basePrice = surcharge.subtotal;
+  return request;
 }
 
 function getReferralStats(userId) {
@@ -184,15 +226,27 @@ function getCheckoutSummary(userId, requestId) {
   const request = requests.find(r => r.id === requestId && r.clientId === userId);
   if (!request || !user) return null;
 
-  const basePrice = request.basePrice || request.estimatedVisit;
+  const pricing = getPricingConfig();
+  const visitSubtotal = request.visitTotal ?? request.visitBasePrice ?? request.basePrice;
+  const basePrice = request.basePrice ?? visitSubtotal;
   const paidCount = requests.filter(r => r.clientId === userId && r.paymentStatus === 'approved').length;
 
   return {
+    visitSubtotal,
     basePrice,
-    visitBasePrice: request.visitBasePrice ?? basePrice,
+    visitBasePrice: request.visitBasePrice ?? visitSubtotal,
     urgencyAdjustmentAmount: request.urgencyAdjustmentAmount || 0,
     urgencyTierLabel: request.urgencyTierLabel || null,
-    servicePriceBase: request.servicePriceBase ?? getPricingConfig().servicePrice,
+    paymentMethod: request.paymentMethod || 'card',
+    paymentSurchargePercent: request.paymentSurchargePercent || 0,
+    paymentSurchargeAmount: request.paymentSurchargeAmount || 0,
+    cardSurchargePercent: pricing.cardSurchargePercent,
+    cardEnabled: pricing.cardEnabled,
+    transferEnabled: pricing.transferEnabled,
+    bankTransfer: pricing.bankTransfer,
+    servicePriceBase: request.servicePriceBase ?? pricing.servicePrice,
+    billingComplete: Boolean(request.billingSnapshot) || isBillingComplete(user),
+    billingSnapshot: request.billingSnapshot || null,
     creditsAvailable: user.creditsCLP || 0,
     pointsAvailable: user.ziloPoints || 0,
     pointsValueCLP: (user.ziloPoints || 0) * POINTS_VALUE_CLP,
@@ -206,12 +260,25 @@ function getCheckoutSummary(userId, requestId) {
   };
 }
 
-function applyCheckoutDiscounts(userId, requestId, { useCredits, usePoints, promoCode }) {
+function applyCheckoutDiscounts(userId, requestId, { useCredits, usePoints, promoCode, paymentMethod }) {
   const user = getUserById(userId);
   const request = requests.find(r => r.id === requestId && r.clientId === userId);
-  if (!request || request.paymentStatus !== 'pending') return { error: 'Solicitud no disponible para pago' };
+  if (!request || !['pending', 'pending_transfer'].includes(request.paymentStatus)) {
+    return { error: 'Solicitud no disponible para pago' };
+  }
 
-  const basePrice = request.basePrice || request.estimatedVisit;
+  const pricing = getPricingConfig();
+  const method = paymentMethod || request.paymentMethod || 'card';
+  if (method === 'card' && !pricing.cardEnabled) {
+    return { error: 'El pago con tarjeta no está disponible' };
+  }
+  if (method === 'transfer' && !pricing.transferEnabled) {
+    return { error: 'La transferencia bancaria no está disponible' };
+  }
+
+  applyPaymentMethodToRequest(request, method);
+
+  const basePrice = request.basePrice;
   let remaining = basePrice;
   let discountCredits = 0;
   let discountPoints = 0;
@@ -255,6 +322,26 @@ function applyCheckoutDiscounts(userId, requestId, { useCredits, usePoints, prom
   repository.persist(() => repository.saveRequest(request), `solicitud ${requestId}`);
 
   return { success: true, summary: getCheckoutSummary(userId, requestId) };
+}
+
+function submitTransferPayment(requestId, userId) {
+  const request = requests.find(r => r.id === requestId && r.clientId === userId);
+  if (!request) return { error: 'Solicitud no encontrada' };
+  if (request.paymentMethod !== 'transfer') return { error: 'Esta solicitud no usa transferencia' };
+  if (!request.billingSnapshot) return { error: 'Faltan datos de facturación' };
+  request.paymentStatus = 'pending_transfer';
+  request.transferSubmittedAt = new Date().toISOString();
+  repository.persist(() => repository.saveRequest(request), `transferencia ${requestId}`);
+  return { success: true, request };
+}
+
+function approveTransferPayment(requestId) {
+  const request = requests.find(r => r.id === requestId);
+  if (!request) return null;
+  if (request.paymentStatus !== 'pending_transfer') return null;
+  markPaymentApproved(requestId, `transfer-${Date.now()}`);
+  activateRequest(requestId);
+  return request;
 }
 
 function commitCheckoutDiscounts(userId, requestId) {
@@ -654,7 +741,8 @@ async function registerUser({ name, email, password, phone, role, address, speci
       referralsCount: 0,
       servicesCount: 0,
       usedWelcomePromo: false,
-      usedReferral: false
+      usedReferral: false,
+      billing: null
     };
   }
 
@@ -1252,6 +1340,11 @@ module.exports = {
   updateComplaintStatus,
   markPayoutPaid,
   updateUserProfile,
+  updateUserBilling,
+  isBillingComplete,
+  setRequestBillingSnapshot,
+  submitTransferPayment,
+  approveTransferPayment,
   getReferralStats,
   applyReferralCode,
   PROMOS,

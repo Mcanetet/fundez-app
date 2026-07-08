@@ -38,6 +38,7 @@ router.get('/', requireRole('admin'), (req, res) => {
     requests: allRequests.slice(0, 30),
     payments: store.getPayments(),
     payouts: store.getProviderPayouts(),
+    pendingTransfers: store.getAllRequests().filter(r => r.paymentStatus === 'pending_transfer'),
     complaints: store.COMPLAINTS,
     chats: store.CHATS,
     consents: store.consentRecords.slice(0, 20),
@@ -175,10 +176,12 @@ router.delete('/backups/:id', requireRole('admin'), (req, res) => {
 
 router.get('/precios', requireRole('admin'), (req, res) => {
   const pricing = store.getPricingConfig();
+  const gateways = require('../lib/payments/gateways');
   res.render('admin/precios', {
     title: 'Configuración de precios — Fundez Admin',
     user: req.session.user,
     pricing,
+    gatewayStatus: gateways.getGatewayStatus(),
     query: req.query,
     formatCLP: store.formatCLP
   });
@@ -212,6 +215,17 @@ router.post('/precios', requireRole('admin'), (req, res) => {
     cancellationFee: parseInt(body.cancellationFee, 10),
     laborCommissionRate: parseFloat(body.laborCommissionPercent) / 100,
     materialsCommissionRate: parseFloat(body.materialsCommissionPercent) / 100,
+    cardSurchargePercent: parseInt(body.cardSurchargePercent, 10),
+    cardEnabled: body.cardEnabled === 'on',
+    transferEnabled: body.transferEnabled === 'on',
+    bankTransfer: {
+      bankName: body.bankName || '',
+      accountType: body.bankAccountType || '',
+      accountNumber: body.bankAccountNumber || '',
+      holderName: body.bankHolderName || '',
+      holderRut: body.bankHolderRut || '',
+      email: body.bankEmail || ''
+    },
     urgencyTiers: tiers.length ? tiers : undefined
   });
 
@@ -221,6 +235,15 @@ router.post('/precios', requireRole('admin'), (req, res) => {
     return res.json({ success: true, pricing: updated });
   }
   res.redirect('/admin/precios?ok=1');
+});
+
+router.post('/transfer/:requestId/aprobar', requireRole('admin'), (req, res) => {
+  const request = store.approveTransferPayment(req.params.requestId);
+  if (!request) return res.status(404).json({ error: 'Transferencia no encontrada o ya procesada' });
+  store.logSecurityEvent('transfer_approved', req.params.requestId, req);
+  const io = req.app.get('io');
+  if (io) require('../lib/dispatch').notifyProvidersForRequest(io, request);
+  res.json({ success: true, requestId: request.id });
 });
 
 module.exports = router;
