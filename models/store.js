@@ -29,7 +29,18 @@ let COMPLAINTS = [];
 let CHATS = [];
 let consentRecords = [];
 let securityLogs = [];
+let notifications = [];
 let initialized = false;
+
+function afterEvent(run) {
+  setImmediate(() => {
+    try {
+      run(require('../lib/events'));
+    } catch (err) {
+      console.error('[events]', err.message);
+    }
+  });
+}
 
 const providerSockets = new Map();
 
@@ -57,7 +68,11 @@ async function init() {
   CHATS = data.chats;
   consentRecords = data.consentRecords;
   securityLogs = data.securityLogs;
+  notifications = data.notifications || [];
   initialized = true;
+  const events = require('../lib/events');
+  events.init(module.exports);
+  require('../lib/notifications').bindStore(module.exports);
   console.log(`📦 Datos cargados desde MySQL (${USERS.length} usuarios, ${requests.length} solicitudes)`);
 }
 
@@ -339,6 +354,7 @@ function submitTransferPayment(requestId, userId) {
   request.paymentStatus = 'pending_transfer';
   request.transferSubmittedAt = new Date().toISOString();
   repository.persist(() => repository.saveRequest(request), `transferencia ${requestId}`);
+  afterEvent((ev) => ev.onTransferPending(request));
   return { success: true, request };
 }
 
@@ -474,6 +490,7 @@ function markPaymentApproved(requestId, paymentId) {
   request.visitPricePaid = request.amountDue ?? request.visitTotal ?? request.basePrice;
   commitCheckoutDiscounts(request.clientId, requestId);
   repository.persist(() => repository.saveRequest(request), `solicitud ${requestId}`);
+  afterEvent((ev) => ev.onPaymentApproved(request));
   return request;
 }
 
@@ -482,6 +499,7 @@ function activateRequest(requestId) {
   if (!request) return null;
   request.status = 'searching';
   repository.persist(() => repository.saveRequest(request), `solicitud ${requestId}`);
+  afterEvent((ev) => ev.onServiceSearching(request));
   return request;
 }
 
@@ -970,6 +988,7 @@ function assignProvider(requestId, providerId) {
   request.status = 'assigned';
   request.assignedAt = new Date().toISOString();
   repository.persist(() => repository.saveRequest(request), `solicitud ${requestId}`);
+  afterEvent((ev) => ev.onProviderAssigned(request));
   return request;
 }
 
@@ -1001,6 +1020,7 @@ function assignTechnician(requestId, socioId, technicianId) {
   request.technicianAssignedAt = new Date().toISOString();
   request.techStatus = 'asignado';
   repository.persist(() => repository.saveRequest(request), `solicitud ${requestId}`);
+  afterEvent((ev) => ev.onTechnicianAssigned(request));
   return { success: true, request, tecnico };
 }
 
@@ -1029,6 +1049,7 @@ function updateTechStatus(requestId, technicianId, techStatus) {
     }
   }
   repository.persist(() => repository.saveRequest(request), `solicitud ${requestId}`);
+  if (techStatus === 'en_camino') afterEvent((ev) => ev.onTechnicianEnRoute(request));
   return request;
 }
 
@@ -1072,6 +1093,7 @@ function recordSiteArrival(requestId, technicianId, { diagnosis, photoStart }) {
   request.techStatus = 'diagnostico';
   request.status = 'in_progress';
   repository.persist(() => repository.saveRequest(request), `solicitud ${requestId}`);
+  afterEvent((ev) => ev.onTechnicianArrived(request));
   return { success: true, request };
 }
 
@@ -1108,6 +1130,7 @@ function submitSiteBudget(requestId, technicianId, { amount, description }) {
   sr.budgetDescription = description;
   sr.budgetStatus = 'pending';
   repository.persist(() => repository.saveRequest(request), `solicitud ${requestId}`);
+  afterEvent((ev) => ev.onBudgetSent(request, parsed));
   return { success: true, request };
 }
 
@@ -1179,6 +1202,7 @@ function completeSiteWork(requestId, technicianId, { workNotes, photoEnd }) {
   request.financials = computeRequestFinancials(request, getPricingConfig());
   addLogbookEntryFromRequest(request);
   repository.persist(() => repository.saveRequest(request), `solicitud ${requestId}`);
+  afterEvent((ev) => ev.onServiceCompleted(request));
   return { success: true, request };
 }
 
@@ -1474,6 +1498,12 @@ function getFinancialReport() {
   };
 }
 
+function getAllDteDocuments() {
+  return requests
+    .filter((r) => Array.isArray(r.dteDocuments) && r.dteDocuments.length)
+    .flatMap((r) => r.dteDocuments.map((d) => ({ ...d, request: r })));
+}
+
 function needsOnboarding(user) {
   return user && user.onboardingCompleted !== true;
 }
@@ -1602,5 +1632,7 @@ module.exports = {
   exportDataSnapshot,
   needsOnboarding,
   completeOnboarding,
-  get requests() { return requests; }
+  getAllDteDocuments,
+  get requests() { return requests; },
+  get notifications() { return notifications; }
 };

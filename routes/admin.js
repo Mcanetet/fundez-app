@@ -8,6 +8,8 @@ const backup = require('../lib/backup');
 const { requireRole } = require('../middleware/auth');
 const { rateLimitLogin, adminIpAllowlist, getClientIp, parseAdminIpAllowlist } = require('../middleware/security');
 const { qrDataUrl } = require('../lib/mfa');
+const notifications = require('../lib/notifications');
+const events = require('../lib/events');
 
 router.use(adminIpAllowlist());
 
@@ -238,7 +240,11 @@ router.get('/', requireRole('admin'), (req, res) => {
     initialTab: req.query.tab || null,
     financialReport: store.getFinancialReport(),
     clientIp: getClientIp(req),
-    adminIpAllowlist: parseAdminIpAllowlist()
+    adminIpAllowlist: parseAdminIpAllowlist(),
+    dteDocuments: store.getAllDteDocuments().slice(0, 40),
+    dteStatus: events.getDteStatus(),
+    notificationStats: notifications.getStats(),
+    recentNotifications: notifications.getRecent(30)
   });
 });
 
@@ -285,6 +291,17 @@ function csvEscape(value) {
   if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
   return str;
 }
+
+router.post('/dte/retry', requireRole('admin'), async (req, res) => {
+  const { requestId, phase } = req.body;
+  if (!requestId || !phase) {
+    return res.status(400).json({ error: 'Faltan requestId y phase' });
+  }
+  const result = await events.retryDte(requestId, phase);
+  if (result.error) return res.status(400).json({ error: result.error });
+  store.logSecurityEvent('dte_retry', `${requestId}:${phase}`, req);
+  res.json({ success: true, document: result.document });
+});
 
 router.post('/toggle-service', requireRole('admin'), (req, res) => {
   const { serviceId, enabled } = req.body;

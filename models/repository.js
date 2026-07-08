@@ -501,7 +501,7 @@ async function seedIfEmpty() {
 }
 
 async function loadAll() {
-  const [usersRes, servicesRes, modulesRes, pricingRes, requestsRes, logbookRes, complaintsRes, chatsRes, consentsRes, logsRes] = await Promise.all([
+  const [usersRes, servicesRes, modulesRes, pricingRes, requestsRes, logbookRes, complaintsRes, chatsRes, consentsRes, logsRes, notifRes] = await Promise.all([
     db.query('SELECT * FROM users ORDER BY created_at ASC'),
     db.query('SELECT * FROM services ORDER BY name ASC'),
     db.query('SELECT * FROM modules ORDER BY audience ASC, sort_order ASC'),
@@ -511,7 +511,8 @@ async function loadAll() {
     db.query('SELECT * FROM complaints ORDER BY created_at DESC'),
     db.query('SELECT * FROM chats ORDER BY updated_at DESC'),
     db.query('SELECT * FROM consent_records ORDER BY created_at DESC'),
-    db.query('SELECT * FROM security_logs ORDER BY created_at DESC LIMIT 200')
+    db.query('SELECT * FROM security_logs ORDER BY created_at DESC LIMIT 200'),
+    db.query('SELECT * FROM notifications ORDER BY created_at DESC LIMIT 300').catch(() => ({ rows: [] }))
   ]);
 
   let pricing = DEFAULT_PRICING;
@@ -575,6 +576,20 @@ async function loadAll() {
       detail: row.detail,
       user: row.user,
       ip: row.ip,
+      createdAt: row.created_at ? new Date(row.created_at).toISOString() : null
+    })),
+    notifications: (notifRes.rows || []).map((row) => ({
+      id: row.id,
+      event: row.event,
+      channel: row.channel,
+      status: row.status,
+      recipient: row.recipient,
+      subject: row.subject,
+      body: row.body,
+      meta: parseJson(row.meta, {}),
+      requestId: row.request_id,
+      userId: row.user_id,
+      error: row.error,
       createdAt: row.created_at ? new Date(row.created_at).toISOString() : null
     }))
   };
@@ -730,6 +745,28 @@ async function saveSecurityLog(log) {
   );
 }
 
+async function saveNotification(record) {
+  await db.query(
+    `INSERT INTO notifications (id, event, channel, status, recipient, subject, body, meta, request_id, user_id, error, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE status = VALUES(status), error = VALUES(error)`,
+    [
+      record.id,
+      record.event,
+      record.channel,
+      record.status,
+      record.recipient || null,
+      record.subject || null,
+      record.body || null,
+      record.meta ? JSON.stringify(record.meta) : null,
+      record.requestId || null,
+      record.userId || null,
+      record.error || null,
+      record.createdAt
+    ]
+  );
+}
+
 function persist(fn, label) {
   fn().catch((err) => {
     console.error(`Error persistiendo ${label}:`, err.message);
@@ -750,6 +787,7 @@ module.exports = {
   saveComplaint,
   saveConsent,
   saveSecurityLog,
+  saveNotification,
   persist,
   defaultProviderVerification,
   defaultLocationShare

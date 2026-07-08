@@ -18,6 +18,18 @@
     </div>
     <% } %>
 
+    <% var visitDte = (request.dteDocuments || []).find(function(d){ return d.phase === 'visit'; }); %>
+    <% if (visitDte && visitDte.pdfUrl) { %>
+    <a href="<%= visitDte.pdfUrl %>" target="_blank" rel="noopener"
+      class="w-full block zilo-card-premium rounded-2xl p-4 mb-4 text-left hover:border-zilo-accent/40 transition">
+      <p class="zilo-label mb-1">Documento tributario</p>
+      <p class="text-sm font-semibold capitalize"><%= visitDte.kind %> electrónica N° <%= visitDte.folio %></p>
+      <p class="text-xs text-zilo-muted mt-1">Descargar boleta o factura emitida ante el SII</p>
+    </a>
+    <% } else { %>
+    <p class="text-xs text-zilo-muted mb-4">Tu boleta o factura electrónica llegará por email en unos minutos.</p>
+    <% } %>
+
     <!-- Modo Guardián — feature única -->
     <div class="w-full zilo-card-premium rounded-2xl p-5 mb-4 text-left">
       <div class="flex items-start gap-3">

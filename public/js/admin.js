@@ -247,4 +247,28 @@
       }
     });
   });
+
+  document.querySelectorAll('.btn-retry-dte').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try {
+        const res = await fetch('/admin/dte/retry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requestId: btn.dataset.id, phase: btn.dataset.phase })
+        });
+        const data = await res.json();
+        if (data.success) {
+          FundezNotify.show('Documento reemitido', 'success');
+          setTimeout(() => location.reload(), 800);
+        } else {
+          FundezNotify.show(data.error || 'Error al emitir', 'error');
+          btn.disabled = false;
+        }
+      } catch (_) {
+        FundezNotify.show('Error de conexión', 'error');
+        btn.disabled = false;
+      }
+    });
+  });
 })();

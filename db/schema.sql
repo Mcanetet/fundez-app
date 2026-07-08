@@ -147,3 +147,20 @@ CREATE TABLE IF NOT EXISTS security_logs (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_security_logs_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id VARCHAR(64) PRIMARY KEY,
+  event VARCHAR(80) NOT NULL,
+  channel ENUM('email', 'whatsapp', 'system') NOT NULL DEFAULT 'system',
+  status ENUM('sent', 'queued', 'failed', 'skipped') NOT NULL DEFAULT 'queued',
+  recipient VARCHAR(190),
+  subject VARCHAR(255),
+  body TEXT,
+  meta JSON,
+  request_id VARCHAR(64),
+  user_id VARCHAR(64),
+  error TEXT,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_notifications_request (request_id),
+  INDEX idx_notifications_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

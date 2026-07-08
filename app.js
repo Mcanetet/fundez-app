@@ -20,6 +20,7 @@ const adminRoutes = require('./routes/admin');
 const paymentRoutes = require('./routes/payments');
 const legalRoutes = require('./routes/legal');
 const trackingRoutes = require('./routes/tracking');
+const documentosRoutes = require('./routes/documentos');
 
 const app = express();
 const server = http.createServer(app);
@@ -111,6 +112,7 @@ app.use('/admin', adminRoutes);
 app.use('/pagos', paymentRoutes);
 app.use('/legal', legalRoutes);
 app.use('/seguimiento', trackingRoutes);
+app.use('/documentos', documentosRoutes);
 
 app.use((req, res, next) => {
   if (store.isReady() || req.path === '/health') return next();

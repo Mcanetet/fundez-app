@@ -20,7 +20,7 @@
       </div>
     </div>
     <nav class="admin-tabs flex gap-1 px-3 pb-3 overflow-x-auto scrollbar-hide" id="adminTabs">
-      <% [['resumen','Resumen'],['finanzas','Finanzas'],['modulos','Módulos'],['servicios','Servicios'],['demo','Cuentas demo'],['pagos','Pagos'],['proveedores','Socios'],['reclamos','Reclamos'],['whatsapp','WhatsApp'],['datos','Datos'],['backups','Backups'],['seguridad','Seguridad']].forEach(([id,label]) => { %>
+      <% [['resumen','Resumen'],['finanzas','Finanzas'],['documentos','DTE / SII'],['notificaciones','Notificaciones'],['modulos','Módulos'],['servicios','Servicios'],['demo','Cuentas demo'],['pagos','Pagos'],['proveedores','Socios'],['reclamos','Reclamos'],['whatsapp','WhatsApp'],['datos','Datos'],['backups','Backups'],['seguridad','Seguridad']].forEach(([id,label]) => { %>
         <button type="button" data-tab="<%= id %>" class="admin-tab <%= id === 'resumen' ? 'admin-tab-active' : '' %>"><%= label %></button>
       <% }); %>
     </nav>
@@ -175,6 +175,88 @@
             </div>
           <% }); %>
         </div>
+      </div>
+    </section>
+
+    <!-- DOCUMENTOS TRIBUTARIOS -->
+    <section class="admin-panel hidden" data-panel="documentos">
+      <div class="flex justify-between items-start gap-3 mb-4">
+        <div>
+          <h3 class="text-lg font-semibold">Boletas y facturas electrónicas</h3>
+          <p class="text-xs text-gray-500 mt-1">Emisión DTE integrada con SII vía proveedor configurado</p>
+        </div>
+        <span class="text-[10px] font-bold uppercase px-2 py-1 rounded-full <%= dteStatus.mode === 'production' ? 'bg-emerald-500/15 text-emerald-600' : 'bg-yellow-500/15 text-yellow-700' %>">
+          <%= dteStatus.mode === 'production' ? 'LibreDTE' : 'Demo' %>
+        </span>
+      </div>
+
+      <div class="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/25 text-xs text-gray-600 mb-4">
+        <strong class="text-blue-700 block mb-1">Configuración SII</strong>
+        <p>Proveedor: <code><%= dteStatus.provider %></code> · LibreDTE: <%= dteStatus.libredte ? 'conectado' : 'sin credenciales' %></p>
+        <p class="mt-2 text-gray-500">Producción: define <code>DTE_PROVIDER=libredte</code>, <code>LIBREDTE_URL</code> y <code>LIBREDTE_HASH</code> en Hostinger. En demo se generan documentos HTML de referencia.</p>
+      </div>
+
+      <% if (!dteDocuments.length) { %>
+        <p class="text-center py-10 text-gray-500 text-sm">Aún no hay documentos tributarios emitidos.</p>
+      <% } else { %>
+        <div class="space-y-2 max-h-96 overflow-y-auto">
+          <% dteDocuments.forEach(function(doc) { %>
+            <div class="p-4 rounded-xl bg-zilo-card border border-gray-200 text-sm">
+              <div class="flex justify-between items-start gap-2 mb-1">
+                <div>
+                  <strong class="capitalize"><%= doc.kind %> N° <%= doc.folio %></strong>
+                  <p class="text-xs text-gray-500"><%= doc.request.serviceName %> · <%= doc.receptorName %></p>
+                  <p class="text-[10px] text-gray-400">Solicitud <%= doc.requestId %> · <%= doc.phase %></p>
+                </div>
+                <span class="text-emerald-600 font-bold"><%= formatCLP(doc.amount) %></span>
+              </div>
+              <div class="flex gap-2 mt-2 flex-wrap">
+                <% if (doc.pdfUrl) { %>
+                  <a href="<%= doc.pdfUrl %>" target="_blank" class="text-xs px-2 py-1 rounded-lg bg-blue-500/10 text-blue-700 border border-blue-500/25">Ver documento</a>
+                <% } %>
+                <button type="button" class="btn-retry-dte text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-700 border border-gray-200" data-id="<%= doc.requestId %>" data-phase="<%= doc.phase %>">Reemitir</button>
+              </div>
+            </div>
+          <% }); %>
+        </div>
+      <% } %>
+    </section>
+
+    <!-- NOTIFICACIONES -->
+    <section class="admin-panel hidden" data-panel="notificaciones">
+      <h3 class="text-lg font-semibold mb-1">Notificaciones</h3>
+      <p class="text-xs text-gray-500 mb-4">Email y WhatsApp en hitos del servicio · SMTP: <%= notificationStats.emailConfigured ? 'configurado' : 'modo demo (consola)' %></p>
+
+      <div class="grid grid-cols-3 gap-2 mb-4 text-center">
+        <div class="p-3 rounded-xl bg-zilo-card border border-gray-200">
+          <strong class="block text-sm"><%= notificationStats.total %></strong>
+          <span class="text-[9px] text-gray-500 uppercase">Total</span>
+        </div>
+        <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+          <strong class="block text-sm text-emerald-600"><%= notificationStats.sent %></strong>
+          <span class="text-[9px] text-gray-500 uppercase">Enviadas</span>
+        </div>
+        <div class="p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+          <strong class="block text-sm text-red-600"><%= notificationStats.failed %></strong>
+          <span class="text-[9px] text-gray-500 uppercase">Fallidas</span>
+        </div>
+      </div>
+
+      <div class="space-y-1 max-h-80 overflow-y-auto">
+        <% recentNotifications.forEach(function(n) { %>
+          <div class="p-3 rounded-lg bg-zilo-card border border-gray-200 text-xs">
+            <div class="flex justify-between gap-2">
+              <span class="font-mono text-blue-600"><%= n.event %></span>
+              <span class="uppercase text-[9px] <%= n.status === 'sent' ? 'text-emerald-600' : n.status === 'failed' ? 'text-red-600' : 'text-gray-500' %>"><%= n.status %></span>
+            </div>
+            <p class="text-gray-600 mt-1"><%= n.channel %> → <%= n.recipient || '—' %></p>
+            <% if (n.subject) { %><p class="text-gray-500 truncate"><%= n.subject %></p><% } %>
+            <% if (n.meta && n.meta.whatsappUrl) { %>
+              <a href="<%= n.meta.whatsappUrl %>" target="_blank" class="text-[10px] text-emerald-600 underline mt-1 inline-block">Abrir WhatsApp</a>
+            <% } %>
+            <span class="text-gray-400 block mt-1"><%= new Date(n.createdAt).toLocaleString('es-CL') %></span>
+          </div>
+        <% }); %>
       </div>
     </section>
 
