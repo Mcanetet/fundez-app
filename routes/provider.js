@@ -200,6 +200,59 @@ router.post('/ubicacion', requireRole('provider'), (req, res) => {
   res.json({ success: true, location: loc });
 });
 
+router.get('/equipo', requireRole('provider'), (req, res) => {
+  const provider = store.getUserById(req.session.user.id);
+  const technicians = store.getTechniciansByProvider(provider.id);
+  res.render('provider/equipo', {
+    title: 'Mi equipo — Fundez',
+    user: req.session.user,
+    provider,
+    technicians,
+    services: store.SERVICES,
+    error: null,
+    ok: null
+  });
+});
+
+router.post('/equipo', requireRole('provider'), async (req, res) => {
+  const { name, email, password, phone } = req.body;
+  const result = await store.createTechnician(req.session.user.id, { name, email, password, phone });
+
+  if (result.error) {
+    const isJson = req.xhr || (req.get('accept') || '').includes('application/json');
+    if (isJson) return res.status(400).json({ success: false, error: result.error });
+    const provider = store.getUserById(req.session.user.id);
+    return res.status(400).render('provider/equipo', {
+      title: 'Mi equipo — Fundez',
+      user: req.session.user,
+      provider,
+      technicians: store.getTechniciansByProvider(provider.id),
+      services: store.SERVICES,
+      error: result.error,
+      ok: null
+    });
+  }
+
+  store.logSecurityEvent('tecnico_creado', result.tecnico.email, req);
+  const isJson = req.xhr || (req.get('accept') || '').includes('application/json');
+  if (isJson) {
+    return res.json({
+      success: true,
+      tecnico: { id: result.tecnico.id, name: result.tecnico.name, email: result.tecnico.email, phone: result.tecnico.phone, active: true }
+    });
+  }
+  res.redirect('/proveedor/equipo');
+});
+
+router.post('/equipo/:id/toggle', requireRole('provider'), (req, res) => {
+  const tecnico = store.getTechnicianForProvider(req.session.user.id, req.params.id);
+  if (!tecnico) return res.status(404).json({ success: false, error: 'Técnico no encontrado' });
+
+  const active = req.body.active === 'true' || req.body.active === true;
+  store.setUserActive(tecnico.id, active);
+  res.json({ success: true, id: tecnico.id, active });
+});
+
 router.get('/verificacion/estado', requireRole('provider'), (req, res) => {
   const provider = store.getUserById(req.session.user.id);
   res.json({

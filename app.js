@@ -15,6 +15,7 @@ const backup = require('./lib/backup');
 const authRoutes = require('./routes/auth');
 const clientRoutes = require('./routes/client');
 const providerRoutes = require('./routes/provider');
+const tecnicoRoutes = require('./routes/tecnico');
 const adminRoutes = require('./routes/admin');
 const paymentRoutes = require('./routes/payments');
 const legalRoutes = require('./routes/legal');
@@ -91,7 +92,7 @@ app.get('/', (req, res) => {
     req.session.pendingReferral = String(req.query.ref).trim().toUpperCase();
   }
   if (req.session.user) {
-    const dashboards = { client: '/cliente', provider: '/proveedor', admin: '/admin' };
+    const dashboards = { client: '/cliente', provider: '/proveedor', tecnico: '/tecnico', admin: '/admin' };
     return res.redirect(dashboards[req.session.user.role] || '/login');
   }
   res.render('landing', {
@@ -104,6 +105,7 @@ app.get('/', (req, res) => {
 app.use('/', authRoutes);
 app.use('/cliente', clientRoutes);
 app.use('/proveedor', providerRoutes);
+app.use('/tecnico', tecnicoRoutes);
 app.use('/admin', adminRoutes);
 app.use('/pagos', paymentRoutes);
 app.use('/legal', legalRoutes);

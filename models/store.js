@@ -590,6 +590,59 @@ async function registerUser({ name, email, password, phone, role, address, speci
   return { success: true, user };
 }
 
+async function createTechnician(socioId, { name, email, password, phone } = {}) {
+  const socio = getUserById(socioId);
+  if (!socio || socio.role !== 'provider') return { error: 'Cuenta de socio no válida.' };
+
+  name = (name || '').trim();
+  email = (email || '').trim().toLowerCase();
+  password = password || '';
+
+  if (!name || !email || !password) return { error: 'Completa nombre, correo y contraseña.' };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: 'Ingresa un correo válido.' };
+  if (password.length < 6) return { error: 'La contraseña debe tener al menos 6 caracteres.' };
+  if (getUserByEmail(email)) return { error: 'Ya existe una cuenta con ese correo.' };
+
+  const tecnico = {
+    id: `tecnico-${uuidv4().slice(0, 8)}`,
+    email,
+    password,
+    name,
+    role: 'tecnico',
+    parentId: socioId,
+    phone: (phone || '').trim() || null,
+    specialties: Array.isArray(socio.specialties) ? [...socio.specialties] : [],
+    rating: null,
+    reviewsCount: 0,
+    online: false,
+    avatar: name.split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase(),
+    bio: '',
+    reviews: [],
+    locationShare: defaultLocationShare(),
+    active: true,
+    memberSince: new Date().toISOString().slice(0, 10)
+  };
+
+  USERS.push(tecnico);
+  try {
+    await repository.saveUser(tecnico);
+  } catch (err) {
+    const idx = USERS.indexOf(tecnico);
+    if (idx >= 0) USERS.splice(idx, 1);
+    console.error('Error creando técnico:', err.message);
+    return { error: 'No se pudo crear el técnico. Intenta nuevamente.' };
+  }
+  return { success: true, tecnico };
+}
+
+function getTechniciansByProvider(socioId) {
+  return USERS.filter(u => u.role === 'tecnico' && u.parentId === socioId);
+}
+
+function getTechnicianForProvider(socioId, tecnicoId) {
+  return USERS.find(u => u.id === tecnicoId && u.role === 'tecnico' && u.parentId === socioId) || null;
+}
+
 function setUserActive(userId, active) {
   const user = getUserById(userId);
   if (!user) return null;
@@ -599,7 +652,7 @@ function setUserActive(userId, active) {
 }
 
 const DEMO_ACCOUNT_IDS = ['client-1', 'provider-pedro', 'admin-1'];
-const DEMO_ACCOUNT_LABELS = { 'client-1': 'Cliente', 'provider-pedro': 'Proveedor', 'admin-1': 'Admin' };
+const DEMO_ACCOUNT_LABELS = { 'client-1': 'Cliente', 'provider-pedro': 'Socio', 'admin-1': 'Admin' };
 
 function getDemoAccounts() {
   return DEMO_ACCOUNT_IDS
@@ -831,6 +884,9 @@ module.exports = {
   toggleService,
   getUserByEmail,
   registerUser,
+  createTechnician,
+  getTechniciansByProvider,
+  getTechnicianForProvider,
   setUserActive,
   getDemoAccounts,
   getUserById,

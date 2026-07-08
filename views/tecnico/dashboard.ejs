@@ -1,0 +1,45 @@
+<%- include('../partials/head') %>
+
+<div class="max-w-lg mx-auto min-h-screen flex flex-col zilo-page-enter">
+  <header class="sticky top-0 z-50 bg-zilo-bg/90 backdrop-blur-xl border-b border-zilo-border px-5 py-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl zilo-card-premium flex items-center justify-center text-sm font-semibold text-zilo-accent border border-zilo-accent/25">
+          <%= tecnico.avatar %>
+        </div>
+        <div>
+          <p class="zilo-label !text-[9px]">Técnico<%= socio ? ' · ' + socio.name : '' %></p>
+          <h1 class="text-base font-semibold"><%= tecnico.name %></h1>
+        </div>
+      </div>
+      <a href="/logout" class="zilo-icon-btn" title="Cerrar sesión">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </a>
+    </div>
+  </header>
+
+  <main class="flex-1 px-5 py-5 pb-10">
+    <% if (tecnico.specialties && tecnico.specialties.length) { %>
+    <section class="mb-6">
+      <p class="zilo-label mb-2">Especialidades</p>
+      <div class="flex flex-wrap gap-2">
+        <% tecnico.specialties.forEach(s => {
+          const svc = services.find(x => x.id === s);
+        %>
+          <span class="zilo-tag"><%= svc ? svc.name : s %></span>
+        <% }); %>
+      </div>
+    </section>
+    <% } %>
+
+    <section>
+      <p class="zilo-label mb-3">Trabajos asignados</p>
+      <div class="zilo-empty zilo-card-premium rounded-2xl">
+        <p class="zilo-display">Sin trabajos por ahora</p>
+        <p class="text-sm">Tu socio te asignará solicitudes. Aparecerán aquí para que las aceptes y vayas a terreno.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<%- include('../partials/footer') %>

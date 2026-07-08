@@ -218,6 +218,7 @@ function rowToUser(row) {
     password: row.password,
     name: row.name,
     role: row.role,
+    parentId: row.parent_id || null,
     phone: row.phone,
     address: row.address,
     referralCode: row.referral_code,
@@ -233,7 +234,7 @@ function rowToUser(row) {
     active: row.active == null ? true : Boolean(row.active)
   };
 
-  if (row.role === 'provider') {
+  if (row.role === 'provider' || row.role === 'tecnico') {
     user.specialties = parseJson(row.specialties, []);
     user.rating = row.rating != null ? Number(row.rating) : null;
     user.reviewsCount = row.reviews_count;
@@ -255,6 +256,7 @@ function userToRow(user) {
     password: user.password,
     name: user.name,
     role: user.role,
+    parent_id: user.parentId || null,
     phone: user.phone || null,
     address: user.address || null,
     referral_code: user.referralCode || null,
@@ -506,17 +508,18 @@ async function saveUser(user) {
   const row = userToRow(user);
   await db.query(
     `INSERT INTO users (
-      id, email, password, name, role, phone, address, referral_code,
+      id, email, password, name, role, parent_id, phone, address, referral_code,
       zilo_points, credits_clp, referrals_count, services_count,
       used_welcome_promo, used_referral, member_since,
       onboarding_completed, onboarding_completed_at,
       specialties, rating, reviews_count, online, avatar, bio, reviews, verification, location_share, active
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       email = VALUES(email),
       password = VALUES(password),
       name = VALUES(name),
       role = VALUES(role),
+      parent_id = VALUES(parent_id),
       phone = VALUES(phone),
       address = VALUES(address),
       referral_code = VALUES(referral_code),
@@ -540,7 +543,7 @@ async function saveUser(user) {
       location_share = VALUES(location_share),
       active = VALUES(active)`,
     [
-      row.id, row.email, row.password, row.name, row.role, row.phone, row.address, row.referral_code,
+      row.id, row.email, row.password, row.name, row.role, row.parent_id, row.phone, row.address, row.referral_code,
       row.zilo_points, row.credits_clp, row.referrals_count, row.services_count,
       row.used_welcome_promo ? 1 : 0, row.used_referral ? 1 : 0, row.member_since,
       row.onboarding_completed ? 1 : 0, row.onboarding_completed_at,

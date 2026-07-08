@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(190) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
   name VARCHAR(120) NOT NULL,
-  role ENUM('client', 'provider', 'admin') NOT NULL,
+  role ENUM('client', 'provider', 'admin', 'tecnico') NOT NULL,
+  parent_id VARCHAR(64) DEFAULT NULL,
   phone VARCHAR(40),
   address TEXT,
   referral_code VARCHAR(32),
@@ -47,6 +48,8 @@ CREATE TABLE IF NOT EXISTS users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 ALTER TABLE users ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1;
+ALTER TABLE users ADD COLUMN parent_id VARCHAR(64) DEFAULT NULL;
+ALTER TABLE users MODIFY COLUMN role ENUM('client', 'provider', 'admin', 'tecnico') NOT NULL;
 
 CREATE TABLE IF NOT EXISTS service_requests (
   id VARCHAR(64) PRIMARY KEY,

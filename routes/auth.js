@@ -114,6 +114,7 @@ function getDashboardPath(role) {
   const paths = {
     client: '/cliente',
     provider: '/proveedor',
+    tecnico: '/tecnico',
     admin: '/admin'
   };
   return paths[role] || '/';
