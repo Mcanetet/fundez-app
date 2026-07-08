@@ -181,7 +181,7 @@ router.get('/precios', requireRole('admin'), (req, res) => {
     title: 'Configuración de precios — Fundez Admin',
     user: req.session.user,
     pricing,
-    gatewayStatus: gateways.getGatewayStatus(),
+    gatewayStatus: gateways.getGatewayStatus(pricing),
     query: req.query,
     formatCLP: store.formatCLP
   });
@@ -209,6 +209,18 @@ router.post('/precios', requireRole('admin'), (req, res) => {
     });
   }
 
+  const gwIds = Array.isArray(body.gwId) ? body.gwId : (body.gwId ? [body.gwId] : []);
+  const gwEnabledRaw = body.gwEnabled;
+  const gwEnabledSet = new Set(Array.isArray(gwEnabledRaw) ? gwEnabledRaw : (gwEnabledRaw ? [gwEnabledRaw] : []));
+  const gwOrders = Array.isArray(body.gwOrder) ? body.gwOrder : (body.gwOrder ? [body.gwOrder] : []);
+  const paymentGateways = {};
+  for (let i = 0; i < gwIds.length; i++) {
+    paymentGateways[gwIds[i]] = {
+      enabled: gwEnabledSet.has(gwIds[i]),
+      sortOrder: parseInt(gwOrders[i], 10) || i + 1
+    };
+  }
+
   const updated = store.updatePricingConfig({
     visitPrice: parseInt(body.visitPrice, 10),
     servicePrice: parseInt(body.servicePrice, 10),
@@ -226,6 +238,7 @@ router.post('/precios', requireRole('admin'), (req, res) => {
       holderRut: body.bankHolderRut || '',
       email: body.bankEmail || ''
     },
+    paymentGateways: Object.keys(paymentGateways).length ? paymentGateways : undefined,
     urgencyTiers: tiers.length ? tiers : undefined
   });
 

@@ -444,13 +444,14 @@ function setPaymentPreference(requestId, preferenceId) {
   return request;
 }
 
-function setCardPaymentSession(requestId, { gateway, token, paymentUrl, preferenceId, buyOrder }) {
+function setCardPaymentSession(requestId, { gateway, token, paymentUrl, preferenceId, buyOrder, paypalOrderId }) {
   const request = requests.find(r => r.id === requestId);
   if (!request) return null;
   request.paymentGateway = gateway || null;
   request.transbankToken = token || null;
   request.paymentUrl = paymentUrl || null;
   request.transbankBuyOrder = buyOrder || null;
+  request.paypalOrderId = paypalOrderId || null;
   if (preferenceId) request.preferenceId = preferenceId;
   repository.persist(() => repository.saveRequest(request), `pago ${requestId}`);
   return request;
@@ -539,7 +540,8 @@ function updatePricingConfig(updates) {
   const merged = normalizePricing({
     ...current,
     ...updates,
-    urgencyTiers: updates.urgencyTiers || current.urgencyTiers
+    urgencyTiers: updates.urgencyTiers || current.urgencyTiers,
+    paymentGateways: updates.paymentGateways || current.paymentGateways
   });
   PRICING_CONFIG = merged;
   repository.persist(() => repository.savePricingConfig(merged), 'pricing');

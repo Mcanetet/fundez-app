@@ -56,15 +56,28 @@
     <!-- Método de pago -->
     <section class="zilo-card-premium rounded-2xl p-5 space-y-3">
       <h2 class="zilo-label">Método de pago</h2>
-      <% if (summary.cardEnabled) { %>
+      <% if (summary.cardEnabled && typeof enabledCardGateways !== 'undefined' && enabledCardGateways.length) { %>
       <label class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer payment-option <%= (summary.paymentMethod || 'card') === 'card' ? 'border-zilo-accent bg-zilo-accent/5' : 'border-zilo-border' %>" data-method="card">
         <input type="radio" name="paymentMethod" value="card" <%= (summary.paymentMethod || 'card') === 'card' ? 'checked' : '' %> class="mt-0.5 accent-[#2563EB]">
         <div class="flex-1">
           <strong class="text-sm block">Tarjeta débito / crédito</strong>
           <span class="text-xs text-orange-600">+<%= summary.cardSurchargePercent %>% recargo</span>
-          <% if (cardGateway) { %><p class="text-[10px] text-zilo-muted mt-0.5">Procesado por <%= cardGateway.label %></p><% } %>
+          <% if (enabledCardGateways.length === 1) { %>
+            <p class="text-[10px] text-zilo-muted mt-0.5">Procesado por <%= enabledCardGateways[0].label %></p>
+          <% } %>
         </div>
       </label>
+      <% if (enabledCardGateways.length > 1) { %>
+      <div id="cardGatewayPicker" class="ml-4 pl-3 border-l-2 border-zilo-border space-y-2 <%= (summary.paymentMethod || 'card') === 'card' ? '' : 'hidden' %>">
+        <p class="text-[10px] text-zilo-muted">Pasarela de pago</p>
+        <% enabledCardGateways.forEach((gw, i) => { %>
+          <label class="flex items-center gap-2 text-xs cursor-pointer">
+            <input type="radio" name="cardGateway" value="<%= gw.id %>" <%= i === 0 ? 'checked' : '' %> class="accent-[#2563EB]">
+            <%= gw.label %>
+          </label>
+        <% }); %>
+      </div>
+      <% } %>
       <% } %>
       <% if (summary.transferEnabled) { %>
       <label class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer payment-option <%= summary.paymentMethod === 'transfer' ? 'border-zilo-accent bg-zilo-accent/5' : 'border-zilo-border' %>" data-method="transfer">
@@ -198,6 +211,10 @@
     return document.querySelector('input[name="paymentMethod"]:checked')?.value || 'card';
   }
 
+  function selectedCardGateway() {
+    return document.querySelector('input[name="cardGateway"]:checked')?.value || null;
+  }
+
   function getBillingPayload() {
     const type = document.querySelector('input[name="billingType"]:checked')?.value || 'natural';
     return {
@@ -231,6 +248,8 @@
         el.classList.toggle('bg-zilo-accent/5', active);
         el.classList.toggle('border-zilo-border', !active);
       });
+      const picker = document.getElementById('cardGatewayPicker');
+      if (picker) picker.classList.toggle('hidden', selectedPaymentMethod() !== 'card');
       recalc();
       updatePayLabel();
     });
@@ -259,7 +278,8 @@
         useCredits: useCredits?.checked,
         usePoints: usePoints?.checked,
         promoCode: code,
-        paymentMethod: selectedPaymentMethod()
+        paymentMethod: selectedPaymentMethod(),
+        cardGateway: selectedCardGateway()
       })
     });
     const data = await res.json();
@@ -316,6 +336,7 @@
         usePoints: usePoints?.checked,
         promoCode: code,
         paymentMethod: selectedPaymentMethod(),
+        cardGateway: selectedCardGateway(),
         billing: getBillingPayload()
       })
     });

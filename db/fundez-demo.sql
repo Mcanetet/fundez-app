@@ -219,6 +219,11 @@ INSERT INTO pricing_config (id, config) VALUES ('default', JSON_OBJECT(
     'holderRut', '77.777.777-7',
     'email', 'pagos@fundez.cl'
   ),
+  'paymentGateways', JSON_OBJECT(
+    'transbank', JSON_OBJECT('enabled', true, 'sortOrder', 1),
+    'mercadopago', JSON_OBJECT('enabled', true, 'sortOrder', 2),
+    'paypal', JSON_OBJECT('enabled', false, 'sortOrder', 3)
+  ),
   'urgencyTiers', JSON_ARRAY(
     JSON_OBJECT('id','immediate','label','Inmediato (1-3 h)','description','Un técnico puede llegar entre 1 y 3 horas','adjustmentPercent',50,'enabled',true,'sortOrder',1),
     JSON_OBJECT('id','today','label','Hoy (4-8 h)','description','Servicio programado para hoy, entre 4 y 8 horas','adjustmentPercent',25,'enabled',true,'sortOrder',2),

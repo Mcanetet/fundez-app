@@ -38,6 +38,8 @@ router.get('/checkout', requireRole('client'), (req, res) => {
     return res.redirect(`/pagos/transferencia?ref=${request.id}`);
   }
 
+  const pricing = store.getPricingConfig();
+
   if (!request.paymentMethod) {
     store.applyCheckoutDiscounts(req.session.user.id, request.id, { paymentMethod: 'card' });
   }
@@ -45,7 +47,8 @@ router.get('/checkout', requireRole('client'), (req, res) => {
   const summary = store.getCheckoutSummary(req.session.user.id, request.id);
   const referral = store.getReferralStats(req.session.user.id);
   const profile = store.getUserById(req.session.user.id);
-  const pricing = store.getPricingConfig();
+  const gatewayStatus = gateways.getGatewayStatus(pricing);
+  const enabledCardGateways = gateways.getEnabledCardGateways(pricing);
 
   res.render('payments/checkout', {
     title: 'Checkout — Fundez',
@@ -56,9 +59,10 @@ router.get('/checkout', requireRole('client'), (req, res) => {
     service: store.getServiceById(request.serviceId),
     formatCLP: store.formatCLP,
     pointsValue: store.POINTS_VALUE_CLP,
-    mpConfigured: cardCheckout.isAnyCardGatewayConfigured(),
-    cardGateway: gateways.getActiveCardGateway(),
-    gatewayStatus: gateways.getGatewayStatus(),
+    mpConfigured: cardCheckout.isAnyCardGatewayConfigured(pricing),
+    cardGateway: gateways.getActiveCardGateway(pricing),
+    enabledCardGateways,
+    gatewayStatus,
     company,
     pricing
   });
@@ -111,6 +115,7 @@ router.post('/crear', requireRole('client'), async (req, res) => {
 
   const updated = store.requests.find(r => r.id === requestId);
   const baseUrl = getBaseUrl(req);
+  const pricing = store.getPricingConfig();
 
   if (updated.amountDue === 0) {
     store.markPaymentApproved(requestId, 'credits');
@@ -133,7 +138,13 @@ router.post('/crear', requireRole('client'), async (req, res) => {
 
   const service = store.getServiceById(request.serviceId);
   try {
-    const payment = await cardCheckout.createCardPayment({ request: updated, service, baseUrl });
+    const payment = await cardCheckout.createCardPayment({
+      request: updated,
+      service,
+      baseUrl,
+      pricingConfig: pricing,
+      gatewayId: req.body.cardGateway || null
+    });
 
     if (payment.mode === 'demo') {
       return res.json({
@@ -170,10 +181,56 @@ router.post('/crear', requireRole('client'), async (req, res) => {
       });
     }
 
+    if (payment.mode === 'paypal') {
+      store.setCardPaymentSession(request.id, {
+        gateway: 'paypal',
+        paypalOrderId: payment.orderId
+      });
+      return res.json({
+        success: true,
+        paypal: true,
+        checkoutUrl: payment.checkoutUrl
+      });
+    }
+
     return res.status(500).json({ error: 'No hay pasarela de pago disponible' });
   } catch (err) {
     console.error('Error creando pago con tarjeta:', err.message);
     res.status(500).json({ error: 'No se pudo crear el pago. Intenta nuevamente.' });
+  }
+});
+
+router.get('/paypal/retorno', requireRole('client'), async (req, res) => {
+  const ref = req.query.ref;
+  const orderId = req.query.token;
+  const request = store.requests.find(r => r.id === ref && r.clientId === req.session.user.id);
+  if (!request) return res.redirect('/cliente');
+
+  if (!orderId) {
+    return res.redirect(`/pagos/error?ref=${ref}&motivo=cancelado`);
+  }
+
+  try {
+    const paypal = require('../lib/paypal');
+    const result = await paypal.captureOrder(orderId);
+    const expectedAmount = Math.round(Number(request.amountDue ?? request.estimatedVisit ?? 0));
+    const paidAmount = paypal.getCaptureAmount(result);
+
+    if (
+      paypal.isCaptureApproved(result) &&
+      (paidAmount == null || paidAmount === expectedAmount)
+    ) {
+      const paymentId = paypal.getCaptureId(result) || orderId;
+      store.markPaymentApproved(request.id, String(paymentId));
+      store.activateRequest(request.id);
+      notifyProviders(req, request);
+      return res.redirect(`/pagos/exito?ref=${ref}`);
+    }
+
+    return res.redirect(`/pagos/error?ref=${ref}`);
+  } catch (err) {
+    console.error('PayPal capture error:', err.message);
+    return res.redirect(`/pagos/error?ref=${ref}`);
   }
 });
 

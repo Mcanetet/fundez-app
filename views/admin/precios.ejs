@@ -90,18 +90,35 @@
       </section>
 
       <section class="zilo-card-premium rounded-2xl p-5 border border-gray-200">
-        <h2 class="text-sm font-semibold mb-3">Pasarelas (solo servidor)</h2>
-        <p class="text-xs text-gray-500 mb-3">Las API keys se configuran en variables de entorno de Hostinger. Nunca se exponen al cliente.</p>
-        <div class="space-y-2 text-sm">
+        <h2 class="text-sm font-semibold mb-3">Pasarelas de pago</h2>
+        <p class="text-xs text-gray-500 mb-4">Activa o desactiva cada pasarela. Las credenciales API van en variables de entorno del servidor (nunca en el cliente).</p>
+        <div class="space-y-3">
           <% const gw = typeof gatewayStatus !== 'undefined' ? gatewayStatus : {}; %>
-          <% ['transbank','mercadopago','paypal'].forEach(id => { const g = gw[id]; if (!g) return; %>
-            <div class="flex justify-between items-center p-3 rounded-lg bg-gray-50">
-              <span><%= g.label %></span>
-              <span class="text-xs font-medium <%= g.configured ? 'text-emerald-600' : 'text-gray-400' %>"><%= g.configured ? '✓ Configurada' : '○ Sin credenciales' %></span>
+          <% ['transbank','mercadopago','paypal'].forEach(id => { const g = gw[id]; if (!g) return; const cfg = pricing.paymentGateways[id] || {}; %>
+            <div class="p-4 rounded-xl bg-gray-50 border border-gray-200">
+              <input type="hidden" name="gwId" value="<%= id %>">
+              <div class="flex items-start justify-between gap-3 mb-2">
+                <label class="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                  <input type="checkbox" name="gwEnabled" value="<%= id %>" <%= cfg.enabled !== false ? 'checked' : '' %> class="rounded accent-[#2563EB]">
+                  <%= g.label %>
+                </label>
+                <span class="text-[10px] px-2 py-0.5 rounded-full <%= g.configured ? 'bg-emerald-500/10 text-emerald-700' : 'bg-gray-200 text-gray-500' %>">
+                  <%= g.configured ? 'Credenciales OK' : 'Sin credenciales' %>
+                </span>
+              </div>
+              <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-500 shrink-0">Prioridad</label>
+                <input type="number" name="gwOrder" value="<%= cfg.sortOrder || 1 %>" min="1" max="9" class="zilo-input w-20 !py-1.5 text-sm">
+                <span class="text-[10px] text-gray-400">Menor número = se usa primero</span>
+              </div>
             </div>
           <% }); %>
         </div>
-        <p class="text-[10px] text-gray-400 mt-3">Transbank: <code>TRANSBANK_COMMERCE_CODE</code>, <code>TRANSBANK_API_KEY</code>, <code>TRANSBANK_ENV=production</code>. Integración: <code>TRANSBANK_ENV=integration</code>.</p>
+        <p class="text-[10px] text-gray-400 mt-3">
+          Transbank: <code>TRANSBANK_COMMERCE_CODE</code>, <code>TRANSBANK_API_KEY</code>, <code>TRANSBANK_ENV</code> ·
+          Mercado Pago: <code>MP_ACCESS_TOKEN</code> ·
+          PayPal: <code>PAYPAL_CLIENT_ID</code>, <code>PAYPAL_CLIENT_SECRET</code>, <code>PAYPAL_ENV</code>
+        </p>
       </section>
 
       <section class="zilo-card-premium rounded-2xl p-5 border border-gray-200">
