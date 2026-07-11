@@ -8,6 +8,7 @@ const path = require('path');
 
 const store = require('./models/store');
 const company = require('./config/company');
+const { getAppVersionInfo } = require('./lib/version');
 const { dispatchPendingToProvider, dispatchPendingToTechnician } = require('./lib/dispatch');
 const { securityHeaders, rateLimitSimple } = require('./middleware/security');
 const backup = require('./lib/backup');
@@ -48,9 +49,12 @@ app.get('/health', async (req, res) => {
       dbOk = false;
     }
   }
+  const version = getAppVersionInfo();
   res.status(200).json({
     ok: store.isReady() && dbOk,
     app: 'fundez',
+    version: version.version,
+    gitCommit: version.gitCommit,
     ready: store.isReady(),
     database: dbOk ? 'connected' : (dbConfigured ? 'connecting' : 'not_configured'),
     dbHost: process.env.DB_HOST || null,
@@ -158,6 +162,17 @@ io.on('connection', (socket) => {
     if (socket.tecnicoId) {
       store.technicianSockets.delete(socket.tecnicoId);
     }
+  });
+});
+
+app.use((err, req, res, next) => {
+  console.error('[ERROR]', req.method, req.path, err.message);
+  if (err.stack) console.error(err.stack);
+  if (res.headersSent) return next(err);
+  res.status(500).render('error', {
+    title: 'Error interno',
+    message: 'Ocurrió un error inesperado. Intenta de nuevo en unos segundos.',
+    code: 500
   });
 });
 

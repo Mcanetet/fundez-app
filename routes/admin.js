@@ -7,12 +7,25 @@ const company = require('../config/company');
 const backup = require('../lib/backup');
 const { getAppVersionInfo } = require('../lib/version');
 const { requireRole } = require('../middleware/auth');
+const {
+  attachAdminAccess,
+  requireAdminPermission,
+  refreshSessionAdminAccess,
+  canAccessPanel,
+  getFirstAccessiblePanel
+} = require('../middleware/adminAccess');
+const {
+  getNavForAccess,
+  getPermissionGroups,
+  getProfilesList
+} = require('../lib/adminPermissions');
 const { rateLimitLogin, adminIpAllowlist, getClientIp, parseAdminIpAllowlist } = require('../middleware/security');
 const { qrDataUrl } = require('../lib/mfa');
 const notifications = require('../lib/notifications');
 const events = require('../lib/events');
 
 router.use(adminIpAllowlist());
+router.use(attachAdminAccess);
 
 const ADMIN_SESSION_MS = 4 * 60 * 60 * 1000;
 const MFA_PENDING_MS = 5 * 60 * 1000;
@@ -24,6 +37,7 @@ function completeAdminSession(req, user) {
     name: user.name,
     role: user.role
   };
+  refreshSessionAdminAccess(req, user);
   req.session.isAdminSession = true;
   req.session.adminMfaVerified = true;
   delete req.session.pendingAdminMfa;
@@ -191,12 +205,18 @@ router.post('/mfa/disable', requireRole('admin'), async (req, res) => {
 });
 
 router.get('/', requireRole('admin'), (req, res) => {
+  try {
   const allRequests = store.getAllRequests();
   const providers = store.USERS.filter(u => u.role === 'provider');
   const clients = store.USERS.filter(u => u.role === 'client');
   const onlineCount = providers.filter(p => p.online).length;
   const adminStats = store.getAdminStats();
   const pricing = store.getPricingConfig();
+  const access = req.adminAccess || store.resolveAdminAccess(store.getUserById(req.session.user.id));
+  const requestedTab = req.query.tab || null;
+  const initialTab = requestedTab && canAccessPanel(access, requestedTab)
+    ? requestedTab
+    : getFirstAccessiblePanel(access);
 
   const stats = {
     totalRequests: allRequests.length,
@@ -239,18 +259,93 @@ router.get('/', requireRole('admin'), (req, res) => {
     mfaStatus: store.getAdminMfaStatus(req.session.user.id),
     mfaMessage: req.query.mfa || null,
     mfaError: req.query.mfa_error || null,
-    initialTab: req.query.tab || null,
     financialReport: store.getFinancialReport(),
     clientIp: getClientIp(req),
     adminIpAllowlist: parseAdminIpAllowlist(),
     dteDocuments: store.getAllDteDocuments().slice(0, 40),
     dteStatus: events.getDteStatus(),
     notificationStats: notifications.getStats(),
-    recentNotifications: notifications.getRecent(30)
+    recentNotifications: notifications.getRecent(30),
+    adminNav: getNavForAccess(access),
+    adminAccess: access,
+    adminTeam: store.getAdminTeamUsers(),
+    adminProfiles: getProfilesList(),
+    adminPermissionGroups: getPermissionGroups(),
+    canAccessPanel: (panelId) => canAccessPanel(access, panelId),
+    initialTab
   });
+  } catch (err) {
+    console.error('[admin/dashboard]', err.message);
+    if (err.stack) console.error(err.stack);
+    return res.status(500).render('error', {
+      title: 'Error en el panel',
+      message: 'No se pudo cargar el panel de administración. Si acabas de actualizar, redeploya la app completa en Hostinger.',
+      code: 500
+    });
+  }
 });
 
-router.get('/finanzas/export.csv', requireRole('admin'), (req, res) => {
+router.get('/team/meta', requireRole('admin'), requireAdminPermission('equipo.view'), (req, res) => {
+  res.json({ success: true, ...store.getAdminPermissionMeta(), team: store.getAdminTeamUsers() });
+});
+
+router.post('/team', requireRole('admin'), requireAdminPermission('equipo.manage'), async (req, res) => {
+  const { name, email, password, profileId, permissions, isSuperAdmin } = req.body;
+  const result = await store.createAdminUser({
+    name,
+    email,
+    password,
+    profileId,
+    permissions: Array.isArray(permissions) ? permissions : undefined,
+    isSuperAdmin: isSuperAdmin === true || isSuperAdmin === 'true'
+  }, req.session.user.id);
+
+  if (result.error) return res.status(400).json({ error: result.error });
+  store.logSecurityEvent('admin_team_create', email, req);
+  res.json({ success: true, user: result.user });
+});
+
+router.put('/team/:id', requireRole('admin'), requireAdminPermission('equipo.manage'), async (req, res) => {
+  const { name, profileId, permissions, isSuperAdmin, password } = req.body;
+  if (req.params.id === req.session.user.id && isSuperAdmin === false) {
+    return res.status(400).json({ error: 'No puedes quitarte el rol de superadministrador a ti mismo.' });
+  }
+
+  const result = await store.updateAdminUserAccess(req.params.id, {
+    name,
+    profileId,
+    permissions: Array.isArray(permissions) ? permissions : undefined,
+    isSuperAdmin: isSuperAdmin === true || isSuperAdmin === 'true',
+    password: password || undefined
+  }, req.session.user.id);
+
+  if (result.error) return res.status(400).json({ error: result.error });
+  store.logSecurityEvent('admin_team_update', req.params.id, req);
+
+  if (req.params.id === req.session.user.id) {
+    const user = store.getUserById(req.session.user.id);
+    refreshSessionAdminAccess(req, user);
+  }
+
+  res.json({ success: true, user: result.user });
+});
+
+router.post('/team/:id/toggle', requireRole('admin'), requireAdminPermission('equipo.manage'), (req, res) => {
+  const { active } = req.body;
+  const enable = active === true || active === 'true';
+
+  if (req.params.id === req.session.user.id && !enable) {
+    return res.status(400).json({ error: 'No puedes desactivar tu propia cuenta.' });
+  }
+
+  const user = store.setUserActive(req.params.id, enable);
+  if (!user || user.role !== 'admin') return res.status(404).json({ error: 'Administrador no encontrado' });
+
+  store.logSecurityEvent('admin_team_toggle', `${req.params.id}=${enable}`, req);
+  res.json({ success: true, user: store.getAdminTeamUsers().find((u) => u.id === user.id) });
+});
+
+router.get('/finanzas/export.csv', requireRole('admin'), requireAdminPermission('finanzas.export'), (req, res) => {
   const report = store.getFinancialReport();
   const payments = store.getPayments();
   const lines = [
@@ -294,7 +389,7 @@ function csvEscape(value) {
   return str;
 }
 
-router.post('/dte/retry', requireRole('admin'), async (req, res) => {
+router.post('/dte/retry', requireRole('admin'), requireAdminPermission('documentos.manage'), async (req, res) => {
   const { requestId, phase } = req.body;
   if (!requestId || !phase) {
     return res.status(400).json({ error: 'Faltan requestId y phase' });
@@ -305,7 +400,7 @@ router.post('/dte/retry', requireRole('admin'), async (req, res) => {
   res.json({ success: true, document: result.document });
 });
 
-router.post('/toggle-service', requireRole('admin'), (req, res) => {
+router.post('/toggle-service', requireRole('admin'), requireAdminPermission('servicios.manage'), (req, res) => {
   const { serviceId, enabled } = req.body;
   const service = store.toggleService(serviceId, enabled === true || enabled === 'true');
   if (!service) return res.status(404).json({ error: 'Servicio no encontrado' });
@@ -315,7 +410,7 @@ router.post('/toggle-service', requireRole('admin'), (req, res) => {
   res.json({ success: true, service });
 });
 
-router.post('/toggle-module', requireRole('admin'), (req, res) => {
+router.post('/toggle-module', requireRole('admin'), requireAdminPermission('modulos.manage'), (req, res) => {
   const { moduleId, enabled } = req.body;
   const mod = store.toggleModule(moduleId, enabled === true || enabled === 'true');
   if (!mod) return res.status(404).json({ error: 'Módulo no encontrado' });
@@ -325,7 +420,7 @@ router.post('/toggle-module', requireRole('admin'), (req, res) => {
   res.json({ success: true, module: mod });
 });
 
-router.post('/toggle-user', requireRole('admin'), (req, res) => {
+router.post('/toggle-user', requireRole('admin'), requireAdminPermission('demo.manage'), (req, res) => {
   const { userId, active } = req.body;
   const enable = active === true || active === 'true';
 
@@ -340,14 +435,14 @@ router.post('/toggle-user', requireRole('admin'), (req, res) => {
   res.json({ success: true, id: user.id, active: user.active !== false });
 });
 
-router.post('/complaint/:id/status', requireRole('admin'), (req, res) => {
+router.post('/complaint/:id/status', requireRole('admin'), requireAdminPermission('reclamos.manage'), (req, res) => {
   const complaint = store.updateComplaintStatus(req.params.id, req.body.status);
   if (!complaint) return res.status(404).json({ error: 'Reclamo no encontrado' });
   store.logSecurityEvent('complaint_update', `${req.params.id}=${req.body.status}`, req);
   res.json({ success: true, complaint });
 });
 
-router.post('/payout/:requestId', requireRole('admin'), (req, res) => {
+router.post('/payout/:requestId', requireRole('admin'), requireAdminPermission('pagos.manage'), (req, res) => {
   const req_ = store.markPayoutPaid(req.params.requestId);
   if (!req_) return res.status(404).json({ error: 'Solicitud no encontrada' });
   store.logSecurityEvent('payout_marked', req.params.requestId, req);
@@ -363,7 +458,7 @@ router.get('/backups/config', requireRole('admin'), (req, res) => {
   });
 });
 
-router.post('/backups/config', requireRole('admin'), (req, res) => {
+router.post('/backups/config', requireRole('admin'), requireAdminPermission('backups.manage'), (req, res) => {
   const allowed = [
     'enabled', 'autoBackup', 'scheduleHour', 'scheduleMinute',
     'dailyRetentionDays', 'weeklyRetentionWeeks', 'monthlyRetentionMonths',
@@ -384,7 +479,7 @@ router.post('/backups/config', requireRole('admin'), (req, res) => {
   res.json({ success: true, config, retention: backup.getRetentionSummary(config) });
 });
 
-router.post('/backups/run', requireRole('admin'), (req, res) => {
+router.post('/backups/run', requireRole('admin'), requireAdminPermission('backups.manage'), (req, res) => {
   try {
     const result = backup.createBackup(store, 'manual', req.session.user.email);
     const removed = backup.applyRetention();
@@ -401,7 +496,7 @@ router.post('/backups/run', requireRole('admin'), (req, res) => {
   }
 });
 
-router.post('/backups/retention', requireRole('admin'), (req, res) => {
+router.post('/backups/retention', requireRole('admin'), requireAdminPermission('backups.manage'), (req, res) => {
   const removed = backup.applyRetention();
   store.logSecurityEvent('backup_retention_purge', `removed=${removed}`, req);
   res.json({ success: true, removed, backups: backup.listBackups() });
@@ -418,7 +513,7 @@ router.get('/backups/:id/download', requireRole('admin'), (req, res) => {
   res.download(snapshotPath, `fundez-backup-v${ver}-${item.createdAt.slice(0, 10)}.json`);
 });
 
-router.post('/backups/:id/restore', requireRole('admin'), async (req, res) => {
+router.post('/backups/:id/restore', requireRole('admin'), requireAdminPermission('backups.restore'), async (req, res) => {
   const confirm = String(req.body.confirm || '').trim().toUpperCase();
   if (confirm !== 'RESTAURAR') {
     return res.status(400).json({ error: 'Escribe RESTAURAR para confirmar la restauración' });
@@ -441,14 +536,14 @@ router.post('/backups/:id/restore', requireRole('admin'), async (req, res) => {
   }
 });
 
-router.delete('/backups/:id', requireRole('admin'), (req, res) => {
+router.delete('/backups/:id', requireRole('admin'), requireAdminPermission('backups.manage'), (req, res) => {
   const ok = backup.deleteBackup(req.params.id);
   if (!ok) return res.status(404).json({ error: 'Backup no encontrado' });
   store.logSecurityEvent('backup_delete', req.params.id, req);
   res.json({ success: true, backups: backup.listBackups() });
 });
 
-router.get('/precios', requireRole('admin'), (req, res) => {
+router.get('/precios', requireRole('admin'), requireAdminPermission('precios.view', 'precios.manage'), (req, res) => {
   const pricing = store.getPricingConfig();
   const gateways = require('../lib/payments/gateways');
   res.render('admin/precios', {
@@ -461,7 +556,7 @@ router.get('/precios', requireRole('admin'), (req, res) => {
   });
 });
 
-router.post('/precios', requireRole('admin'), (req, res) => {
+router.post('/precios', requireRole('admin'), requireAdminPermission('precios.manage'), (req, res) => {
   const body = req.body;
   const tiers = [];
   const tierIds = Array.isArray(body.tierId) ? body.tierId : (body.tierId ? [body.tierId] : []);
@@ -524,7 +619,7 @@ router.post('/precios', requireRole('admin'), (req, res) => {
   res.redirect('/admin/precios?ok=1');
 });
 
-router.post('/transfer/:requestId/aprobar', requireRole('admin'), (req, res) => {
+router.post('/transfer/:requestId/aprobar', requireRole('admin'), requireAdminPermission('pagos.manage'), (req, res) => {
   const request = store.approveTransferPayment(req.params.requestId);
   if (!request) return res.status(404).json({ error: 'Transferencia no encontrada o ya procesada' });
   store.logSecurityEvent('transfer_approved', req.params.requestId, req);
