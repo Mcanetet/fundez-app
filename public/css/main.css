@@ -753,3 +753,303 @@
   color: var(--zilo-muted);
 }
 .zilo-empty .zilo-display { font-size: 1.5rem; color: var(--zilo-text); margin-bottom: 0.5rem; }
+
+/* ── Error page disruptiva ── */
+.fundez-error-body { overflow-x: hidden; }
+.fundez-error-page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.fundez-error-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(165deg, #F6F7F9 0%, #EAF0FF 45%, #F6F7F9 100%);
+}
+.fundez-error-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  animation: errorOrbFloat 8s ease-in-out infinite;
+}
+.fundez-error-orb--1 {
+  width: 320px; height: 320px;
+  top: -8%; right: -12%;
+  background: rgba(37, 99, 235, 0.18);
+}
+.fundez-error-orb--2 {
+  width: 280px; height: 280px;
+  bottom: 5%; left: -15%;
+  background: rgba(5, 150, 105, 0.1);
+  animation-delay: -3s;
+}
+.fundez-error-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(37, 99, 235, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 99, 235, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black, transparent);
+}
+@keyframes errorOrbFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(12px, -18px) scale(1.06); }
+}
+
+.fundez-error-header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.25rem 0;
+  max-width: 32rem;
+  margin: 0 auto;
+  width: 100%;
+}
+.fundez-error-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: var(--zilo-text);
+  text-decoration: none;
+}
+
+.fundez-error-main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1.5rem 1.25rem 2.5rem;
+  max-width: 28rem;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.fundez-error-code-wrap {
+  position: relative;
+  margin-bottom: 1rem;
+}
+.fundez-error-code {
+  display: block;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  font-size: clamp(5.5rem, 22vw, 7.5rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  color: var(--zilo-accent);
+  text-shadow: 0 8px 32px rgba(37, 99, 235, 0.22);
+  position: relative;
+}
+.fundez-error-glitch {
+  animation: errorGlitch 4s steps(1) infinite;
+}
+.fundez-error-glitch::before,
+.fundez-error-glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+.fundez-error-glitch::before {
+  color: #059669;
+  animation: errorGlitchA 4s steps(1) infinite;
+}
+.fundez-error-glitch::after {
+  color: #DC2626;
+  animation: errorGlitchB 4s steps(1) infinite;
+}
+@keyframes errorGlitch {
+  0%, 92%, 100% { transform: none; }
+  93% { transform: skewX(-2deg) translateX(2px); }
+  95% { transform: skewX(2deg) translateX(-2px); }
+}
+@keyframes errorGlitchA {
+  0%, 90%, 100% { opacity: 0; transform: none; }
+  91% { opacity: 0.7; transform: translate(-3px, 1px); clip-path: inset(20% 0 55% 0); }
+  93% { opacity: 0; }
+}
+@keyframes errorGlitchB {
+  0%, 94%, 100% { opacity: 0; transform: none; }
+  95% { opacity: 0.6; transform: translate(3px, -1px); clip-path: inset(45% 0 25% 0); }
+  97% { opacity: 0; }
+}
+
+.fundez-error-badge {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--zilo-accent);
+  background: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+}
+
+.fundez-error-headline {
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  font-size: clamp(1.75rem, 6vw, 2.25rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 0.75rem;
+  color: var(--zilo-text);
+}
+
+.fundez-error-slogan-stage {
+  min-height: 3.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+  padding: 0 0.5rem;
+}
+.fundez-error-slogan {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--zilo-muted);
+  max-width: 22rem;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.fundez-error-slogan.is-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+.fundez-error-slogan.is-exiting {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+.fundez-error-punchline {
+  font-size: clamp(1.05rem, 3.5vw, 1.2rem);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--zilo-text);
+  margin-bottom: 0.5rem;
+}
+.fundez-error-punchline strong {
+  color: var(--zilo-accent);
+  font-weight: 800;
+}
+.fundez-error-punchline--compact { margin-top: 0.75rem; margin-bottom: 1.25rem; }
+
+.fundez-error-hook {
+  font-size: 0.8125rem;
+  color: var(--zilo-muted);
+  margin-bottom: 1.25rem;
+}
+
+.fundez-error-tips {
+  width: 100%;
+  min-height: 3.5rem;
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+.fundez-error-tip {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  padding: 0.875rem 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--zilo-border);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.06);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--zilo-text);
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+.fundez-error-tip.is-active {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+.fundez-error-tip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--zilo-accent);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+  flex-shrink: 0;
+  animation: errorDotPulse 2s ease-in-out infinite;
+}
+@keyframes errorDotPulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15); }
+  50% { box-shadow: 0 0 0 7px rgba(37, 99, 235, 0.08); }
+}
+
+.fundez-error-title {
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+.fundez-error-message {
+  font-size: 0.9375rem;
+  color: var(--zilo-muted);
+  line-height: 1.55;
+  max-width: 22rem;
+  margin-bottom: 0.25rem;
+}
+
+.fundez-error-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  width: 100%;
+  max-width: 18rem;
+  margin-bottom: 1.25rem;
+}
+.fundez-error-btn { width: 100%; }
+.fundez-error-btn--wa {
+  border-color: rgba(5, 150, 105, 0.35) !important;
+  color: #059669 !important;
+}
+.fundez-error-link-cta {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--zilo-accent);
+  text-decoration: none;
+  margin-top: 0.25rem;
+}
+.fundez-error-link-cta:hover { text-decoration: underline; }
+
+.fundez-error-domain {
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--zilo-muted);
+}
+.fundez-error-domain-link {
+  font-weight: 800;
+  color: var(--zilo-accent);
+  text-decoration: none;
+}
+.fundez-error-domain-link:hover { text-decoration: underline; }
+
+.fundez-error-page .legal-footer {
+  position: relative;
+  z-index: 2;
+  background: transparent;
+}

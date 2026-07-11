@@ -30,8 +30,8 @@ function hasPerm(key) {
     <div class="admin-sidebar-brand">
       <%- include('../partials/logo', { className: 'w-9 h-9 shrink-0' }) %>
       <div class="min-w-0">
-        <span class="zilo-label !text-[9px]">Operaciones</span>
-        <h1 class="text-sm font-semibold truncate">Fundez Admin</h1>
+        <span class="zilo-label !text-[9px]"><%= t('admin.operations') %></span>
+        <h1 class="text-sm font-semibold truncate"><%= t('admin.title') %></h1>
         <% if (typeof appVersion !== 'undefined' && appVersion) { %>
           <p class="text-[10px] text-zilo-muted font-mono truncate"><%= appVersion.label %></p>
         <% } %>
@@ -48,25 +48,26 @@ function hasPerm(key) {
           <p class="text-[10px] text-zilo-muted truncate"><%= profileLabel %></p>
         </div>
       </div>
-      <a href="/logout" class="admin-sidebar-logout" title="Cerrar sesión">
+      <a href="/logout" class="admin-sidebar-logout" title="<%= t('common.logout') %>">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-        Salir
+        <%= t('admin.logout') %>
       </a>
     </div>
   </aside>
 
   <div class="admin-main">
     <header class="admin-topbar">
-      <button type="button" class="admin-menu-btn" id="adminMenuBtn" aria-label="Abrir menú">
+      <button type="button" class="admin-menu-btn" id="adminMenuBtn" aria-label="<%= t('admin.menu_open') %>">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
       <div class="admin-topbar-title">
-        <h2 class="text-base font-semibold" id="adminPanelTitle">Panel de administración</h2>
-        <p class="text-xs text-zilo-muted hidden sm:block">Gestión centralizada de Fundez</p>
+        <h2 class="text-base font-semibold" id="adminPanelTitle"><%= t('admin.panel_title') %></h2>
+        <p class="text-xs text-zilo-muted hidden sm:block"><%= t('admin.panel_subtitle') %></p>
       </div>
       <div class="admin-topbar-actions">
+        <%- include('../partials/lang-switcher') %>
         <% if (adminAccess.isSuperAdmin || (adminAccess.permissions || []).includes('precios.view') || (adminAccess.permissions || []).includes('precios.manage')) { %>
-          <a href="/admin/precios" class="zilo-icon-btn" title="Precios y urgencia">
+          <a href="/admin/precios" class="zilo-icon-btn" title="<%= t('admin.prices') %>">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
           </a>
         <% } %>
@@ -268,6 +269,109 @@ function hasPerm(key) {
         </div>
       <% } %>
     </section>
+
+    <% if (canAccessPanelFn('contratos')) { %>
+    <!-- CONTRATOS SOCIOS -->
+    <section class="<%= panelClass('contratos') %>" data-panel="contratos">
+      <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-5">
+        <div>
+          <h3 class="text-lg font-semibold">Contratos y cumplimiento legal</h3>
+          <p class="text-xs text-gray-500 mt-1">Expedientes de socios con contrato de prestación, cédula del representante legal y antecedentes societarios. Solo los aprobados operan en producción.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-5 text-center">
+        <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20"><strong class="block text-lg text-amber-700"><%= contractStats.pending_review || 0 %></strong><span class="text-[9px] text-gray-500 uppercase">En revisión</span></div>
+        <div class="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20"><strong class="block text-lg text-yellow-700"><%= contractStats.needs_info || 0 %></strong><span class="text-[9px] text-gray-500 uppercase">Antecedentes</span></div>
+        <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20"><strong class="block text-lg text-emerald-700"><%= contractStats.approved || 0 %></strong><span class="text-[9px] text-gray-500 uppercase">Aprobados</span></div>
+        <div class="p-3 rounded-xl bg-gray-100 border border-gray-200"><strong class="block text-lg text-gray-700"><%= contractStats.incomplete || 0 %></strong><span class="text-[9px] text-gray-500 uppercase">Incompletos</span></div>
+        <div class="p-3 rounded-xl bg-slate-100 border border-slate-200"><strong class="block text-lg text-slate-700"><%= contractStats.unsigned || 0 %></strong><span class="text-[9px] text-gray-500 uppercase">Sin iniciar</span></div>
+        <div class="p-3 rounded-xl bg-red-500/10 border border-red-500/20"><strong class="block text-lg text-red-700"><%= contractStats.rejected || 0 %></strong><span class="text-[9px] text-gray-500 uppercase">Rechazados</span></div>
+        <div class="p-3 rounded-xl bg-orange-500/10 border border-orange-500/20"><strong class="block text-lg text-orange-700"><%= contractStats.expired || 0 %></strong><span class="text-[9px] text-gray-500 uppercase">Vencidos</span></div>
+      </div>
+
+      <div class="space-y-3" id="contractsList">
+        <% providerContracts.forEach(function(item) {
+          const c = item.contract;
+          const rep = c.legalRepresentative || {};
+          const le = c.legalEntity || {};
+          const statusColors = {
+            pending_review: 'bg-amber-500/15 text-amber-700',
+            needs_info: 'bg-yellow-500/15 text-yellow-700',
+            approved: 'bg-emerald-500/15 text-emerald-700',
+            rejected: 'bg-red-500/15 text-red-700',
+            incomplete: 'bg-gray-100 text-gray-600',
+            unsigned: 'bg-slate-100 text-slate-600',
+            expired: 'bg-orange-500/15 text-orange-700'
+          };
+        %>
+          <article class="admin-card contract-review-card" data-provider-id="<%= item.id %>">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-xs font-bold text-white"><%= item.avatar %></div>
+                <div class="min-w-0">
+                  <h4 class="font-semibold text-sm truncate"><%= item.name %></h4>
+                  <p class="text-xs text-gray-500 truncate"><%= item.email %> · <%= le.legalName || 'Sin razón social' %></p>
+                  <div class="flex flex-wrap gap-1.5 mt-1">
+                    <span class="admin-badge admin-badge-blue"><%= item.summary.label %></span>
+                    <% if (c.entityType) { %><span class="admin-badge admin-badge-gray"><%= c.entityType === 'empresa' ? 'Empresa' : 'Persona natural' %></span><% } %>
+                    <% if (item.online) { %><span class="admin-badge admin-badge-green">Online</span><% } %>
+                  </div>
+                </div>
+              </div>
+              <% if (hasPerm('contratos.review') && ['pending_review','needs_info','approved'].includes(item.summary.status)) { %>
+                <div class="flex flex-wrap gap-2">
+                  <% if (item.summary.status !== 'approved') { %>
+                    <button type="button" class="btn-contract-approve admin-primary-btn !py-1.5 !px-3 !text-xs" data-id="<%= item.id %>">Aprobar</button>
+                  <% } %>
+                  <button type="button" class="btn-contract-needs-info admin-secondary-btn !py-1.5 !px-3 !text-xs" data-id="<%= item.id %>">Solicitar antecedentes</button>
+                  <button type="button" class="btn-contract-reject text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-700 border border-red-500/20" data-id="<%= item.id %>">Rechazar</button>
+                  <% if (item.summary.status === 'approved') { %>
+                    <button type="button" class="btn-contract-suspend text-xs px-3 py-1.5 rounded-lg bg-orange-500/10 text-orange-700 border border-orange-500/20" data-id="<%= item.id %>">Suspender</button>
+                  <% } %>
+                </div>
+              <% } %>
+            </div>
+
+            <details class="mt-3">
+              <summary class="text-xs text-blue-600 cursor-pointer select-none">Ver expediente legal y documentos</summary>
+              <div class="mt-3 grid md:grid-cols-2 gap-4 text-xs">
+                <div class="space-y-2">
+                  <p class="font-semibold text-gray-700">Representante legal</p>
+                  <p><strong>Nombre:</strong> <%= rep.fullName || '—' %></p>
+                  <p><strong>RUT:</strong> <%= rep.rut || '—' %></p>
+                  <p><strong>Entidad RUT:</strong> <%= le.rut || '—' %></p>
+                  <p><strong>Domicilio:</strong> <%= le.fiscalAddress || '—' %></p>
+                  <% if (c.signature?.signedAt) { %>
+                    <p><strong>Firma:</strong> <%= c.signature.signerName %> · <%= new Date(c.signature.signedAt).toLocaleString('es-CL') %></p>
+                  <% } %>
+                </div>
+                <div class="space-y-2">
+                  <p class="font-semibold text-gray-700">Documentos</p>
+                  <% Object.keys(c.documents || {}).forEach(function(docKey) {
+                    const doc = c.documents[docKey];
+                    const docDef = documentCatalog[docKey];
+                    if (!doc?.url) return;
+                  %>
+                    <a href="<%= doc.url %>" target="_blank" class="block text-blue-600 hover:underline"><%= docDef ? docDef.label : docKey %> ↗</a>
+                  <% }); %>
+                  <% (c.technicalCerts || []).forEach(function(cert, idx) { %>
+                    <a href="<%= cert.url %>" target="_blank" class="block text-blue-600 hover:underline">Certificación <%= idx + 1 %>: <%= cert.label %> ↗</a>
+                  <% }); %>
+                  <% if (!Object.keys(c.documents || {}).length && !(c.technicalCerts||[]).length) { %>
+                    <p class="text-gray-500">Sin documentos cargados aún.</p>
+                  <% } %>
+                </div>
+              </div>
+              <% if (c.review?.reviewNotes) { %>
+                <p class="text-xs text-gray-600 mt-3 p-2 rounded-lg bg-gray-50"><strong>Notas revisión:</strong> <%= c.review.reviewNotes %></p>
+              <% } %>
+            </details>
+          </article>
+        <% }); %>
+      </div>
+    </section>
+    <% } %>
 
     <!-- NOTIFICACIONES -->
     <section class="<%= panelClass('notificaciones') %>" data-panel="notificaciones">

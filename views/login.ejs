@@ -5,19 +5,23 @@
     <div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-80 h-80 bg-zilo-accent/6 rounded-full blur-3xl"></div>
   </div>
 
+  <div class="absolute top-5 right-5 z-20">
+    <%- include('partials/lang-switcher') %>
+  </div>
+
   <div class="relative z-10 w-full max-w-md zilo-card-premium rounded-3xl p-8">
     <a href="/" class="flex flex-col items-center mb-8">
       <%- include('partials/logo', { className: 'w-14 h-14 mb-3', logoId: 'login' }) %>
-      <span class="zilo-display text-2xl tracking-wide">Fundez</span>
+      <span class="zilo-display text-2xl tracking-wide"><%= t('app.name') %></span>
     </a>
 
-    <h1 class="zilo-display text-3xl text-center mb-1">Bienvenido</h1>
-    <p class="text-zilo-muted text-center text-sm mb-6">Accede a tu cuenta</p>
+    <h1 class="zilo-display text-3xl text-center mb-1"><%= t('auth.welcome') %></h1>
+    <p class="text-zilo-muted text-center text-sm mb-6"><%= t('auth.login_subtitle') %></p>
 
     <% if (typeof referralCode !== 'undefined' && referralCode) { %>
       <div class="mb-4 p-3 rounded-xl border border-zilo-accent/25 bg-zilo-accent/5 text-center">
-        <p class="text-sm text-zilo-accent-soft">Código: <strong class="font-mono"><%= referralCode %></strong></p>
-        <p class="text-xs text-zilo-muted mt-1">$5.000 de crédito al ingresar</p>
+        <p class="text-sm text-zilo-accent-soft"><%- t('auth.referral_code', { code: referralCode }) %></p>
+        <p class="text-xs text-zilo-muted mt-1"><%= t('auth.referral_credit') %></p>
       </div>
     <% } %>
 
@@ -27,29 +31,29 @@
 
     <form action="/login" method="POST" class="space-y-4">
       <div>
-        <label for="email" class="zilo-label block mb-1.5">Correo</label>
+        <label for="email" class="zilo-label block mb-1.5"><%= t('auth.email') %></label>
         <input type="email" id="email" name="email" required autocomplete="email" placeholder="tu@email.com" class="zilo-input">
       </div>
       <div>
-        <label for="password" class="zilo-label block mb-1.5">Contraseña</label>
+        <label for="password" class="zilo-label block mb-1.5"><%= t('auth.password') %></label>
         <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="••••••••" class="zilo-input">
       </div>
       <label class="flex items-start gap-2 text-xs text-zilo-muted cursor-pointer">
         <input type="checkbox" name="consent" required class="mt-0.5 rounded accent-[#2563EB]">
-        <span>Acepto la <a href="/legal/privacidad" target="_blank" class="text-zilo-accent underline">Privacidad</a> y <a href="/legal/terminos" target="_blank" class="text-zilo-accent underline">Términos</a></span>
+        <span><%- t('auth.consent') %></span>
       </label>
-      <button type="submit" class="zilo-btn-primary">Ingresar</button>
+      <button type="submit" class="zilo-btn-primary"><%= t('auth.login') %></button>
     </form>
 
     <p class="text-center text-sm text-zilo-muted mt-6">
-      ¿No tienes cuenta?
-      <a href="/registro" class="text-zilo-accent font-semibold hover:underline">Regístrate</a>
+      <%= t('auth.no_account') %>
+      <a href="/registro" class="text-zilo-accent font-semibold hover:underline"><%= t('auth.register_link') %></a>
     </p>
 
     <% var activeDemos = (typeof demoAccounts !== 'undefined' ? demoAccounts : []).filter(function(a){ return a.active; }); %>
     <% if (activeDemos.length) { %>
     <details class="mt-6 pt-6 border-t border-zilo-border">
-      <summary class="text-xs text-zilo-muted text-center cursor-pointer uppercase tracking-wider">Acceso demo</summary>
+      <summary class="text-xs text-zilo-muted text-center cursor-pointer uppercase tracking-wider"><%= t('auth.demo_access') %></summary>
       <div class="space-y-2 mt-4">
         <% activeDemos.forEach(function(acc){ %>
         <button type="button" class="demo-card w-full flex justify-between items-center p-3 rounded-xl zilo-card-premium hover:border-zilo-accent/30 transition text-left text-sm" data-email="<%= acc.email %>" data-password="<%= acc.password %>">

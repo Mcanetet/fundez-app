@@ -1,11 +1,91 @@
-<%- include('partials/head') %>
+<%- include('partials/head', { bodyClass: 'fundez-error-body' }) %>
+<%
+  var tt = typeof t !== 'undefined' ? t : function(k) { return k; };
+  var errCode = typeof code !== 'undefined' ? code : 404;
+  var isLost = errCode === 404;
+  var isSystem = errCode >= 500 || errCode === 503;
+  var variant = isLost ? 'lost' : isSystem ? 'system' : 'blocked';
+  var slogans = isLost ? [0, 1, 2, 3, 4].map(function(i) { return tt('error.lost.slogan.' + i); }) : [];
+  var tips = isLost ? [0, 1, 2, 3].map(function(i) { return tt('error.lost.tip.' + i); }) : [];
+  var waMsg = tt('error.lost.whatsapp_msg');
+  var waUrl = (typeof company !== 'undefined' && company.whatsappLink) ? company.whatsappLink(waMsg) : '#';
+  var badge = isLost ? tt('error.lost.badge') : isSystem ? tt('error.system.badge') : tt('error.blocked.badge');
+  var punchline = isLost ? tt('error.lost.punchline') : isSystem ? tt('error.system.punchline') : tt('error.blocked.punchline');
+%>
 
-<div class="min-h-screen flex flex-col items-center justify-center p-6 text-center zilo-page-enter">
-  <%- include('partials/logo', { className: 'w-16 h-16 mx-auto mb-6' }) %>
-  <p class="zilo-display text-6xl text-zilo-accent/40 mb-2"><%= code %></p>
-  <h1 class="zilo-display text-2xl mb-3"><%= title %></h1>
-  <p class="text-zilo-muted max-w-sm mb-8 leading-relaxed"><%= message %></p>
-  <a href="/" class="zilo-btn-primary !w-auto !px-10">Volver al inicio</a>
+<div class="fundez-error-page fundez-error-page--<%= variant %>" data-variant="<%= variant %>">
+  <div class="fundez-error-bg" aria-hidden="true">
+    <div class="fundez-error-orb fundez-error-orb--1"></div>
+    <div class="fundez-error-orb fundez-error-orb--2"></div>
+    <div class="fundez-error-grid"></div>
+  </div>
+
+  <header class="fundez-error-header">
+    <a href="/" class="fundez-error-brand">
+      <%- include('partials/logo', { className: 'w-9 h-9', logoId: 'error' }) %>
+      <span class="zilo-display text-lg"><%= tt('app.name') %></span>
+    </a>
+    <% if (typeof locales !== 'undefined') { %>
+      <%- include('partials/lang-switcher') %>
+    <% } %>
+  </header>
+
+  <main class="fundez-error-main zilo-page-enter">
+    <div class="fundez-error-code-wrap">
+      <span class="fundez-error-code fundez-error-glitch" data-text="<%= errCode %>"><%= errCode %></span>
+      <span class="fundez-error-badge"><%= badge %></span>
+    </div>
+
+    <% if (isLost) { %>
+      <p class="fundez-error-headline"><%= tt('error.lost.headline') %></p>
+      <div class="fundez-error-slogan-stage" id="errorSloganStage" aria-live="polite">
+        <p class="fundez-error-slogan is-active" id="errorSloganText"><%= slogans[0] %></p>
+      </div>
+      <p class="fundez-error-punchline"><%- punchline %></p>
+      <p class="fundez-error-hook"><%= tt('error.lost.hook') %></p>
+
+      <div class="fundez-error-tips" id="errorTips" aria-label="Servicios Fundez">
+        <% tips.forEach(function(tip, i) { %>
+          <div class="fundez-error-tip <%= i === 0 ? 'is-active' : '' %>" data-tip-index="<%= i %>">
+            <span class="fundez-error-tip-dot"></span>
+            <span><%= tip %></span>
+          </div>
+        <% }); %>
+      </div>
+    <% } else { %>
+      <h1 class="fundez-error-title"><%= title %></h1>
+      <p class="fundez-error-message"><%= message %></p>
+      <p class="fundez-error-punchline fundez-error-punchline--compact"><%- punchline %></p>
+    <% } %>
+
+    <div class="fundez-error-actions">
+      <a href="/" class="zilo-btn-primary fundez-error-btn"><%= tt('error.back_home') %></a>
+      <% if (isSystem) { %>
+        <button type="button" class="zilo-btn-ghost fundez-error-btn" onclick="location.reload()"><%= tt('error.system.cta_retry') %></button>
+      <% } %>
+      <% if (isLost) { %>
+        <a href="<%= waUrl %>" target="_blank" rel="noopener" class="zilo-btn-ghost fundez-error-btn fundez-error-btn--wa">
+          <%= tt('error.lost.cta_whatsapp') %>
+        </a>
+        <a href="/registro" class="fundez-error-link-cta"><%= tt('error.lost.cta_signup') %> →</a>
+      <% } %>
+    </div>
+
+    <p class="fundez-error-domain">
+      <a href="https://fundez.cl" class="fundez-error-domain-link">fundez.cl</a>
+      <span>· Santiago, Chile</span>
+    </p>
+  </main>
 </div>
+
+<% if (isLost) { %>
+<script>
+  window.FundezErrorPage = {
+    slogans: <%- JSON.stringify(slogans) %>,
+    interval: 2800
+  };
+</script>
+<% var pageScript = '/js/error-page.js'; %>
+<% } %>
 
 <%- include('partials/footer') %>

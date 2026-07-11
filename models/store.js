@@ -19,9 +19,23 @@ const {
   computeRequestFinancials
 } = require('../lib/pricing');
 const {
+  defaultProviderContract,
+  normalizeProviderContract,
+  validateContractSubmission,
+  computeContractStatus,
+  isContractOperational,
+  getContractSummary,
+  buildApprovedContract,
+  getDocumentsForEntity,
+  DOCUMENT_CATALOG,
+  LEGAL_DECLARATIONS,
+  CONTRACT_CLAUSES,
+  ENTITY_TYPES,
+  TEMPLATE_VERSION
+} = require('../lib/contracts');
+const {
   normalizeAdminAccess,
   resolveAdminAccess,
-  permissionsFromBody,
   PROFILES,
   getProfilesList,
   getPermissionGroups
@@ -609,7 +623,10 @@ const defaultLocationShare = repository.defaultLocationShare;
 function ensureProviderFields(provider) {
   if (!provider.verification) provider.verification = defaultProviderVerification();
   if (!provider.locationShare) provider.locationShare = defaultLocationShare();
+  if (!provider.providerContract) provider.providerContract = defaultProviderContract();
+  provider.providerContract = normalizeProviderContract(provider.providerContract);
   provider.verification.status = computeVerificationStatus(provider);
+  provider.providerContract.status = computeContractStatus(provider.providerContract);
   return provider;
 }
 
@@ -634,7 +651,15 @@ function canProviderGoOnline(provider) {
   if (!v.idCardBack) missing.push('carnet (reverso)');
   if (!v.faceVerified) missing.push('verificación facial');
   if (!provider.locationShare.consent) missing.push('permiso de ubicación');
-  return { ok: missing.length === 0, missing };
+  const contractSummary = getContractSummary(provider.providerContract);
+  if (!contractSummary.canOperate) {
+    if (contractSummary.status === 'pending_review') missing.push('contrato en revisión legal');
+    else if (contractSummary.status === 'rejected') missing.push('contrato rechazado — contacta soporte');
+    else if (contractSummary.status === 'needs_info') missing.push('contrato — antecedentes pendientes');
+    else if (contractSummary.status === 'expired') missing.push('contrato vencido — renovar');
+    else missing.push('contrato de socio firmado y aprobado');
+  }
+  return { ok: missing.length === 0, missing, contract: contractSummary };
 }
 
 function getPublicProviderProfile(provider) {
@@ -729,6 +754,167 @@ function updateProviderLocation(providerId, lat, lng) {
   return provider.locationShare;
 }
 
+function getProviderContract(providerId) {
+  const provider = getUserById(providerId);
+  if (!provider) return null;
+  ensureProviderFields(provider);
+  return provider.providerContract;
+}
+
+function updateProviderContractDraft(providerId, payload) {
+  const provider = getUserById(providerId);
+  if (!provider) return { error: 'Socio no encontrado.' };
+  ensureProviderFields(provider);
+  const c = provider.providerContract;
+  if (['approved', 'pending_review'].includes(computeContractStatus(c)) && c.review.status !== 'needs_info') {
+    return { error: 'El contrato ya fue enviado a revisión. Espera respuesta del equipo legal.' };
+  }
+
+  if (payload.entityType) c.entityType = payload.entityType;
+  if (payload.legalEntity) c.legalEntity = { ...c.legalEntity, ...payload.legalEntity };
+  if (payload.legalRepresentative) c.legalRepresentative = { ...c.legalRepresentative, ...payload.legalRepresentative };
+  if (payload.declarations) c.declarations = { ...c.declarations, ...payload.declarations };
+  if (payload.signature) c.signature = { ...(c.signature || {}), ...payload.signature };
+
+  c.status = computeContractStatus(c) === 'unsigned' ? 'incomplete' : computeContractStatus(c);
+  provider.providerContract = normalizeProviderContract(c);
+  repository.persist(() => repository.saveUser(provider), `contrato draft ${providerId}`);
+  return { success: true, contract: provider.providerContract, summary: getContractSummary(provider.providerContract) };
+}
+
+function saveContractDocument(providerId, docKey, url, label) {
+  const provider = getUserById(providerId);
+  if (!provider) return null;
+  ensureProviderFields(provider);
+  const c = provider.providerContract;
+  if (docKey === 'technical_certs') {
+    c.technicalCerts.push({ url, label: label || 'Certificación', uploadedAt: new Date().toISOString() });
+  } else {
+    c.documents[docKey] = { url, uploadedAt: new Date().toISOString() };
+  }
+  c.status = 'incomplete';
+  provider.providerContract = normalizeProviderContract(c);
+  repository.persist(() => repository.saveUser(provider), `contrato doc ${providerId}`);
+  return provider.providerContract;
+}
+
+function submitProviderContract(providerId, { signature, ip, userAgent }) {
+  const provider = getUserById(providerId);
+  if (!provider) return { error: 'Socio no encontrado.' };
+  ensureProviderFields(provider);
+  const c = provider.providerContract;
+
+  c.signature = {
+    ...(c.signature || {}),
+    ...signature,
+    accepted: true,
+    signedAt: new Date().toISOString(),
+    signedIp: ip || null,
+    userAgent: userAgent || null,
+    method: 'electronic_acceptance',
+    templateVersion: TEMPLATE_VERSION
+  };
+
+  const validation = validateContractSubmission(c);
+  if (!validation.ok) return { error: validation.errors[0], errors: validation.errors };
+
+  c.status = 'pending_review';
+  c.submittedAt = new Date().toISOString();
+  c.review = {
+    ...c.review,
+    status: 'pending',
+    rejectionReason: '',
+    requestedDocs: []
+  };
+  c.history.push({ at: c.submittedAt, action: 'submitted', by: provider.email });
+
+  provider.providerContract = normalizeProviderContract(c);
+  repository.persist(() => repository.saveUser(provider), `contrato submit ${providerId}`);
+  return { success: true, contract: provider.providerContract, summary: getContractSummary(provider.providerContract) };
+}
+
+function getAllProviderContracts() {
+  return USERS
+    .filter((u) => u.role === 'provider')
+    .map((u) => {
+      ensureProviderFields(u);
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        phone: u.phone,
+        avatar: u.avatar,
+        specialties: u.specialties || [],
+        active: u.active !== false,
+        online: Boolean(u.online),
+        verification: u.verification,
+        contract: u.providerContract,
+        summary: getContractSummary(u.providerContract)
+      };
+    })
+    .sort((a, b) => {
+      const order = { pending_review: 0, needs_info: 1, incomplete: 2, unsigned: 3, rejected: 4, approved: 5, expired: 6 };
+      return (order[a.summary.status] ?? 9) - (order[b.summary.status] ?? 9);
+    });
+}
+
+function reviewProviderContract(providerId, { action, notes, rejectionReason, requestedDocs }, adminEmail) {
+  const provider = getUserById(providerId);
+  if (!provider) return { error: 'Socio no encontrado.' };
+  ensureProviderFields(provider);
+  const c = provider.providerContract;
+  const now = new Date().toISOString();
+
+  if (action === 'approve') {
+    provider.providerContract = buildApprovedContract(provider, adminEmail);
+    provider.active = true;
+  } else if (action === 'reject') {
+    c.status = 'rejected';
+    c.review = {
+      ...c.review,
+      status: 'rejected',
+      reviewedBy: adminEmail,
+      reviewedAt: now,
+      reviewNotes: notes || '',
+      rejectionReason: rejectionReason || 'Documentación o contrato no cumple requisitos.'
+    };
+    c.history.push({ at: now, action: 'rejected', by: adminEmail, notes });
+    provider.providerContract = normalizeProviderContract(c);
+    provider.online = false;
+  } else if (action === 'needs_info') {
+    c.status = 'needs_info';
+    c.review = {
+      ...c.review,
+      status: 'needs_info',
+      reviewedBy: adminEmail,
+      reviewedAt: now,
+      reviewNotes: notes || '',
+      requestedDocs: Array.isArray(requestedDocs) ? requestedDocs : []
+    };
+    c.history.push({ at: now, action: 'needs_info', by: adminEmail, notes });
+    provider.providerContract = normalizeProviderContract(c);
+    provider.online = false;
+  } else if (action === 'suspend') {
+    c.status = 'suspended';
+    c.review = { ...c.review, status: 'suspended', reviewedBy: adminEmail, reviewedAt: now, reviewNotes: notes || '' };
+    c.history.push({ at: now, action: 'suspend', by: adminEmail, notes });
+    provider.providerContract = normalizeProviderContract(c);
+    provider.online = false;
+  } else {
+    return { error: 'Acción no válida.' };
+  }
+
+  repository.persist(() => repository.saveUser(provider), `contrato review ${providerId}`);
+  return { success: true, provider: getAllProviderContracts().find((p) => p.id === providerId) };
+}
+
+function getContractStats() {
+  const all = getAllProviderContracts();
+  const counts = { pending_review: 0, needs_info: 0, approved: 0, rejected: 0, incomplete: 0, unsigned: 0, expired: 0 };
+  all.forEach((p) => { counts[p.summary.status] = (counts[p.summary.status] || 0) + 1; });
+  return { total: all.length, ...counts };
+}
+
 function getUserByEmail(email) {
   const normalized = (email || '').trim().toLowerCase();
   const user = USERS.find(u => (u.email || '').toLowerCase() === normalized);
@@ -805,7 +991,8 @@ async function registerUser({ name, email, password, phone, role, address, speci
       bio: '',
       reviews: [],
       verification: defaultProviderVerification(),
-      locationShare: defaultLocationShare()
+      locationShare: defaultLocationShare(),
+      providerContract: defaultProviderContract()
     };
   } else {
     user = {
@@ -1838,6 +2025,13 @@ module.exports = {
   getHomePassport,
   ensureProviderFields,
   canProviderGoOnline,
+  getProviderContract,
+  updateProviderContractDraft,
+  saveContractDocument,
+  submitProviderContract,
+  getAllProviderContracts,
+  reviewProviderContract,
+  getContractStats,
   getPublicProviderProfile,
   saveProviderDocument,
   saveProviderSelfie,

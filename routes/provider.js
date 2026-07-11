@@ -7,18 +7,32 @@ const { requireModule } = require('../middleware/modules');
 const { saveProviderFile } = require('../lib/uploads');
 const { verifySelfie } = require('../lib/faceVerify');
 const { getProviderOnboardingSteps } = require('../lib/onboarding');
+const { getClientIp } = require('../middleware/security');
+const {
+  ENTITY_TYPES,
+  DOCUMENT_CATALOG,
+  LEGAL_DECLARATIONS,
+  CONTRACT_CLAUSES,
+  TEMPLATE_VERSION,
+  getDocumentsForEntity,
+  getContractSummary
+} = require('../lib/contracts');
+const company = require('../config/company');
 
 router.get('/', requireRole('provider'), (req, res) => {
   const provider = store.getUserById(req.session.user.id);
   const myRequests = store.getRequestsByProvider(req.session.user.id);
   const pending = store.getPendingRequestsForProvider(req.session.user.id);
   const verificationCheck = store.canProviderGoOnline(provider);
+  const contractSummary = getContractSummary(provider.providerContract);
 
   res.render('provider/dashboard', {
     title: 'Fundez — Panel Proveedor',
     user: req.session.user,
     provider,
     verificationCheck,
+    contractSummary,
+    showContractBanner: !contractSummary.canOperate,
     services: store.SERVICES,
     myRequests: myRequests.slice(0, 10),
     pendingCount: pending.length,
@@ -286,8 +300,67 @@ router.get('/verificacion/estado', requireRole('provider'), (req, res) => {
     success: true,
     verification: provider.verification,
     locationShare: provider.locationShare,
+    contract: getContractSummary(provider.providerContract),
     check: store.canProviderGoOnline(provider)
   });
+});
+
+router.get('/contrato', requireRole('provider'), requireModule('provider_contrato'), (req, res) => {
+  const provider = store.getUserById(req.session.user.id);
+  const contract = store.getProviderContract(provider.id);
+  const summary = getContractSummary(contract);
+  res.render('provider/contrato', {
+    title: 'Contrato de socio — Fundez',
+    user: req.session.user,
+    provider,
+    contract,
+    summary,
+    entityTypes: ENTITY_TYPES,
+    documentCatalog: DOCUMENT_CATALOG,
+    legalDeclarations: LEGAL_DECLARATIONS,
+    contractClauses: CONTRACT_CLAUSES,
+    templateVersion: TEMPLATE_VERSION,
+    company,
+    documentsForEntity: contract.entityType ? getDocumentsForEntity(contract.entityType) : []
+  });
+});
+
+router.post('/contrato/draft', requireRole('provider'), requireModule('provider_contrato'), (req, res) => {
+  const result = store.updateProviderContractDraft(req.session.user.id, req.body);
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.json(result);
+});
+
+router.post('/contrato/documento', requireRole('provider'), requireModule('provider_contrato'), (req, res) => {
+  const { docKey, data, label } = req.body;
+  if (!docKey || !data) return res.status(400).json({ error: 'Documento inválido.' });
+  try {
+    const url = saveProviderFile(req.session.user.id, `contract-${docKey}`, data);
+    const contract = store.saveContractDocument(req.session.user.id, docKey, url, label);
+    res.json({ success: true, url, contract, summary: getContractSummary(contract) });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'No se pudo guardar el documento.' });
+  }
+});
+
+router.post('/contrato/enviar', requireRole('provider'), requireModule('provider_contrato'), (req, res) => {
+  const draft = store.updateProviderContractDraft(req.session.user.id, req.body);
+  if (draft.error) return res.status(400).json({ error: draft.error });
+  const result = store.submitProviderContract(req.session.user.id, {
+    signature: req.body.signature || {},
+    ip: getClientIp(req),
+    userAgent: req.get('user-agent')
+  });
+  if (result.error) return res.status(400).json({ error: result.error, errors: result.errors });
+  store.logSecurityEvent('contrato_enviado', req.session.user.email, req);
+  store.recordConsent({
+    userId: req.session.user.id,
+    type: 'contrato_socio',
+    granted: true,
+    version: TEMPLATE_VERSION,
+    ip: getClientIp(req)
+  });
+  res.json(result);
 });
 
 module.exports = router;

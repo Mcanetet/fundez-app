@@ -6,6 +6,7 @@
     resumen: 'Resumen',
     finanzas: 'Finanzas',
     documentos: 'DTE / SII',
+    contratos: 'Contratos socios',
     notificaciones: 'Notificaciones',
     modulos: 'Módulos',
     servicios: 'Servicios',
@@ -244,6 +245,56 @@
   if (profileSelect && adminProfiles.length) {
     applyProfileToChecklist(profileSelect.value || 'operaciones');
   }
+
+  async function reviewContract(id, action, extra = {}) {
+    const notes = extra.notes ?? prompt(
+      action === 'approve' ? 'Notas de aprobación (opcional):' :
+      action === 'reject' ? 'Motivo del rechazo:' :
+      action === 'needs_info' ? 'Indica qué antecedentes faltan:' :
+      'Motivo de suspensión:'
+    );
+    if (notes === null && action !== 'approve') return;
+    const body = { action, notes: notes || '', ...extra };
+    if (action === 'reject' && !body.rejectionReason) body.rejectionReason = notes || 'No cumple requisitos legales.';
+    try {
+      const res = await fetch(`/admin/contratos/${id}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (data.success) {
+        FundezNotify.show(
+          action === 'approve' ? 'Socio aprobado para operar' :
+          action === 'reject' ? 'Contrato rechazado' :
+          action === 'suspend' ? 'Socio suspendido' : 'Solicitud enviada al socio',
+          action === 'approve' ? 'success' : action === 'reject' ? 'warning' : 'info'
+        );
+        setTimeout(() => location.reload(), 800);
+      } else FundezNotify.show(data.error || 'Error', 'error');
+    } catch (_) {
+      FundezNotify.show('Error de conexión', 'error');
+    }
+  }
+
+  document.querySelectorAll('.btn-contract-approve').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!confirm('¿Aprobar expediente y activar al socio en producción?')) return;
+      reviewContract(btn.dataset.id, 'approve', { notes: '' });
+    });
+  });
+  document.querySelectorAll('.btn-contract-reject').forEach((btn) => {
+    btn.addEventListener('click', () => reviewContract(btn.dataset.id, 'reject'));
+  });
+  document.querySelectorAll('.btn-contract-needs-info').forEach((btn) => {
+    btn.addEventListener('click', () => reviewContract(btn.dataset.id, 'needs_info'));
+  });
+  document.querySelectorAll('.btn-contract-suspend').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!confirm('¿Suspender operación de este socio?')) return;
+      reviewContract(btn.dataset.id, 'suspend');
+    });
+  });
 
   document.querySelectorAll('.service-toggle').forEach(toggle => {
     toggle.addEventListener('change', async () => {

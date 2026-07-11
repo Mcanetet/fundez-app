@@ -4,6 +4,7 @@ const db = require('../lib/db');
 const { DEFAULT_PRICING, normalizePricing } = require('../lib/pricing');
 const { normalizeBilling } = require('../lib/billing');
 const { normalizeMfa } = require('../lib/mfa');
+const { demoApprovedContract } = require('../lib/contracts');
 
 const SCHEMA_PATH = path.join(__dirname, '../db/schema.sql');
 
@@ -33,7 +34,8 @@ const SEED_MODULES = [
   { id: 'provider_mando', audience: 'provider', name: 'Cuadro de mando', description: 'Asignar trabajos y hacer seguimiento', sortOrder: 4, enabled: true },
   { id: 'provider_verificacion', audience: 'provider', name: 'Verificación KYC', description: 'Carnet, selfie y consentimiento de ubicación', sortOrder: 5, enabled: true },
   { id: 'provider_ubicacion', audience: 'provider', name: 'Ubicación en tiempo real', description: 'Compartir GPS durante el servicio', sortOrder: 6, enabled: true },
-  { id: 'provider_perfil', audience: 'provider', name: 'Perfil público', description: 'Editar datos visibles para clientes', sortOrder: 7, enabled: true }
+  { id: 'provider_perfil', audience: 'provider', name: 'Perfil público', description: 'Editar datos visibles para clientes', sortOrder: 7, enabled: true },
+  { id: 'provider_contrato', audience: 'provider', name: 'Contrato de socio', description: 'Firma del contrato de prestación y documentos legales', sortOrder: 8, enabled: true }
 ];
 
 function defaultProviderVerification() {
@@ -128,7 +130,8 @@ const SEED_USERS = [
       { author: 'Sofía L.', rating: 4, text: 'Buen precio y trabajo bien hecho en la cañería.', date: '2025-04-12' }
     ],
     verification: pedroVerification(),
-    locationShare: pedroLocationShare()
+    locationShare: pedroLocationShare(),
+    providerContract: demoApprovedContract('Pedro Gómez', '12.345.678-9')
   },
   {
     id: 'provider-marta',
@@ -149,7 +152,8 @@ const SEED_USERS = [
       { author: 'Jorge H.', rating: 5, text: 'Solucionó un cortocircuito complejo en menos de una hora.', date: '2025-04-20' }
     ],
     verification: defaultProviderVerification(),
-    locationShare: defaultLocationShare()
+    locationShare: defaultLocationShare(),
+    providerContract: demoApprovedContract('Marta Quiroz', '13.456.789-0')
   },
   {
     id: 'provider-juan',
@@ -170,7 +174,8 @@ const SEED_USERS = [
       { author: 'Daniela C.', rating: 5, text: 'Muy confiable, lo llamaré de nuevo sin dudarlo.', date: '2025-04-10' }
     ],
     verification: defaultProviderVerification(),
-    locationShare: defaultLocationShare()
+    locationShare: defaultLocationShare(),
+    providerContract: demoApprovedContract('Juan Carlos', '14.567.890-1')
   },
   {
     id: 'provider-ana',
@@ -190,7 +195,8 @@ const SEED_USERS = [
       { author: 'Carmen S.', rating: 5, text: 'Excelente con la lavadora, explicó todo con claridad.', date: '2025-05-08' }
     ],
     verification: defaultProviderVerification(),
-    locationShare: defaultLocationShare()
+    locationShare: defaultLocationShare(),
+    providerContract: demoApprovedContract('Ana Rojas', '15.678.901-2')
   },
   {
     id: 'admin-1',
@@ -285,6 +291,9 @@ function rowToUser(row) {
     user.reviews = parseJson(row.reviews, []);
     user.verification = parseJson(row.verification, defaultProviderVerification());
     user.locationShare = parseJson(row.location_share, defaultLocationShare());
+    if (row.role === 'provider') {
+      user.providerContract = normalizeProviderContract(parseJson(row.provider_contract, null));
+    }
   }
 
   return user;
@@ -322,6 +331,7 @@ function userToRow(user) {
     billing: user.billing ? JSON.stringify(user.billing) : null,
     mfa: user.mfa ? JSON.stringify(user.mfa) : null,
     admin_access: user.adminAccess ? JSON.stringify(user.adminAccess) : null,
+    provider_contract: user.providerContract ? JSON.stringify(user.providerContract) : null,
     active: user.active === false ? 0 : 1
   };
 }
@@ -606,8 +616,8 @@ async function saveUser(user) {
       zilo_points, credits_clp, referrals_count, services_count,
       used_welcome_promo, used_referral, member_since,
       onboarding_completed, onboarding_completed_at,
-      specialties, rating, reviews_count, online, avatar, bio, reviews, verification, location_share, billing, mfa, admin_access, active
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      specialties, rating, reviews_count, online, avatar, bio, reviews, verification, location_share, billing, mfa, admin_access, provider_contract, active
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       email = VALUES(email),
       password = VALUES(password),
@@ -638,13 +648,14 @@ async function saveUser(user) {
       billing = VALUES(billing),
       mfa = VALUES(mfa),
       admin_access = VALUES(admin_access),
+      provider_contract = VALUES(provider_contract),
       active = VALUES(active)`,
     [
       row.id, row.email, row.password, row.name, row.role, row.parent_id, row.phone, row.address, row.referral_code,
       row.zilo_points, row.credits_clp, row.referrals_count, row.services_count,
       row.used_welcome_promo ? 1 : 0, row.used_referral ? 1 : 0, row.member_since,
       row.onboarding_completed ? 1 : 0, row.onboarding_completed_at,
-      row.specialties, row.rating, row.reviews_count, row.online ? 1 : 0, row.avatar, row.bio, row.reviews, row.verification, row.location_share, row.billing, row.mfa, row.admin_access, row.active
+      row.specialties, row.rating, row.reviews_count, row.online ? 1 : 0, row.avatar, row.bio, row.reviews, row.verification, row.location_share, row.billing, row.mfa, row.admin_access, row.provider_contract, row.active
     ]
   );
 }

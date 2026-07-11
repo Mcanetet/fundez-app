@@ -5,19 +5,23 @@
     <div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-80 h-80 bg-zilo-accent/6 rounded-full blur-3xl"></div>
   </div>
 
+  <div class="absolute top-5 right-5 z-20">
+    <%- include('partials/lang-switcher') %>
+  </div>
+
   <div class="relative z-10 w-full max-w-md zilo-card-premium rounded-3xl p-8 zilo-page-enter">
     <a href="/" class="flex flex-col items-center mb-6">
       <%- include('partials/logo', { className: 'w-14 h-14 mb-3', logoId: 'registro' }) %>
-      <span class="zilo-display text-2xl tracking-wide">Fundez</span>
+      <span class="zilo-display text-2xl tracking-wide"><%= t('app.name') %></span>
     </a>
 
-    <h1 class="zilo-display text-3xl text-center mb-1">Crear cuenta</h1>
-    <p class="text-zilo-muted text-center text-sm mb-6">Únete a Fundez en menos de un minuto</p>
+    <h1 class="zilo-display text-3xl text-center mb-1"><%= t('register.title') %></h1>
+    <p class="text-zilo-muted text-center text-sm mb-6"><%= t('register.subtitle_full') %></p>
 
     <% if (typeof referralCode !== 'undefined' && referralCode) { %>
       <div class="mb-4 p-3 rounded-xl border border-zilo-accent/25 bg-zilo-accent-soft text-center">
-        <p class="text-sm text-zilo-accent-strong">Código: <strong class="font-mono"><%= referralCode %></strong></p>
-        <p class="text-xs text-zilo-muted mt-1">$5.000 de crédito al registrarte</p>
+        <p class="text-sm text-zilo-accent-strong"><%- t('auth.referral_code', { code: referralCode }) %></p>
+        <p class="text-xs text-zilo-muted mt-1"><%= t('register.referral_credit') %></p>
       </div>
     <% } %>
 
@@ -27,51 +31,51 @@
 
     <form action="/registro" method="POST" class="space-y-4">
       <div>
-        <span class="zilo-label block mb-1.5">Quiero registrarme como</span>
+        <span class="zilo-label block mb-1.5"><%= t('register.role_label') %></span>
         <div class="grid grid-cols-2 gap-2" id="roleSelector">
           <label class="role-option cursor-pointer">
             <input type="radio" name="role" value="client" class="peer sr-only" <%= form.role !== 'provider' ? 'checked' : '' %>>
             <div class="p-3 rounded-xl border border-zilo-border text-center transition peer-checked:border-zilo-accent peer-checked:bg-zilo-accent-soft peer-checked:text-zilo-accent-strong">
-              <span class="block text-sm font-semibold">Cliente</span>
-              <span class="block text-[11px] text-zilo-muted mt-0.5">Solicito servicios</span>
+              <span class="block text-sm font-semibold"><%= t('register.role_client') %></span>
+              <span class="block text-[11px] text-zilo-muted mt-0.5"><%= t('register.role_client_desc') %></span>
             </div>
           </label>
           <label class="role-option cursor-pointer">
             <input type="radio" name="role" value="provider" class="peer sr-only" <%= form.role === 'provider' ? 'checked' : '' %>>
             <div class="p-3 rounded-xl border border-zilo-border text-center transition peer-checked:border-zilo-accent peer-checked:bg-zilo-accent-soft peer-checked:text-zilo-accent-strong">
-              <span class="block text-sm font-semibold">Socio</span>
-              <span class="block text-[11px] text-zilo-muted mt-0.5">Ofrezco servicios</span>
+              <span class="block text-sm font-semibold"><%= t('register.role_provider') %></span>
+              <span class="block text-[11px] text-zilo-muted mt-0.5"><%= t('register.role_provider_desc') %></span>
             </div>
           </label>
         </div>
       </div>
 
       <div>
-        <label for="name" class="zilo-label block mb-1.5">Nombre completo</label>
+        <label for="name" class="zilo-label block mb-1.5"><%= t('register.name') %></label>
         <input type="text" id="name" name="name" required autocomplete="name" placeholder="Tu nombre" class="zilo-input" value="<%= form.name || '' %>">
       </div>
       <div>
-        <label for="email" class="zilo-label block mb-1.5">Correo</label>
+        <label for="email" class="zilo-label block mb-1.5"><%= t('auth.email') %></label>
         <input type="email" id="email" name="email" required autocomplete="email" placeholder="tu@email.com" class="zilo-input" value="<%= form.email || '' %>">
       </div>
       <div>
-        <label for="phone" class="zilo-label block mb-1.5">Teléfono <span class="text-zilo-muted normal-case">(WhatsApp)</span></label>
+        <label for="phone" class="zilo-label block mb-1.5"><%= t('register.phone') %> <span class="text-zilo-muted normal-case"><%= t('register.phone_whatsapp') %></span></label>
         <input type="tel" id="phone" name="phone" autocomplete="tel" placeholder="+56 9 1234 5678" class="zilo-input" value="<%= form.phone || '' %>">
       </div>
       <div>
-        <label for="password" class="zilo-label block mb-1.5">Contraseña <span class="text-zilo-muted normal-case">(mín. 6 caracteres)</span></label>
+        <label for="password" class="zilo-label block mb-1.5"><%= t('register.password') %> <span class="text-zilo-muted normal-case"><%= t('register.password_hint') %></span></label>
         <input type="password" id="password" name="password" required minlength="6" autocomplete="new-password" placeholder="••••••••" class="zilo-input">
       </div>
 
       <div id="clientFields" class="space-y-4">
         <div>
-          <label for="address" class="zilo-label block mb-1.5">Dirección <span class="text-zilo-muted normal-case">(opcional)</span></label>
+          <label for="address" class="zilo-label block mb-1.5"><%= t('register.address') %> <span class="text-zilo-muted normal-case"><%= t('register.address_optional') %></span></label>
           <input type="text" id="address" name="address" autocomplete="street-address" placeholder="Calle, número, comuna" class="zilo-input" value="<%= form.address || '' %>">
         </div>
       </div>
 
       <div id="providerFields" class="space-y-2 hidden">
-        <span class="zilo-label block mb-1.5">Especialidades</span>
+        <span class="zilo-label block mb-1.5"><%= t('register.specialties') %></span>
         <div class="grid grid-cols-2 gap-2">
           <% services.forEach(function(s){ %>
             <label class="flex items-center gap-2 p-2.5 rounded-xl border border-zilo-border cursor-pointer hover:border-zilo-accent/40 transition text-sm">
@@ -80,20 +84,20 @@
             </label>
           <% }); %>
         </div>
-        <p class="text-[11px] text-zilo-muted mt-1">Tras registrarte deberás verificar tu identidad para recibir solicitudes.</p>
+        <p class="text-[11px] text-zilo-muted mt-1"><%= t('register.provider_hint') %></p>
       </div>
 
       <label class="flex items-start gap-2 text-xs text-zilo-muted cursor-pointer">
         <input type="checkbox" name="consent" required class="mt-0.5 rounded accent-[#2563EB]">
-        <span>Acepto la <a href="/legal/privacidad" target="_blank" class="text-zilo-accent underline">Privacidad</a> y <a href="/legal/terminos" target="_blank" class="text-zilo-accent underline">Términos</a></span>
+        <span><%- t('auth.consent') %></span>
       </label>
 
-      <button type="submit" class="zilo-btn-primary">Crear cuenta</button>
+      <button type="submit" class="zilo-btn-primary"><%= t('register.submit') %></button>
     </form>
 
     <p class="text-center text-sm text-zilo-muted mt-6">
-      ¿Ya tienes cuenta?
-      <a href="/login" class="text-zilo-accent font-semibold hover:underline">Ingresar</a>
+      <%= t('register.has_account') %>
+      <a href="/login" class="text-zilo-accent font-semibold hover:underline"><%= t('auth.login_link') %></a>
     </p>
   </div>
 </div>

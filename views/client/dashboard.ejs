@@ -8,15 +8,16 @@
           <%= typeof profile !== 'undefined' ? profile.name.split(' ').map(n=>n[0]).join('').slice(0,2) : '?' %>
         </div>
         <div>
-          <span class="zilo-label !text-[9px]">Bienvenida</span>
+          <span class="zilo-label !text-[9px]"><%= t('client.welcome_label') %></span>
           <h1 class="text-base font-semibold leading-tight"><%= user.name.split(' ')[0] %></h1>
         </div>
       </a>
       <div class="flex items-center gap-2">
+        <%- include('../partials/lang-switcher') %>
         <% if (typeof referral !== 'undefined' && referral.creditsCLP > 0) { %>
           <span class="px-2.5 py-1 rounded-full bg-zilo-success/15 text-zilo-success text-[10px] font-semibold"><%= formatCLP(referral.creditsCLP) %></span>
         <% } %>
-        <a href="/logout" class="w-10 h-10 rounded-full zilo-card-premium flex items-center justify-center text-zilo-muted hover:text-zilo-accent transition" title="Cerrar sesión">
+        <a href="/logout" class="w-10 h-10 rounded-full zilo-card-premium flex items-center justify-center text-zilo-muted hover:text-zilo-accent transition" title="<%= t('common.logout') %>">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
         </a>
       </div>
@@ -44,9 +45,9 @@
           </div>
         </div>
         <div class="flex-1 min-w-0">
-          <p class="zilo-label mb-0.5">Pasaporte Hogar</p>
+          <p class="zilo-label mb-0.5"><%= t('client.passport') %></p>
           <strong class="text-sm block"><%= passport.level %></strong>
-          <span class="text-xs text-zilo-muted"><%= passport.entries.length %> registros de mantenimiento</span>
+          <span class="text-xs text-zilo-muted"><%= t('client.passport_records', { count: passport.entries.length }) %></span>
         </div>
         <svg class="w-5 h-5 text-zilo-muted shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
       </div>
@@ -73,16 +74,16 @@
           <svg class="w-4 h-4 text-zilo-accent" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
         </div>
         <div>
-          <strong class="text-sm"><%= referral.points %> Puntos</strong>
-          <span class="text-[10px] text-zilo-muted block">= <%= formatCLP(referral.points * 100) %> en checkout</span>
+          <strong class="text-sm"><%= referral.points %> <%= t('client.points') %></strong>
+          <span class="text-[10px] text-zilo-muted block"><%= t('client.points_checkout', { amount: formatCLP(referral.points * 100) }) %></span>
         </div>
       </div>
-      <a href="/cliente/invitar" class="text-xs text-zilo-accent font-medium">Invitar →</a>
+      <a href="/cliente/invitar" class="text-xs text-zilo-accent font-medium"><%= t('client.invite_arrow') %></a>
     </div>
     <% } %>
 
     <% if (mod('client_solicitar')) { %>
-    <h2 class="zilo-label mb-3">Servicios</h2>
+    <h2 class="zilo-label mb-3"><%= t('client.services') %></h2>
 
     <div id="servicesGrid" data-tour="services" class="grid grid-cols-2 gap-3">
       <% services.forEach(service => { %>
@@ -90,20 +91,20 @@
           class="service-item group flex flex-col items-center gap-3 p-5 rounded-2xl zilo-card-premium hover:border-zilo-accent/25 hover:-translate-y-0.5 transition-all duration-300">
           <%- include('../partials/service-icon', { icon: service.icon, color: service.color, size: 'lg' }) %>
           <span class="font-medium text-sm text-center leading-tight"><%= service.name %></span>
-          <span class="text-xs text-zilo-muted">desde <%= formatCLP(service.visitPrice) %></span>
+          <span class="text-xs text-zilo-muted"><%= t('client.from_price') %> <%= formatCLP(service.visitPrice) %></span>
         </a>
       <% }); %>
     </div>
     <% } else { %>
       <div class="zilo-empty zilo-card-premium rounded-2xl">
-        <p class="zilo-display">Solicitudes pausadas</p>
-        <p class="text-sm">La solicitud de servicios no está disponible en este momento.</p>
+        <p class="zilo-display"><%= t('client.requests_paused') %></p>
+        <p class="text-sm"><%= t('client.requests_paused_desc') %></p>
       </div>
     <% } %>
 
     <% if (activeRequests.length > 0) { %>
     <section class="mt-8">
-      <h2 class="zilo-label mb-3">En curso</h2>
+      <h2 class="zilo-label mb-3"><%= t('client.in_progress') %></h2>
       <div class="space-y-2">
         <% activeRequests.forEach(req => { %>
           <a href="/cliente/servicio/<%= req.serviceId %>?tracking=<%= req.id %>" class="flex justify-between items-center p-4 rounded-xl zilo-card-premium hover:border-zilo-accent/20 transition">

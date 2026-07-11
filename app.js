@@ -12,6 +12,7 @@ const { getAppVersionInfo } = require('./lib/version');
 const { dispatchPendingToProvider, dispatchPendingToTechnician } = require('./lib/dispatch');
 const { securityHeaders, rateLimitSimple } = require('./middleware/security');
 const backup = require('./lib/backup');
+const { i18nMiddleware } = require('./middleware/i18n');
 
 const authRoutes = require('./routes/auth');
 const clientRoutes = require('./routes/client');
@@ -22,6 +23,7 @@ const paymentRoutes = require('./routes/payments');
 const legalRoutes = require('./routes/legal');
 const trackingRoutes = require('./routes/tracking');
 const documentosRoutes = require('./routes/documentos');
+const langRoutes = require('./routes/lang');
 
 const app = express();
 const server = http.createServer(app);
@@ -85,6 +87,8 @@ app.use(session({
   }
 }));
 
+app.use(i18nMiddleware);
+
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.currentPath = req.path;
@@ -102,7 +106,7 @@ app.get('/', (req, res) => {
     return res.redirect(dashboards[req.session.user.role] || '/login');
   }
   res.render('landing', {
-    title: 'Fundez — Servicios premium a domicilio',
+    title: req.t('app.name') + ' — ' + (req.locale === 'en' ? 'Premium home services' : 'Servicios premium a domicilio'),
     services: store.getLandingServices(),
     referralBanner: req.session.pendingReferral || null
   });
@@ -117,12 +121,13 @@ app.use('/pagos', paymentRoutes);
 app.use('/legal', legalRoutes);
 app.use('/seguimiento', trackingRoutes);
 app.use('/documentos', documentosRoutes);
+app.use('/lang', langRoutes);
 
 app.use((req, res, next) => {
   if (store.isReady() || req.path === '/health') return next();
   return res.status(503).render('error', {
-    title: 'Conectando…',
-    message: 'Fundez está conectando con la base de datos. Espera unos segundos y recarga la página.',
+    title: req.t('error.connecting.title'),
+    message: req.t('error.connecting.message'),
     code: 503
   });
 });
@@ -170,16 +175,16 @@ app.use((err, req, res, next) => {
   if (err.stack) console.error(err.stack);
   if (res.headersSent) return next(err);
   res.status(500).render('error', {
-    title: 'Error interno',
-    message: 'Ocurrió un error inesperado. Intenta de nuevo en unos segundos.',
+    title: req.t('error.internal.title'),
+    message: req.t('error.internal.message'),
     code: 500
   });
 });
 
 app.use((req, res) => {
   res.status(404).render('error', {
-    title: 'No encontrado',
-    message: 'La página que buscas no existe.',
+    title: req.t('error.not_found.title'),
+    message: req.t('error.not_found.message'),
     code: 404
   });
 });

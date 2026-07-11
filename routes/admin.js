@@ -266,6 +266,9 @@ router.get('/', requireRole('admin'), (req, res) => {
     dteStatus: events.getDteStatus(),
     notificationStats: notifications.getStats(),
     recentNotifications: notifications.getRecent(30),
+    providerContracts: store.getAllProviderContracts(),
+    contractStats: store.getContractStats(),
+    documentCatalog: require('../lib/contracts').DOCUMENT_CATALOG,
     adminNav: getNavForAccess(access),
     adminAccess: access,
     adminTeam: store.getAdminTeamUsers(),
@@ -343,6 +346,24 @@ router.post('/team/:id/toggle', requireRole('admin'), requireAdminPermission('eq
 
   store.logSecurityEvent('admin_team_toggle', `${req.params.id}=${enable}`, req);
   res.json({ success: true, user: store.getAdminTeamUsers().find((u) => u.id === user.id) });
+});
+
+router.post('/contratos/:providerId/review', requireRole('admin'), requireAdminPermission('contratos.review'), (req, res) => {
+  const { action, notes, rejectionReason, requestedDocs } = req.body;
+  const result = store.reviewProviderContract(
+    req.params.providerId,
+    { action, notes, rejectionReason, requestedDocs },
+    req.session.user.email
+  );
+  if (result.error) return res.status(400).json({ error: result.error });
+  store.logSecurityEvent(`contrato_${action}`, req.params.providerId, req);
+  res.json({ success: true, provider: result.provider });
+});
+
+router.get('/contratos/:providerId', requireRole('admin'), requireAdminPermission('contratos.view'), (req, res) => {
+  const provider = store.getAllProviderContracts().find((p) => p.id === req.params.providerId);
+  if (!provider) return res.status(404).json({ error: 'Socio no encontrado' });
+  res.json({ success: true, provider });
 });
 
 router.get('/finanzas/export.csv', requireRole('admin'), requireAdminPermission('finanzas.export'), (req, res) => {

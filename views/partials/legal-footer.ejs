@@ -1,15 +1,15 @@
 <footer class="legal-footer py-5 px-5 text-center border-t border-zilo-border mt-auto">
   <div class="flex flex-wrap justify-center gap-x-5 gap-y-1 text-[11px] text-zilo-muted">
-    <a href="/legal/privacidad" class="hover:text-zilo-accent transition">Privacidad</a>
-    <a href="/legal/terminos" class="hover:text-zilo-accent transition">Términos</a>
-    <a href="/legal/cookies" class="hover:text-zilo-accent transition">Cookies</a>
+    <a href="/legal/privacidad" class="hover:text-zilo-accent transition"><%= t('footer.privacy') %></a>
+    <a href="/legal/terminos" class="hover:text-zilo-accent transition"><%= t('footer.terms') %></a>
+    <a href="/legal/cookies" class="hover:text-zilo-accent transition"><%= t('footer.cookies') %></a>
     <% if (typeof company !== 'undefined') { %>
       <a href="<%= company.whatsappLink() %>" target="_blank" rel="noopener" class="hover:text-zilo-accent transition">Concierge</a>
     <% } %>
   </div>
   <p class="text-[10px] text-zilo-muted/50 mt-3 tracking-wider">FUNDEZ · SANTIAGO · MMXXVI</p>
   <p class="text-[10px] text-zilo-muted/60 mt-2">
-    Una app de
+    <%= t('footer.app_by') %>
     <a href="https://www.theweb.cl" target="_blank" rel="noopener" class="text-zilo-muted hover:text-zilo-accent transition underline underline-offset-2">theweb</a>
   </p>
 </footer>

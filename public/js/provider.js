@@ -286,8 +286,8 @@
     if (!data.success) {
       onlineToggle.checked = false;
       const msg = data.missing?.length
-        ? `Completa tu verificación: ${data.missing.join(', ')}`
-        : (data.error || 'No se pudo activar el modo en línea');
+        ? FundezI18n.t('js.verification_missing', { items: data.missing.join(', ') })
+        : (data.error || FundezI18n.t('js.cannot_go_online'));
       FundezNotify.show(msg, 'warning');
       if (data.redirect) setTimeout(() => { window.location.href = data.redirect; }, 1800);
       return;
@@ -295,9 +295,9 @@
 
     if (online) {
       statusDot.className = 'w-3 h-3 rounded-full bg-zilo-success shadow-lg shadow-zilo-success/40 animate-pulse';
-      statusText.textContent = 'En línea';
-      statusSub.textContent = 'Muro de trabajos activo';
-      FundezNotify.show(data.dispatched > 0 ? `¡${data.dispatched} solicitud(es) en el muro!` : 'Modo en línea activado', 'success');
+      statusText.textContent = FundezI18n.t('provider.online');
+      statusSub.textContent = FundezI18n.t('provider.status_online_sub');
+      FundezNotify.show(data.dispatched > 0 ? FundezI18n.t('js.requests_on_wall', { count: data.dispatched }) : FundezI18n.t('js.online_activated'), 'success');
       startLocationWatch();
       loadWorkWall();
       if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
@@ -305,13 +305,13 @@
       }
     } else {
       statusDot.className = 'w-3 h-3 rounded-full bg-zilo-muted/40';
-      statusText.textContent = 'Fuera de línea';
-      statusSub.textContent = 'Actívate para ver el muro';
+      statusText.textContent = FundezI18n.t('provider.offline');
+      statusSub.textContent = FundezI18n.t('provider.status_offline_sub');
       wallItems.clear();
       renderWorkWall();
       closeModal();
       stopLocationWatch();
-      FundezNotify.show('Modo fuera de línea', 'info');
+      FundezNotify.show(FundezI18n.t('js.offline_mode'), 'info');
     }
   });
 
@@ -321,7 +321,7 @@
 
   document.getElementById('btnDecline')?.addEventListener('click', () => {
     closeModal();
-    FundezNotify.show('Sigue disponible en el muro para otros técnicos', 'info');
+    FundezNotify.show(FundezI18n.t('js.still_on_wall'), 'info');
   });
 
   function showActiveJob(request) {
