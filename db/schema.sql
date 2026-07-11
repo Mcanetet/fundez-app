@@ -166,3 +166,21 @@ CREATE TABLE IF NOT EXISTS notifications (
   INDEX idx_notifications_request (request_id),
   INDEX idx_notifications_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  setting_key VARCHAR(64) PRIMARY KEY,
+  setting_value JSON NOT NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS app_backups (
+  id VARCHAR(64) PRIMARY KEY,
+  backup_type VARCHAR(32) NOT NULL,
+  triggered_by VARCHAR(190),
+  created_at DATETIME NOT NULL,
+  manifest JSON NOT NULL,
+  snapshot LONGTEXT NOT NULL,
+  folder_name VARCHAR(191),
+  includes_uploads TINYINT(1) NOT NULL DEFAULT 0,
+  INDEX idx_app_backups_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

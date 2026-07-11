@@ -206,7 +206,7 @@ router.post('/mfa/disable', requireRole('admin'), async (req, res) => {
   res.redirect('/admin?tab=seguridad&mfa=disabled');
 });
 
-router.get('/', requireRole('admin'), (req, res) => {
+router.get('/', requireRole('admin'), async (req, res) => {
   try {
   const allRequests = store.getAllRequests();
   const providers = store.USERS.filter(u => u.role === 'provider');
@@ -254,7 +254,7 @@ router.get('/', requireRole('admin'), (req, res) => {
     pricing,
     formatCLP: store.formatCLP,
     backupConfig: backup.loadConfig(),
-    backups: backup.listBackups(),
+    backups: await backup.listBackups(),
     backupRetention: backup.getRetentionSummary(),
     formatBytes: backup.formatBytes,
     appVersion: getAppVersionInfo(),
@@ -472,12 +472,12 @@ router.post('/payout/:requestId', requireRole('admin'), requireAdminPermission('
   res.json({ success: true, request: req_ });
 });
 
-router.get('/backups/config', requireRole('admin'), (req, res) => {
+router.get('/backups/config', requireRole('admin'), async (req, res) => {
   res.json({
     success: true,
     config: backup.loadConfig(),
     retention: backup.getRetentionSummary(),
-    backups: backup.listBackups()
+    backups: await backup.listBackups()
   });
 });
 
@@ -507,16 +507,17 @@ router.post('/backups/config', requireRole('admin'), requireAdminPermission('bac
   res.json({ success: true, config, retention: backup.getRetentionSummary(config) });
 });
 
-router.post('/backups/run', requireRole('admin'), requireAdminPermission('backups.manage'), (req, res) => {
+router.post('/backups/run', requireRole('admin'), requireAdminPermission('backups.manage'), async (req, res) => {
   try {
     const result = backup.createBackup(store, 'manual', req.session.user.email);
-    const removed = backup.applyRetention();
+    const removed = await backup.applyRetention();
     store.logSecurityEvent('backup_manual', result.manifest.id, req);
     res.json({
       success: true,
       backup: result.manifest,
       removed,
-      config: backup.loadConfig()
+      config: backup.loadConfig(),
+      backups: await backup.listBackups()
     });
   } catch (err) {
     backup.saveConfig({ lastBackupStatus: 'error', lastBackupError: err.message });
@@ -524,7 +525,7 @@ router.post('/backups/run', requireRole('admin'), requireAdminPermission('backup
   }
 });
 
-router.post('/backups/retention', requireRole('admin'), requireAdminPermission('backups.manage'), (req, res) => {
+router.post('/backups/retention', requireRole('admin'), requireAdminPermission('backups.manage'), async (req, res) => {
   const config = backup.loadConfig();
   if (config.autoRetention === false) {
     return res.json({
@@ -532,12 +533,12 @@ router.post('/backups/retention', requireRole('admin'), requireAdminPermission('
       removed: 0,
       skipped: true,
       message: 'La limpieza automática está desactivada. El historial se conserva.',
-      backups: backup.listBackups()
+      backups: await backup.listBackups()
     });
   }
-  const removed = backup.applyRetention();
+  const removed = await backup.applyRetention();
   store.logSecurityEvent('backup_retention_purge', `removed=${removed}`, req);
-  res.json({ success: true, removed, backups: backup.listBackups() });
+  res.json({ success: true, removed, backups: await backup.listBackups() });
 });
 
 router.post('/backups/import', requireRole('admin'), requireAdminPermission('backups.manage'), async (req, res) => {
@@ -575,15 +576,24 @@ router.post('/backups/import', requireRole('admin'), requireAdminPermission('bac
   }
 });
 
-router.get('/backups/:id/download', requireRole('admin'), (req, res) => {
-  const item = backup.getBackupById(req.params.id);
+router.get('/backups/:id/download', requireRole('admin'), async (req, res) => {
+  const item = await backup.getBackupById(req.params.id);
   if (!item) return res.status(404).json({ error: 'Backup no encontrado' });
 
-  const snapshotPath = path.join(item.folderPath, 'snapshot.json');
-  if (!fs.existsSync(snapshotPath)) return res.status(404).json({ error: 'Archivo no encontrado' });
-
   const ver = item.appVersion || 'backup';
-  res.download(snapshotPath, `fundez-backup-v${ver}-${item.createdAt.slice(0, 10)}.json`);
+  const filename = `fundez-backup-v${ver}-${String(item.createdAt).slice(0, 10)}.json`;
+  const snapshotPath = item.folderPath ? path.join(item.folderPath, 'snapshot.json') : null;
+
+  if (snapshotPath && fs.existsSync(snapshotPath)) {
+    return res.download(snapshotPath, filename);
+  }
+
+  const snapshot = await backup.readSnapshot(req.params.id);
+  if (!snapshot) return res.status(404).json({ error: 'Archivo no encontrado' });
+
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(JSON.stringify(snapshot, null, 2));
 });
 
 router.post('/backups/:id/restore', requireRole('admin'), requireAdminPermission('backups.restore'), async (req, res) => {
@@ -609,11 +619,11 @@ router.post('/backups/:id/restore', requireRole('admin'), requireAdminPermission
   }
 });
 
-router.delete('/backups/:id', requireRole('admin'), requireAdminPermission('backups.manage'), (req, res) => {
-  const ok = backup.deleteBackup(req.params.id);
+router.delete('/backups/:id', requireRole('admin'), requireAdminPermission('backups.manage'), async (req, res) => {
+  const ok = await backup.deleteBackup(req.params.id);
   if (!ok) return res.status(404).json({ error: 'Backup no encontrado' });
   store.logSecurityEvent('backup_delete', req.params.id, req);
-  res.json({ success: true, backups: backup.listBackups() });
+  res.json({ success: true, backups: await backup.listBackups() });
 });
 
 router.get('/precios', requireRole('admin'), requireAdminPermission('precios.view', 'precios.manage'), (req, res) => {

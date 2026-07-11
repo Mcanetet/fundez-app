@@ -79,6 +79,7 @@ async function init() {
 
   await repository.migrate();
   await repository.ensureDemoData();
+  await require('../lib/backup').hydrateFromDatabase();
   const data = await repository.loadAll();
 
   SERVICES = data.services;

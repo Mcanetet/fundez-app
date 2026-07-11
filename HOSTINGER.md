@@ -133,6 +133,8 @@ Esto crea las tablas e inserta los usuarios demo:
 
 > En cada arranque la app sincroniza la cuenta admin por correo. Si no puedes entrar, define `ADMIN_PASSWORD` en Hostinger y reinicia, o ejecuta `npm run admin:reset`.
 
+> **Backups:** el historial se guarda en **MySQL** (`app_backups`), no en archivos del deploy. Al subir una nueva versión desde GitHub el historial se conserva. Los documentos KYC (carpeta uploads) siguen en disco del servidor.
+
 ### Recuperar acceso admin
 
 En **Variables de entorno** de Hostinger agrega:
