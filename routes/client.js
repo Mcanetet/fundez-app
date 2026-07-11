@@ -4,6 +4,7 @@ const store = require('../models/store');
 const { saveRequestFile } = require('../lib/uploads');
 const company = require('../config/company');
 const { getClientOnboardingSteps } = require('../lib/onboarding');
+const { localizeServices } = require('../lib/i18n-admin');
 const { requireRole } = require('../middleware/auth');
 const { requireModule } = require('../middleware/modules');
 
@@ -19,7 +20,7 @@ router.get('/', requireRole('client'), (req, res) => {
     title: 'Fundez — Servicios',
     user: req.session.user,
     profile,
-    services: store.getActiveServices(),
+    services: localizeServices(store.getActiveServices(), req.t),
     promos: store.PROMOS,
     referral: store.getReferralStats(req.session.user.id),
     passport: store.getHomePassport(req.session.user.id),
@@ -114,14 +115,15 @@ router.post('/aplicar-codigo', requireRole('client'), requireModule('client_refe
 });
 
 router.get('/servicio/:id', requireRole('client'), requireModule('client_solicitar'), (req, res) => {
-  const service = store.getServiceById(req.params.id);
-  if (!service || !service.enabled) {
+  const serviceRaw = store.getServiceById(req.params.id);
+  if (!serviceRaw || !serviceRaw.enabled) {
     return res.status(404).render('error', {
       title: 'No disponible',
       message: 'Este servicio no está disponible en este momento.',
       code: 404
     });
   }
+  const service = localizeServices([serviceRaw], req.t)[0];
   const profile = store.getUserById(req.session.user.id);
   const pricing = store.getPricingConfig();
   const urgencyTiers = store.getUrgencyTiersForClient();
@@ -207,16 +209,38 @@ router.post('/solicitar', requireRole('client'), requireModule('client_solicitar
     res.json({ success: true, request });
   } catch (err) {
     console.error('Error creando solicitud:', err.message);
-    res.status(500).json({ error: 'Error al crear la solicitud' });
+    const isCoverage = /operamos|comuna|trabajando/i.test(err.message || '');
+    res.status(isCoverage ? 400 : 500).json({
+      error: err.message || 'Error al crear la solicitud',
+      coverageBlocked: isCoverage
+    });
   }
 });
 
 router.post('/geocode', requireRole('client'), async (req, res) => {
   const { geocodeAddress } = require('../lib/geocode');
+  const { formatCoverageMessage } = require('../lib/coverage');
   const { address } = req.body;
   if (!address) return res.status(400).json({ error: 'Dirección requerida' });
   const result = await geocodeAddress(address);
-  res.json({ success: true, coords: { lat: result.lat, lng: result.lng }, displayName: result.displayName });
+  const coverage = store.validateAddressCoverage({
+    address,
+    displayName: result.displayName,
+    nominatimAddress: result.address
+  });
+  res.json({
+    success: true,
+    coords: { lat: result.lat, lng: result.lng },
+    displayName: result.displayName,
+    coverage: {
+      covered: coverage.covered,
+      unknown: coverage.unknown,
+      regionEnabled: coverage.regionEnabled,
+      communeName: coverage.communeName,
+      regionName: coverage.regionName,
+      message: coverage.covered ? null : formatCoverageMessage(coverage)
+    }
+  });
 });
 
 router.get('/solicitud/:id', requireRole('client'), (req, res) => {

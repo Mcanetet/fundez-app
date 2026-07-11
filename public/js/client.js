@@ -12,6 +12,7 @@
   const latInput = document.getElementById('lat');
   const lngInput = document.getElementById('lng');
   const mapStatus = document.getElementById('mapStatus');
+  const coverageAlert = document.getElementById('coverageAlert');
   const giftToggle = document.getElementById('giftToggle');
   const giftFields = document.getElementById('giftFields');
   const addressLabel = document.getElementById('addressLabel');
@@ -20,6 +21,7 @@
   let currentRequestId = trackingId || null;
   let selectedUrgencyTier = document.querySelector('input[name="urgencyTier"]:checked')?.value || 'tomorrow';
   let geocodeTimer = null;
+  let addressCovered = null;
   const socket = io();
 
   const SANTIAGO = { lat: -33.4489, lng: -70.6693 };
@@ -141,11 +143,36 @@
     });
   }
 
+  function setCoverageState(coverage) {
+    addressCovered = coverage?.covered === true;
+    if (!coverageAlert) return;
+
+    if (!coverage || coverage.covered) {
+      coverageAlert.classList.add('hidden');
+      coverageAlert.textContent = '';
+      btnRequest.disabled = false;
+      const stickyBtn = document.getElementById('btnRequestSticky');
+      if (stickyBtn) stickyBtn.disabled = false;
+      return;
+    }
+
+    coverageAlert.classList.remove('hidden');
+    coverageAlert.textContent = coverage.message
+      || `Estamos trabajando para llegar a ${coverage.communeName || 'tu comuna'}. Por ahora operamos en Providencia, Las Condes y Ñuñoa.`;
+    btnRequest.disabled = true;
+    const stickyBtn = document.getElementById('btnRequestSticky');
+    if (stickyBtn) stickyBtn.disabled = true;
+  }
+
   async function geocodeAddress() {
     const address = addressInput.value.trim();
     if (address.length < 5) return;
 
     mapStatus.textContent = 'Buscando ubicación...';
+    if (coverageAlert) {
+      coverageAlert.classList.add('hidden');
+      coverageAlert.textContent = '';
+    }
     try {
       const res = await fetch('/cliente/geocode', {
         method: 'POST',
@@ -157,10 +184,18 @@
         latInput.value = data.coords.lat;
         lngInput.value = data.coords.lng;
         FundezMap.update('addressMap', data.coords.lat, data.coords.lng, data.displayName || address);
-        mapStatus.textContent = data.displayName || 'Ubicación encontrada';
+        if (data.coverage?.covered) {
+          mapStatus.textContent = data.displayName || 'Ubicación encontrada';
+        } else {
+          mapStatus.textContent = data.coverage?.communeName
+            ? `Comuna detectada: ${data.coverage.communeName}`
+            : (data.displayName || 'Ubicación encontrada');
+        }
+        setCoverageState(data.coverage);
       }
     } catch (_) {
       mapStatus.textContent = 'No se pudo geocodificar';
+      setCoverageState(null);
     }
   }
 
@@ -412,6 +447,13 @@
 
     try {
       if (!latInput.value) await geocodeAddress();
+      if (addressCovered === false) {
+        btnRequest.disabled = true;
+        if (stickyBtn) stickyBtn.disabled = true;
+        btnRequest.textContent = 'Continuar al pago';
+        FundezNotify.show('Tu comuna aún no tiene cobertura Fundez', 'warning');
+        return;
+      }
 
       const clientPhoto = clientPhotoInput ? await fileInputToBase64(clientPhotoInput) : null;
 

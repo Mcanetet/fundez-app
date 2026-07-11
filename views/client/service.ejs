@@ -126,7 +126,7 @@
 
       <div>
         <label for="address" class="zilo-label block mb-1.5" id="addressLabel">Dirección del servicio</label>
-        <input type="text" id="address" placeholder="Ej: Av. Providencia 1234, Depto 501"
+        <input type="text" id="address" placeholder="Ej: Av. Providencia 1234, Providencia"
           value="<%= typeof profile !== 'undefined' ? profile.address : '' %>" class="zilo-input">
         <input type="hidden" id="lat"><input type="hidden" id="lng">
       </div>
@@ -135,6 +135,7 @@
         <label class="zilo-label block mb-1.5">Ubicación</label>
         <div id="addressMap" class="w-full h-44 rounded-2xl overflow-hidden border border-zilo-border bg-zilo-bg"></div>
         <p id="mapStatus" class="text-[10px] text-zilo-muted mt-1.5">Escribe una dirección para ubicar en el mapa</p>
+        <div id="coverageAlert" class="hidden mt-2 p-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 text-xs leading-relaxed" role="alert"></div>
       </div>
 
       <div>

@@ -20,7 +20,7 @@ function attachAdminAccess(req, res, next) {
   if (req.session?.user?.role === 'admin') {
     req.adminAccess = getSessionAccess(req);
     res.locals.adminAccess = req.adminAccess;
-    res.locals.adminNav = getNavForAccess(req.adminAccess);
+    res.locals.adminNav = getNavForAccess(req.adminAccess, req.t);
   }
   next();
 }

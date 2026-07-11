@@ -20,6 +20,12 @@ const {
   getPermissionGroups,
   getProfilesList
 } = require('../lib/adminPermissions');
+const {
+  getAdminStrings,
+  localizeModules,
+  localizeServices,
+  getNavForLocale
+} = require('../lib/i18n-admin');
 const { rateLimitLogin, adminIpAllowlist, getClientIp, parseAdminIpAllowlist } = require('../middleware/security');
 const { qrDataUrl } = require('../lib/mfa');
 const notifications = require('../lib/notifications');
@@ -246,10 +252,12 @@ router.get('/', requireRole('admin'), async (req, res) => {
     title: 'Fundez — Admin',
     user: req.session.user,
     stats,
-    services: store.SERVICES,
+    services: localizeServices(store.SERVICES, req.t),
     modules: store.getModules(),
-    clientModules: store.getModulesByAudience('client'),
-    providerModules: store.getModulesByAudience('provider'),
+    clientModules: localizeModules(store.getModulesByAudience('client'), req.t),
+    providerModules: localizeModules(store.getModulesByAudience('provider'), req.t),
+    coverageRegions: store.getCoverageForAdmin(),
+    coverageStats: store.getCoverageStats(),
     requests: allRequests.slice(0, 30),
     payments: store.getPayments(),
     payouts: store.getProviderPayouts(),
@@ -281,7 +289,8 @@ router.get('/', requireRole('admin'), async (req, res) => {
     providerContracts: store.getAllProviderContracts(),
     contractStats: store.getContractStats(),
     documentCatalog: require('../lib/contracts').DOCUMENT_CATALOG,
-    adminNav: getNavForAccess(access),
+    adminNav: getNavForLocale(access, req.t),
+    adminStrings: getAdminStrings(req.t),
     adminAccess: access,
     adminTeam: store.getAdminTeamUsers(),
     adminProfiles: getProfilesList(),
@@ -451,6 +460,29 @@ router.post('/toggle-module', requireRole('admin'), requireAdminPermission('modu
   store.logSecurityEvent('module_toggle', `${moduleId}=${enabled}`, req);
   req.app.get('io').emit('modules_updated', { modules: store.MODULES });
   res.json({ success: true, module: mod });
+});
+
+router.post('/toggle-coverage', requireRole('admin'), requireAdminPermission('cobertura.manage'), (req, res) => {
+  const { regionCode, communeCode, enabled, regionOnly } = req.body;
+  const isEnabled = enabled === true || enabled === 'true';
+
+  if (regionOnly && regionCode) {
+    const region = store.toggleCoverageRegion(regionCode, isEnabled);
+    if (!region) return res.status(404).json({ error: 'Región no encontrada' });
+    store.logSecurityEvent('coverage_region_toggle', `${regionCode}=${isEnabled}`, req);
+    return res.json({ success: true, region, stats: store.getCoverageStats() });
+  }
+
+  if (!regionCode || !communeCode) {
+    return res.status(400).json({ error: 'Región y comuna requeridas' });
+  }
+
+  const result = store.toggleCoverageCommune(regionCode, communeCode, isEnabled);
+  if (result?.error) return res.status(400).json({ error: result.error });
+  if (!result) return res.status(404).json({ error: 'Comuna no encontrada' });
+
+  store.logSecurityEvent('coverage_commune_toggle', `${regionCode}/${communeCode}=${isEnabled}`, req);
+  res.json({ success: true, commune: result, stats: store.getCoverageStats() });
 });
 
 router.post('/toggle-user', requireRole('admin'), requireAdminPermission('demo.manage'), (req, res) => {

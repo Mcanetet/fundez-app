@@ -2,13 +2,14 @@
   const dashboard = document.getElementById('adminDashboard');
   if (!dashboard) return;
 
-  const PANEL_TITLES = {
+  const PANEL_TITLES = (window.FundezAdminI18n && window.FundezAdminI18n.panels) || {
     resumen: 'Resumen',
     finanzas: 'Finanzas',
     documentos: 'DTE / SII',
     contratos: 'Contratos socios',
     notificaciones: 'Notificaciones',
     modulos: 'Módulos',
+    cobertura: 'Cobertura',
     servicios: 'Servicios',
     demo: 'Cuentas demo',
     pagos: 'Pagos',
@@ -22,6 +23,9 @@
     equipo: 'Equipo y permisos',
     seguridad: 'Seguridad'
   };
+
+  const ADMIN_JS = (window.FundezAdminI18n && window.FundezAdminI18n.js) || {};
+  const ADMIN_STATUS = (window.FundezAdminI18n && window.FundezAdminI18n.status) || { on: 'ON', off: 'OFF', active: 'ACTIVA', inactive: 'INACTIVA' };
 
   const tabs = document.querySelectorAll('.admin-nav-item');
   const panels = document.querySelectorAll('.admin-panel');
@@ -124,8 +128,8 @@
   function resetTeamForm() {
     teamForm?.reset();
     document.getElementById('adminFormId').value = '';
-    document.getElementById('adminFormTitle').textContent = 'Nuevo administrador';
-    document.getElementById('adminFormSubmit').textContent = 'Crear administrador';
+    document.getElementById('adminFormTitle').textContent = ADMIN_JS.newAdmin || 'Nuevo administrador';
+    document.getElementById('adminFormSubmit').textContent = ADMIN_JS.createAdmin || 'Crear administrador';
     document.getElementById('adminFormEmail').disabled = false;
     document.getElementById('adminFormPassword').required = true;
     document.getElementById('adminFormPasswordHint').textContent = '';
@@ -149,13 +153,13 @@
       if (!member) return;
 
       document.getElementById('adminFormId').value = member.id;
-      document.getElementById('adminFormTitle').textContent = 'Editar administrador';
-      document.getElementById('adminFormSubmit').textContent = 'Guardar cambios';
+      document.getElementById('adminFormTitle').textContent = ADMIN_JS.editAdmin || 'Editar administrador';
+      document.getElementById('adminFormSubmit').textContent = ADMIN_JS.saveChanges || 'Guardar cambios';
       document.getElementById('adminFormName').value = member.name || '';
       document.getElementById('adminFormEmail').value = member.email || '';
       document.getElementById('adminFormEmail').disabled = true;
       document.getElementById('adminFormPassword').required = false;
-      document.getElementById('adminFormPasswordHint').textContent = 'Deja vacío para mantener la contraseña actual.';
+      document.getElementById('adminFormPasswordHint').textContent = ADMIN_JS.passwordHint || '';
 
       if (profileSelect) {
         profileSelect.value = member.isSuperAdmin ? 'superadmin' : (member.profileId || 'custom');
@@ -314,7 +318,7 @@
         const data = await res.json();
         if (data.success) {
           item.classList.toggle('opacity-50', !enabled);
-          statusLabel.textContent = enabled ? 'ON' : 'OFF';
+          statusLabel.textContent = enabled ? ADMIN_STATUS.on : ADMIN_STATUS.off;
           statusLabel.className = `service-status text-[10px] font-bold uppercase ${enabled ? 'text-emerald-600' : 'text-red-600'}`;
           FundezNotify.show(`${data.service.name} ${enabled ? 'activado' : 'desactivado'}`, enabled ? 'success' : 'warning');
         }
@@ -341,7 +345,7 @@
         const data = await res.json();
         if (data.success) {
           item.classList.toggle('opacity-50', !active);
-          statusLabel.textContent = active ? 'ACTIVA' : 'INACTIVA';
+          statusLabel.textContent = active ? ADMIN_STATUS.active : ADMIN_STATUS.inactive;
           statusLabel.className = `demo-status text-[10px] font-bold uppercase ${active ? 'text-emerald-600' : 'text-red-600'}`;
           FundezNotify.show(`Cuenta demo ${active ? 'activada' : 'desactivada'}`, active ? 'success' : 'warning');
         } else {
@@ -371,7 +375,7 @@
         const data = await res.json();
         if (data.success) {
           item.classList.toggle('opacity-50', !enabled);
-          statusLabel.textContent = enabled ? 'ON' : 'OFF';
+          statusLabel.textContent = enabled ? ADMIN_STATUS.on : ADMIN_STATUS.off;
           statusLabel.className = `module-status text-[10px] font-bold uppercase ${enabled ? 'text-emerald-600' : 'text-red-600'}`;
           FundezNotify.show(`${data.module.name} ${enabled ? 'activado' : 'desactivado'}`, enabled ? 'success' : 'warning');
         } else {
@@ -381,6 +385,119 @@
       } catch (_) {
         toggle.checked = !enabled;
         FundezNotify.show('Error al actualizar módulo', 'error');
+      }
+    });
+  });
+
+  document.querySelectorAll('.coverage-toggle').forEach(toggle => {
+    toggle.addEventListener('change', async (e) => {
+      e.stopPropagation();
+      const regionCode = toggle.dataset.region;
+      const communeCode = toggle.dataset.commune;
+      const enabled = toggle.checked;
+      const item = toggle.closest('.coverage-commune-item');
+      const statusLabel = item.querySelector('.coverage-status');
+      const regionEl = toggle.closest('.coverage-region');
+
+      try {
+        const res = await fetch('/admin/toggle-coverage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ regionCode, communeCode, enabled })
+        });
+        const data = await res.json();
+        if (data.success) {
+          statusLabel.textContent = enabled ? ADMIN_STATUS.on : ADMIN_STATUS.off;
+          statusLabel.className = `coverage-status text-[10px] font-bold uppercase shrink-0 ${enabled ? 'text-emerald-600' : 'text-red-600'}`;
+          item.classList.toggle('opacity-70', !enabled);
+          updateCoverageRegionCount(regionEl);
+          updateCoverageStatsLabel(data.stats);
+          FundezNotify.show(`${data.commune.communeName} ${enabled ? 'habilitada' : 'deshabilitada'}`, enabled ? 'success' : 'warning');
+        } else {
+          toggle.checked = !enabled;
+          FundezNotify.show(data.error || 'No se pudo actualizar', 'error');
+        }
+      } catch (_) {
+        toggle.checked = !enabled;
+        FundezNotify.show('Error al actualizar cobertura', 'error');
+      }
+    });
+  });
+
+  function updateCoverageRegionCount(regionEl) {
+    if (!regionEl) return;
+    const regionEnabled = regionEl.querySelector('.coverage-region-toggle')?.checked;
+    const toggles = [...regionEl.querySelectorAll('.coverage-toggle')];
+    const active = toggles.filter((t) => regionEnabled && t.checked).length;
+    const countEl = regionEl.querySelector('.coverage-region-count');
+    if (countEl) {
+      const template = countEl.dataset.template || '{{active}}/{{total}} comunas activas';
+      countEl.textContent = template.replace('{{active}}', active).replace('{{total}}', toggles.length);
+    }
+  }
+
+  function updateCoverageStatsLabel(stats) {
+    const el = document.getElementById('coverageStatsLabel');
+    if (!el || !stats) return;
+    const communesTpl = el.dataset.communesTemplate;
+    const regionsTpl = el.dataset.regionsTemplate;
+    if (communesTpl && regionsTpl) {
+      el.textContent = `${communesTpl.replace('{{active}}', stats.enabled).replace('{{total}}', stats.total)} · ${regionsTpl.replace('{{active}}', stats.regionsActive).replace('{{total}}', stats.regionsTotal)}`;
+    }
+  }
+
+  function updateCoverageRegionUi(regionEl, enabled) {
+    regionEl.classList.toggle('opacity-80', !enabled);
+    const status = regionEl.querySelector('.coverage-region-status');
+    if (status) {
+      status.textContent = enabled ? ADMIN_STATUS.on : ADMIN_STATUS.off;
+      status.className = `coverage-region-status text-[10px] font-bold uppercase shrink-0 ${enabled ? 'text-emerald-600' : 'text-red-600'}`;
+    }
+    const list = regionEl.querySelector('.coverage-communes-list');
+    if (list) list.classList.toggle('is-disabled', !enabled);
+
+    regionEl.querySelectorAll('.coverage-toggle').forEach((toggle) => {
+      toggle.disabled = !enabled;
+      const item = toggle.closest('.coverage-commune-item');
+      const statusLabel = item?.querySelector('.coverage-status');
+      const operational = enabled && toggle.checked;
+      item?.classList.toggle('opacity-70', !operational);
+      if (statusLabel) {
+        statusLabel.textContent = operational ? ADMIN_STATUS.on : ADMIN_STATUS.off;
+        statusLabel.className = `coverage-status text-[10px] font-bold uppercase shrink-0 ${operational ? 'text-emerald-600' : 'text-red-600'}`;
+      }
+    });
+
+    updateCoverageRegionCount(regionEl);
+  }
+
+  document.querySelectorAll('.coverage-region-toggle').forEach(toggle => {
+    toggle.addEventListener('change', async (e) => {
+      e.stopPropagation();
+      const regionCode = toggle.dataset.region;
+      const enabled = toggle.checked;
+      const regionEl = toggle.closest('.coverage-region');
+      if (!regionEl) return;
+
+      try {
+        const res = await fetch('/admin/toggle-coverage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ regionCode, enabled, regionOnly: true })
+        });
+        const data = await res.json();
+        if (!data.success) {
+          toggle.checked = !enabled;
+          FundezNotify.show(data.error || 'No se pudo actualizar la región', 'error');
+          return;
+        }
+
+        updateCoverageRegionUi(regionEl, enabled);
+        updateCoverageStatsLabel(data.stats);
+        FundezNotify.show(`${data.region.regionName} ${enabled ? 'activada' : 'desactivada'}`, enabled ? 'success' : 'warning');
+      } catch (_) {
+        toggle.checked = !enabled;
+        FundezNotify.show('Error al actualizar región', 'error');
       }
     });
   });
@@ -433,7 +550,7 @@
       const item = toggle.closest('.service-toggle-item');
       const statusLabel = item.querySelector('.service-status');
       item.classList.toggle('opacity-50', !service.enabled);
-      statusLabel.textContent = service.enabled ? 'ON' : 'OFF';
+      statusLabel.textContent = service.enabled ? ADMIN_STATUS.on : ADMIN_STATUS.off;
       statusLabel.className = `service-status text-[10px] font-bold uppercase ${service.enabled ? 'text-emerald-600' : 'text-red-600'}`;
     });
   });
@@ -446,7 +563,7 @@
       const item = toggle.closest('.module-toggle-item');
       const statusLabel = item.querySelector('.module-status');
       item.classList.toggle('opacity-50', !mod.enabled);
-      statusLabel.textContent = mod.enabled ? 'ON' : 'OFF';
+      statusLabel.textContent = mod.enabled ? ADMIN_STATUS.on : ADMIN_STATUS.off;
       statusLabel.className = `module-status text-[10px] font-bold uppercase ${mod.enabled ? 'text-emerald-600' : 'text-red-600'}`;
     });
   });
@@ -484,11 +601,11 @@
   document.getElementById('btnRunBackup')?.addEventListener('click', async () => {
     const btn = document.getElementById('btnRunBackup');
     btn.disabled = true;
-    btn.textContent = 'Generando...';
+    btn.textContent = ADMIN_JS.generating || 'Generando...';
     const res = await fetch('/admin/backups/run', { method: 'POST' });
     const data = await res.json();
     btn.disabled = false;
-    btn.textContent = 'Generar backup ahora';
+    btn.textContent = ADMIN_JS.generateBackup || 'Generar backup ahora';
     if (data.success) {
       FundezNotify.show(`Backup creado v${data.backup.appVersion || '?'} (${data.backup.stats?.totalBytes ? Math.round(data.backup.stats.totalBytes / 1024) + ' KB' : 'ok'})`, 'success');
       setTimeout(() => location.reload(), 900);
@@ -735,7 +852,7 @@
   function renderAlandKb(items) {
     if (!alandKbList) return;
     if (!items?.length) {
-      alandKbList.innerHTML = '<p class="text-gray-500 p-2">Sin entradas. Usa sincronizar o agrega manualmente.</p>';
+      alandKbList.innerHTML = `<p class="text-gray-500 p-2">${ADMIN_JS.noKb || 'Sin entradas.'}</p>`;
       return;
     }
     alandKbList.innerHTML = items.map((k) => `
@@ -762,7 +879,7 @@
       const kbData = await kbRes.json();
       renderAlandKb(kbData.knowledge);
     } catch (_) {
-      if (alandStatus) alandStatus.textContent = 'Error cargando Aland IA';
+      if (alandStatus) alandStatus.textContent = ADMIN_JS.alandError || 'Error cargando Aland IA';
     }
   }
 
@@ -840,7 +957,7 @@
     const data = await res.json();
     const items = (data.conversations || []).filter((c) => c.status !== 'closed');
     if (!items.length) {
-      mensajesList.innerHTML = '<p class="text-xs text-gray-500 p-3 rounded-xl bg-zilo-bg border">Sin conversaciones activas.</p>';
+      mensajesList.innerHTML = `<p class="text-xs text-gray-500 p-3 rounded-xl bg-zilo-bg border">${ADMIN_JS.noConversations || 'Sin conversaciones.'}</p>`;
       return;
     }
     mensajesList.innerHTML = items.map((c) => `

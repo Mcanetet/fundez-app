@@ -40,6 +40,8 @@ const {
   getProfilesList,
   getPermissionGroups
 } = require('../lib/adminPermissions');
+const { checkAddressCoverage, groupCoverageForAdmin, formatCoverageMessage } = require('../lib/coverage');
+const { getCommuneKey } = require('../lib/chile-geo');
 
 let SERVICES = [];
 let MODULES = [];
@@ -53,6 +55,9 @@ let consentRecords = [];
 let securityLogs = [];
 let notifications = [];
 let PROMOS = [];
+let COVERAGE_COMMUNES = [];
+let COVERAGE_REGIONS = [];
+let coverageMap = new Map();
 let initialized = false;
 
 function afterEvent(run) {
@@ -95,6 +100,9 @@ async function init() {
   securityLogs = data.securityLogs;
   notifications = data.notifications || [];
   PROMOS = data.promos || [];
+  COVERAGE_COMMUNES = data.coverageCommunes || [];
+  COVERAGE_REGIONS = data.coverageRegions || [];
+  rebuildCoverageMap();
   initialized = true;
   const events = require('../lib/events');
   events.init(module.exports);
@@ -121,11 +129,22 @@ async function createRequest({ clientId, serviceId, address, notes, coords: inpu
   if (!visitCalc) return Promise.reject(new Error('Opción de urgencia no válida'));
 
   let coords;
+  let geoMeta = null;
+  const geo = await geocodeAddress(fullAddress);
   if (inputCoords?.lat && inputCoords?.lng) {
     coords = { lat: parseFloat(inputCoords.lat), lng: parseFloat(inputCoords.lng) };
   } else {
-    const geo = await geocodeAddress(fullAddress);
     coords = { lat: geo.lat, lng: geo.lng, displayName: geo.displayName };
+  }
+
+  const coverage = checkAddressCoverage({
+    address: fullAddress,
+    displayName: geo.displayName,
+    nominatimAddress: geo.address
+  }, coverageMap);
+  geoMeta = coverage;
+  if (!coverage.covered) {
+    return Promise.reject(new Error(formatCoverageMessage(coverage)));
   }
 
   const isGift = Boolean(gift?.name);
@@ -172,7 +191,11 @@ async function createRequest({ clientId, serviceId, address, notes, coords: inpu
     paymentSurchargePercent: 0,
     paymentSurchargeAmount: 0,
     guardianToken: uuidv4().replace(/-/g, '').slice(0, 12),
-    coords
+    coords,
+    regionCode: geoMeta?.regionCode || null,
+    regionName: geoMeta?.regionName || null,
+    communeCode: geoMeta?.communeCode || null,
+    communeName: geoMeta?.communeName || null
   };
   requests.unshift(request);
   repository.persist(() => repository.saveRequest(request), `solicitud ${request.id}`);
@@ -585,6 +608,78 @@ function toggleModule(moduleId, enabled) {
   mod.enabled = enabled;
   repository.persist(() => repository.saveModule(mod), `módulo ${moduleId}`);
   return mod;
+}
+
+function rebuildCoverageMap() {
+  const regionEnabled = new Map(COVERAGE_REGIONS.map((r) => [r.regionCode, r.enabled]));
+  coverageMap = new Map(
+    COVERAGE_COMMUNES.map((row) => {
+      const enriched = {
+        ...row,
+        regionEnabled: regionEnabled.get(row.regionCode) ?? false
+      };
+      return [getCommuneKey(row.regionCode, row.communeCode), enriched];
+    })
+  );
+}
+
+function getCoverageRegions() {
+  return COVERAGE_REGIONS;
+}
+
+function getCoverageCommunes() {
+  return COVERAGE_COMMUNES;
+}
+
+function getCoverageMap() {
+  return coverageMap;
+}
+
+function getCoverageForAdmin() {
+  return groupCoverageForAdmin(COVERAGE_REGIONS, COVERAGE_COMMUNES);
+}
+
+function getCoverageStats() {
+  const regionsActive = COVERAGE_REGIONS.filter((r) => r.enabled).length;
+  const communesOperational = COVERAGE_COMMUNES.filter((row) => {
+    const mapRow = coverageMap.get(getCommuneKey(row.regionCode, row.communeCode));
+    return mapRow && mapRow.regionEnabled && mapRow.enabled;
+  }).length;
+  return {
+    enabled: communesOperational,
+    total: COVERAGE_COMMUNES.length,
+    regionsActive,
+    regionsTotal: COVERAGE_REGIONS.length
+  };
+}
+
+function toggleCoverageCommune(regionCode, communeCode, enabled) {
+  const region = COVERAGE_REGIONS.find((r) => r.regionCode === regionCode);
+  if (!region?.enabled) {
+    return { error: 'Activa la región antes de habilitar comunas.' };
+  }
+
+  const row = COVERAGE_COMMUNES.find(
+    (c) => c.regionCode === regionCode && c.communeCode === communeCode
+  );
+  if (!row) return null;
+  row.enabled = enabled;
+  rebuildCoverageMap();
+  repository.persist(() => repository.saveCoverageCommune(row), `cobertura ${regionCode}/${communeCode}`);
+  return row;
+}
+
+function toggleCoverageRegion(regionCode, enabled) {
+  const row = COVERAGE_REGIONS.find((r) => r.regionCode === regionCode);
+  if (!row) return null;
+  row.enabled = enabled;
+  rebuildCoverageMap();
+  repository.persist(() => repository.saveCoverageRegion(row), `cobertura región ${regionCode}`);
+  return row;
+}
+
+function validateAddressCoverage({ address, displayName, nominatimAddress }) {
+  return checkAddressCoverage({ address, displayName, nominatimAddress }, coverageMap);
 }
 
 function getPricingConfig() {
@@ -2139,6 +2234,13 @@ module.exports = {
   getEnabledModules,
   isModuleEnabled,
   toggleModule,
+  getCoverageCommunes,
+  getCoverageRegions,
+  getCoverageForAdmin,
+  getCoverageStats,
+  toggleCoverageCommune,
+  toggleCoverageRegion,
+  validateAddressCoverage,
   getPricingConfig,
   updatePricingConfig,
   getUrgencyTiersForClient,

@@ -296,6 +296,53 @@
 .toggle-ios input:checked + .slider { background: var(--zilo-success); border-color: var(--zilo-success); }
 .toggle-ios input:checked + .slider::before { transform: translateX(24px); }
 
+.coverage-region-check,
+.coverage-commune-item {
+  position: relative;
+}
+.coverage-check-input {
+  position: absolute;
+  opacity: 0;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+.coverage-check-box {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--zilo-border, #d1d5db);
+  border-radius: 5px;
+  background: #fff;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+.coverage-check-input:checked + .coverage-check-box {
+  background: var(--zilo-success, #059669);
+  border-color: var(--zilo-success, #059669);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='white'%3E%3Cpath d='M12.2 4.2 6.5 9.9 3.8 7.2l-1.1 1.1 4.8 4.8 7.5-7.5z'/%3E%3C/svg%3E");
+  background-size: 12px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.coverage-check-input:disabled + .coverage-check-box {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.coverage-check-input:disabled {
+  cursor: not-allowed;
+}
+.coverage-communes-list.is-disabled {
+  opacity: 0.55;
+}
+.coverage-communes-list.is-disabled .coverage-check-input:not(:disabled) {
+  pointer-events: none;
+}
+.coverage-region > summary::-webkit-details-marker { display: none; }
+.coverage-region > summary::marker { content: ''; }
+
 .countdown-ring { transform: rotate(-90deg); }
 .countdown-ring circle { transition: stroke-dashoffset 1s linear; }
 

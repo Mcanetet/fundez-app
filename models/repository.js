@@ -6,6 +6,7 @@ const { normalizeBilling } = require('../lib/billing');
 const { normalizeMfa } = require('../lib/mfa');
 const { demoApprovedContract, normalizeProviderContract } = require('../lib/contracts');
 const { hashPassword } = require('../lib/password');
+const { flattenCatalog, flattenRegionsCatalog } = require('../lib/chile-geo');
 
 const SCHEMA_PATH = path.join(__dirname, '../db/schema.sql');
 
@@ -382,6 +383,26 @@ function rowToPromo(row) {
   };
 }
 
+function rowToCoverageCommune(row) {
+  return {
+    regionCode: row.region_code,
+    regionName: row.region_name,
+    communeCode: row.commune_code,
+    communeName: row.commune_name,
+    enabled: Boolean(row.enabled),
+    updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null
+  };
+}
+
+function rowToCoverageRegion(row) {
+  return {
+    regionCode: row.region_code,
+    regionName: row.region_name,
+    enabled: Boolean(row.enabled),
+    updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null
+  };
+}
+
 function rowToRequest(row) {
   const payload = parseJson(row.payload, {});
   return {
@@ -459,6 +480,33 @@ async function ensureDemoServices() {
 async function ensureDemoModules() {
   for (const mod of SEED_MODULES) {
     await saveModule(mod, { preserveEnabled: true });
+  }
+}
+
+async function ensureCoverageCommunes() {
+  const catalog = flattenCatalog();
+  for (const row of catalog) {
+    await db.query(
+      `INSERT INTO coverage_communes (region_code, commune_code, region_name, commune_name, enabled)
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         region_name = VALUES(region_name),
+         commune_name = VALUES(commune_name)`,
+      [row.regionCode, row.communeCode, row.regionName, row.communeName, row.enabled ? 1 : 0]
+    );
+  }
+}
+
+async function ensureCoverageRegions() {
+  const catalog = flattenRegionsCatalog();
+  for (const row of catalog) {
+    await db.query(
+      `INSERT INTO coverage_regions (region_code, region_name, enabled)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         region_name = VALUES(region_name)`,
+      [row.regionCode, row.regionName, row.enabled ? 1 : 0]
+    );
   }
 }
 
@@ -616,6 +664,8 @@ async function ensureDemoData() {
   console.log('Verificando datos en MySQL (modo conservador)...');
   await ensureDemoServices();
   await ensureDemoModules();
+  await ensureCoverageRegions();
+  await ensureCoverageCommunes();
   await ensureDemoPromos();
   await ensureDemoPricing();
   await ensureDemoUsers();
@@ -641,7 +691,9 @@ function mapLoadedRows({
   chatsRes,
   consentsRes,
   logsRes,
-  notifRes
+  notifRes,
+  coverageRes,
+  coverageRegionsRes
 }) {
   let pricing = DEFAULT_PRICING;
   if (pricingRes.rows?.[0]?.config) {
@@ -653,6 +705,8 @@ function mapLoadedRows({
     services: servicesRes.rows.map(rowToService),
     modules: modulesRes.rows.map(rowToModule),
     promos: (promosRes?.rows || []).map(rowToPromo),
+    coverageCommunes: (coverageRes?.rows || []).map(rowToCoverageCommune),
+    coverageRegions: (coverageRegionsRes?.rows || []).map(rowToCoverageRegion),
     pricing,
     requests: requestsRes.rows.map(rowToRequest),
     homeLogbook: logbookRes.rows.map((row) => ({
@@ -735,7 +789,7 @@ async function fetchDataRows({ logsLimit = 200, notifLimit = 300, includeSecurit
     ? db.query('SELECT * FROM notifications ORDER BY created_at DESC').catch(() => ({ rows: [] }))
     : db.query(`SELECT * FROM notifications ORDER BY created_at DESC LIMIT ${Math.max(1, notifLimit)}`).catch(() => ({ rows: [] }));
 
-  const [usersRes, servicesRes, modulesRes, promosRes, pricingRes, requestsRes, logbookRes, complaintsRes, chatsRes, consentsRes, logsRes, notifRes] = await Promise.all([
+  const [usersRes, servicesRes, modulesRes, promosRes, pricingRes, requestsRes, logbookRes, complaintsRes, chatsRes, consentsRes, logsRes, notifRes, coverageRes, coverageRegionsRes] = await Promise.all([
     db.query('SELECT * FROM users ORDER BY created_at ASC'),
     db.query('SELECT * FROM services ORDER BY name ASC'),
     db.query('SELECT * FROM modules ORDER BY audience ASC, sort_order ASC'),
@@ -747,7 +801,9 @@ async function fetchDataRows({ logsLimit = 200, notifLimit = 300, includeSecurit
     db.query('SELECT * FROM chats ORDER BY updated_at DESC'),
     db.query('SELECT * FROM consent_records ORDER BY created_at DESC'),
     logsQuery,
-    notifQuery
+    notifQuery,
+    db.query('SELECT * FROM coverage_communes ORDER BY region_name ASC, commune_name ASC').catch(() => ({ rows: [] })),
+    db.query('SELECT * FROM coverage_regions ORDER BY region_name ASC').catch(() => ({ rows: [] }))
   ]);
 
   return {
@@ -762,7 +818,9 @@ async function fetchDataRows({ logsLimit = 200, notifLimit = 300, includeSecurit
     chatsRes,
     consentsRes,
     logsRes,
-    notifRes
+    notifRes,
+    coverageRes,
+    coverageRegionsRes
   };
 }
 
@@ -861,6 +919,29 @@ async function saveModule(mod, { preserveEnabled = false } = {}) {
        description = VALUES(description),
        sort_order = VALUES(sort_order)${updateEnabled}`,
     [mod.id, mod.audience, mod.name, mod.description || null, mod.sortOrder || 0, mod.enabled ? 1 : 0]
+  );
+}
+
+async function saveCoverageRegion(row) {
+  await db.query(
+    `INSERT INTO coverage_regions (region_code, region_name, enabled)
+     VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       region_name = VALUES(region_name),
+       enabled = VALUES(enabled)`,
+    [row.regionCode, row.regionName, row.enabled ? 1 : 0]
+  );
+}
+
+async function saveCoverageCommune(row) {
+  await db.query(
+    `INSERT INTO coverage_communes (region_code, commune_code, region_name, commune_name, enabled)
+     VALUES (?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       region_name = VALUES(region_name),
+       commune_name = VALUES(commune_name),
+       enabled = VALUES(enabled)`,
+    [row.regionCode, row.communeCode, row.regionName, row.communeName, row.enabled ? 1 : 0]
   );
 }
 
@@ -1098,6 +1179,8 @@ module.exports = {
   saveUser,
   saveService,
   saveModule,
+  saveCoverageCommune,
+  saveCoverageRegion,
   savePromo,
   savePricingConfig,
   saveRequest,

@@ -25,7 +25,7 @@ const trackingRoutes = require('./routes/tracking');
 const documentosRoutes = require('./routes/documentos');
 const langRoutes = require('./routes/lang');
 const alandRoutes = require('./routes/aland');
-const aland = require('./lib/aland');
+const { localizeServices } = require('./lib/i18n-admin');
 
 const app = express();
 const server = http.createServer(app);
@@ -94,6 +94,7 @@ app.use(i18nMiddleware);
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.currentPath = req.path;
+  res.locals.currentQuery = req.url.includes('?') ? req.url.split('?')[1] : '';
   res.locals.company = company;
   res.locals.mod = (id) => (store.isReady() ? store.isModuleEnabled(id) : true);
   next();
@@ -109,7 +110,7 @@ app.get('/', (req, res) => {
   }
   res.render('landing', {
     title: req.t('app.name') + ' — ' + (req.locale === 'en' ? 'Premium home services' : 'Servicios premium a domicilio'),
-    services: store.getLandingServices(),
+    services: localizeServices(store.getLandingServices(), req.t),
     referralBanner: req.session.pendingReferral || null
   });
 });

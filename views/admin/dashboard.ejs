@@ -16,7 +16,8 @@ function panelClass(id) {
   return id === initialTab ? 'admin-panel' : 'admin-panel hidden';
 }
 const currentProfile = adminProfiles.find(function(p) { return p.id === adminAccess.profileId; });
-const profileLabel = currentProfile ? currentProfile.name : (adminAccess.isSuperAdmin ? 'Superadministrador' : 'Personalizado');
+const profileLabel = currentProfile ? currentProfile.name : (adminAccess.isSuperAdmin ? (typeof adminStrings !== 'undefined' ? adminStrings.profiles.superadmin : 'Superadministrador') : (typeof adminStrings !== 'undefined' ? adminStrings.profiles.custom : 'Personalizado'));
+const as = typeof adminStrings !== 'undefined' ? adminStrings : { panels: {}, resumen: {}, modulos: {}, cobertura: {}, servicios: {}, status: {}, profiles: {}, js: {} };
 const canManageTeam = adminAccess.isSuperAdmin || (adminAccess.permissions || []).indexOf('equipo.manage') !== -1;
 function hasPerm(key) {
   return adminAccess.isSuperAdmin || (adminAccess.permissions || []).indexOf(key) !== -1;
@@ -61,7 +62,7 @@ function hasPerm(key) {
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
       <div class="admin-topbar-title">
-        <h2 class="text-base font-semibold" id="adminPanelTitle"><%= t('admin.panel_title') %></h2>
+        <h2 class="text-base font-semibold" id="adminPanelTitle"><%= as.panels[initialTab] || as.panels.resumen || t('admin.panel_title') %></h2>
         <p class="text-xs text-zilo-muted hidden sm:block"><%= t('admin.panel_subtitle') %></p>
       </div>
       <div class="admin-topbar-actions">
@@ -80,44 +81,44 @@ function hasPerm(key) {
     <section class="<%= panelClass('resumen') %>" data-panel="resumen">
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <div class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/25">
-          <span class="text-[10px] text-gray-500 uppercase">Ingresos</span>
+          <span class="text-[10px] text-gray-500 uppercase"><%= as.resumen.revenue %></span>
           <p class="text-lg font-extrabold text-emerald-600"><%= formatCLP(stats.totalRevenue) %></p>
         </div>
         <div class="p-4 rounded-2xl stat-gold border">
-          <span class="zilo-label">Comisión Fundez</span>
+          <span class="zilo-label"><%= as.resumen.commission %></span>
           <p class="text-lg font-semibold"><%= formatCLP(stats.totalCommission) %></p>
         </div>
         <div class="p-4 rounded-2xl bg-yellow-500/10 border border-yellow-500/25">
-          <span class="text-[10px] text-gray-500 uppercase">Deuda proveedores</span>
+          <span class="text-[10px] text-gray-500 uppercase"><%= as.resumen.providerDebt %></span>
           <p class="text-lg font-extrabold text-yellow-600"><%= formatCLP(stats.owedToProviders) %></p>
         </div>
         <div class="p-4 rounded-2xl bg-red-500/10 border border-red-500/25">
-          <span class="text-[10px] text-gray-500 uppercase">Reclamos abiertos</span>
+          <span class="text-[10px] text-gray-500 uppercase"><%= as.resumen.openComplaints %></span>
           <p class="text-lg font-extrabold text-red-600"><%= stats.openComplaints %></p>
         </div>
       </div>
       <div class="grid grid-cols-3 gap-2 mb-4">
         <div class="p-3 rounded-xl bg-zilo-card border border-gray-200 text-center">
           <strong class="block text-lg"><%= stats.activeRequests %></strong>
-          <span class="text-[9px] text-gray-500 uppercase">Activas</span>
+          <span class="text-[9px] text-gray-500 uppercase"><%= as.resumen.active %></span>
         </div>
         <div class="p-3 rounded-xl bg-zilo-card border border-gray-200 text-center">
           <strong class="block text-lg"><%= stats.activeChats %></strong>
-          <span class="text-[9px] text-gray-500 uppercase">Chats WA</span>
+          <span class="text-[9px] text-gray-500 uppercase"><%= as.resumen.waChats %></span>
         </div>
         <div class="p-3 rounded-xl bg-zilo-card border border-gray-200 text-center">
           <strong class="block text-lg"><%= stats.consentRate %>%</strong>
-          <span class="text-[9px] text-gray-500 uppercase">Consent.</span>
+          <span class="text-[9px] text-gray-500 uppercase"><%= as.resumen.consent %></span>
         </div>
       </div>
       <div class="p-4 rounded-2xl bg-zilo-card border border-gray-200">
-        <h3 class="text-sm font-semibold mb-2">Configuración y legales</h3>
+        <h3 class="text-sm font-semibold mb-2"><%= as.resumen.configLegal %></h3>
         <div class="flex flex-wrap gap-2">
-          <a href="/admin/precios" class="text-xs px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-700 hover:border-blue-500/50 font-medium">Precios y urgencia</a>
-          <button type="button" class="admin-goto-tab text-xs px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 hover:border-emerald-500/50 font-medium" data-tab="finanzas">Centro financiero</button>
-          <a href="/legal/privacidad" target="_blank" class="text-xs px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 hover:border-blue-500/50">Privacidad</a>
-          <a href="/legal/terminos" target="_blank" class="text-xs px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 hover:border-blue-500/50">Términos</a>
-          <a href="/legal/cookies" target="_blank" class="text-xs px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 hover:border-blue-500/50">Cookies</a>
+          <a href="/admin/precios" class="text-xs px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-700 hover:border-blue-500/50 font-medium"><%= as.resumen.pricing %></a>
+          <button type="button" class="admin-goto-tab text-xs px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 hover:border-emerald-500/50 font-medium" data-tab="finanzas"><%= as.resumen.financeCenter %></button>
+          <a href="/legal/privacidad" target="_blank" class="text-xs px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 hover:border-blue-500/50"><%= as.resumen.privacy %></a>
+          <a href="/legal/terminos" target="_blank" class="text-xs px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 hover:border-blue-500/50"><%= as.resumen.terms %></a>
+          <a href="/legal/cookies" target="_blank" class="text-xs px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 hover:border-blue-500/50"><%= as.resumen.cookies %></a>
         </div>
       </div>
     </section>
@@ -139,7 +140,7 @@ function hasPerm(key) {
           <p class="text-lg font-extrabold text-emerald-600"><%= formatCLP(fin.visitsCollected) %></p>
         </div>
         <div class="p-4 rounded-2xl stat-gold border">
-          <span class="zilo-label">Comisión Fundez</span>
+          <span class="zilo-label"><%= as.resumen.commission %></span>
           <p class="text-lg font-semibold"><%= formatCLP(fin.appCommission) %></p>
         </div>
         <div class="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/25">
@@ -414,12 +415,12 @@ function hasPerm(key) {
     <!-- MÓDULOS -->
     <section class="<%= panelClass('modulos') %>" data-panel="modulos">
       <div class="flex justify-between items-center mb-3">
-        <h3 class="text-lg font-semibold">Módulos de la plataforma</h3>
-        <span class="text-xs text-gray-500"><%= modules.filter(m => m.enabled).length %>/<%= modules.length %> activos</span>
+        <h3 class="text-lg font-semibold"><%= as.modulos.title %></h3>
+        <span class="text-xs text-gray-500"><%= t('admin.modulos.active_count', { active: modules.filter(m => m.enabled).length, total: modules.length }) %></span>
       </div>
-      <p class="text-xs text-gray-500 mb-4">Activa o desactiva funciones para clientes y socios. Los cambios se aplican al instante en toda la app.</p>
+      <p class="text-xs text-gray-500 mb-4"><%= as.modulos.hint %></p>
 
-      <h4 class="text-sm font-semibold mb-2 text-zilo-accent">Cliente</h4>
+      <h4 class="text-sm font-semibold mb-2 text-zilo-accent"><%= as.modulos.client %></h4>
       <div id="clientModulesList" class="space-y-2 mb-6">
         <% clientModules.forEach(mod => { %>
           <div class="module-toggle-item flex items-center justify-between p-4 rounded-2xl bg-zilo-card border border-gray-200 <%= mod.enabled ? '' : 'opacity-50' %>" data-module-id="<%= mod.id %>">
@@ -428,7 +429,7 @@ function hasPerm(key) {
               <span class="text-xs text-gray-500"><%= mod.description %></span>
             </div>
             <div class="flex items-center gap-2 shrink-0">
-              <span class="module-status text-[10px] font-bold uppercase <%= mod.enabled ? 'text-emerald-600' : 'text-red-600' %>"><%= mod.enabled ? 'ON' : 'OFF' %></span>
+              <span class="module-status text-[10px] font-bold uppercase <%= mod.enabled ? 'text-emerald-600' : 'text-red-600' %>"><%= mod.enabled ? as.status.on : as.status.off %></span>
               <label class="toggle-ios">
                 <input type="checkbox" class="module-toggle" data-id="<%= mod.id %>" <%= mod.enabled ? 'checked' : '' %>>
                 <span class="slider"></span>
@@ -438,7 +439,7 @@ function hasPerm(key) {
         <% }); %>
       </div>
 
-      <h4 class="text-sm font-semibold mb-2 text-zilo-accent">Socio (proveedor)</h4>
+      <h4 class="text-sm font-semibold mb-2 text-zilo-accent"><%= as.modulos.provider %></h4>
       <div id="providerModulesList" class="space-y-2">
         <% providerModules.forEach(mod => { %>
           <div class="module-toggle-item flex items-center justify-between p-4 rounded-2xl bg-zilo-card border border-gray-200 <%= mod.enabled ? '' : 'opacity-50' %>" data-module-id="<%= mod.id %>">
@@ -447,7 +448,7 @@ function hasPerm(key) {
               <span class="text-xs text-gray-500"><%= mod.description %></span>
             </div>
             <div class="flex items-center gap-2 shrink-0">
-              <span class="module-status text-[10px] font-bold uppercase <%= mod.enabled ? 'text-emerald-600' : 'text-red-600' %>"><%= mod.enabled ? 'ON' : 'OFF' %></span>
+              <span class="module-status text-[10px] font-bold uppercase <%= mod.enabled ? 'text-emerald-600' : 'text-red-600' %>"><%= mod.enabled ? as.status.on : as.status.off %></span>
               <label class="toggle-ios">
                 <input type="checkbox" class="module-toggle" data-id="<%= mod.id %>" <%= mod.enabled ? 'checked' : '' %>>
                 <span class="slider"></span>
@@ -458,11 +459,57 @@ function hasPerm(key) {
       </div>
     </section>
 
+    <!-- COBERTURA -->
+    <section class="<%= panelClass('cobertura') %>" data-panel="cobertura">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-lg font-semibold"><%= as.cobertura.title %></h3>
+        <span class="text-xs text-gray-500" id="coverageStatsLabel"
+          data-communes-template="<%= t('admin.cobertura.active_count', { active: '{{active}}', total: '{{total}}' }) %>"
+          data-regions-template="<%= t('admin.cobertura.regions_active', { active: '{{active}}', total: '{{total}}' }) %>"><%= t('admin.cobertura.active_count', { active: coverageStats.enabled, total: coverageStats.total }) %> · <%= t('admin.cobertura.regions_active', { active: coverageStats.regionsActive, total: coverageStats.regionsTotal }) %></span>
+      </div>
+      <p class="text-xs text-gray-500 mb-4"><%= as.cobertura.hint %></p>
+
+      <div id="coverageRegionsList" class="space-y-3">
+        <% (coverageRegions || []).forEach(function(region) { %>
+          <details class="coverage-region rounded-2xl bg-zilo-card border border-gray-200 overflow-hidden <%= region.enabled ? '' : 'opacity-80' %>" data-region-code="<%= region.code %>">
+            <summary class="flex items-center justify-between gap-3 p-4 cursor-pointer list-none">
+              <div class="flex items-center gap-3 min-w-0 flex-1">
+                <% if (hasPerm('cobertura.manage')) { %>
+                  <label class="coverage-region-check shrink-0" onclick="event.stopPropagation()">
+                    <input type="checkbox" class="coverage-region-toggle" data-region="<%= region.code %>" <%= region.enabled ? 'checked' : '' %>>
+                    <span class="coverage-check-box" aria-hidden="true"></span>
+                  </label>
+                <% } %>
+                <div class="min-w-0">
+                  <strong class="text-sm block"><%= region.name %></strong>
+                  <span class="coverage-region-count text-xs text-gray-500" data-template="<%= t('admin.cobertura.region_count', { active: '{{active}}', total: '{{total}}' }) %>"><%= t('admin.cobertura.region_count', { active: region.enabledCount, total: region.total }) %></span>
+                </div>
+              </div>
+              <span class="coverage-region-status text-[10px] font-bold uppercase shrink-0 <%= region.enabled ? 'text-emerald-600' : 'text-red-600' %>"><%= region.enabled ? as.status.on : as.status.off %></span>
+            </summary>
+            <div class="coverage-communes-list px-4 pb-4 pt-2 space-y-1 border-t border-gray-100 <%= region.enabled ? '' : 'is-disabled' %>" data-region-code="<%= region.code %>">
+              <p class="text-[10px] text-gray-400 mb-2"><%= as.cobertura.communesHint %></p>
+              <% region.communes.forEach(function(commune) { %>
+                <label class="coverage-commune-item flex items-center gap-3 p-2.5 rounded-xl bg-zilo-bg/50 cursor-pointer <%= commune.operational ? '' : 'opacity-70' %>" data-region-code="<%= commune.regionCode %>" data-commune-code="<%= commune.communeCode %>">
+                  <% if (hasPerm('cobertura.manage')) { %>
+                    <input type="checkbox" class="coverage-toggle coverage-check-input" data-region="<%= commune.regionCode %>" data-commune="<%= commune.communeCode %>" <%= commune.enabled ? 'checked' : '' %> <%= region.enabled ? '' : 'disabled' %>>
+                    <span class="coverage-check-box" aria-hidden="true"></span>
+                  <% } %>
+                  <span class="text-sm flex-1"><%= commune.communeName %></span>
+                  <span class="coverage-status text-[10px] font-bold uppercase shrink-0 <%= commune.operational ? 'text-emerald-600' : 'text-red-600' %>"><%= commune.operational ? as.status.on : as.status.off %></span>
+                </label>
+              <% }); %>
+            </div>
+          </details>
+        <% }); %>
+      </div>
+    </section>
+
     <!-- SERVICIOS -->
     <section class="<%= panelClass('servicios') %>" data-panel="servicios">
       <div class="flex justify-between items-center mb-3">
-        <h3 class="text-lg font-semibold">Control de servicios</h3>
-        <span class="text-xs text-gray-500"><%= stats.activeServices %>/<%= stats.totalServices %> activos</span>
+        <h3 class="text-lg font-semibold"><%= as.servicios.title %></h3>
+        <span class="text-xs text-gray-500"><%= t('admin.servicios.active_count', { active: stats.activeServices, total: stats.totalServices }) %></span>
       </div>
       <div id="servicesList" class="space-y-2">
         <% services.forEach(service => { %>
@@ -471,11 +518,11 @@ function hasPerm(key) {
               <%- include('../partials/service-icon', { icon: service.icon, size: 'sm' }) %>
               <div>
                 <strong class="text-sm block"><%= service.name %></strong>
-                <span class="text-xs text-gray-500"><%= formatCLP(service.visitPrice) %> visita</span>
+                <span class="text-xs text-gray-500"><%= formatCLP(service.visitPrice) %> <%= as.servicios.visit %></span>
               </div>
             </div>
             <div class="flex items-center gap-2">
-              <span class="service-status text-[10px] font-bold uppercase <%= service.enabled ? 'text-emerald-600' : 'text-red-600' %>"><%= service.enabled ? 'ON' : 'OFF' %></span>
+              <span class="service-status text-[10px] font-bold uppercase <%= service.enabled ? 'text-emerald-600' : 'text-red-600' %>"><%= service.enabled ? as.status.on : as.status.off %></span>
               <label class="toggle-ios">
                 <input type="checkbox" class="service-toggle" data-id="<%= service.id %>" <%= service.enabled ? 'checked' : '' %>>
                 <span class="slider"></span>
@@ -1163,4 +1210,5 @@ function hasPerm(key) {
 <script type="application/json" id="adminProfilesData"><%- JSON.stringify(adminProfiles) %></script>
 <script type="application/json" id="adminTeamData"><%- JSON.stringify(adminTeam) %></script>
 
+<script>window.FundezAdminI18n = <%- JSON.stringify(as) %>;</script>
 <%- include('../partials/footer', { pageScript: '/js/admin.js' }) %>
