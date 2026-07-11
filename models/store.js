@@ -2,6 +2,7 @@ const { v4: uuidv4 } = require('uuid');
 const { geocodeAddress } = require('../lib/geocode');
 const db = require('../lib/db');
 const repository = require('./repository');
+const { getAppVersionInfo } = require('../lib/version');
 const { verifyPassword, hashPassword } = require('../lib/password');
 const {
   generateSecret,
@@ -43,6 +44,7 @@ function afterEvent(run) {
 }
 
 const providerSockets = new Map();
+const technicianSockets = new Map();
 
 const POINTS_VALUE_CLP = 100;
 const WELCOME_PROMO = 'BIENVENIDO';
@@ -988,6 +990,66 @@ function getOnlineProviders(serviceId) {
   );
 }
 
+function getOnlineTechnicians(serviceId) {
+  return USERS.filter(
+    u => u.role === 'tecnico' && u.online && u.active !== false
+      && Array.isArray(u.specialties) && u.specialties.includes(serviceId)
+  );
+}
+
+function getWorkWallItems(userId) {
+  const user = getUserById(userId);
+  if (!user || !['provider', 'tecnico'].includes(user.role)) return [];
+  const specs = user.specialties || [];
+  return requests
+    .filter(r => r.status === 'searching' && specs.includes(r.serviceId))
+    .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+}
+
+function tryAcceptRequest(requestId, userId) {
+  const request = requests.find(r => r.id === requestId);
+  if (!request || request.status !== 'searching') {
+    return { error: 'Solicitud ya no está disponible', code: 'taken' };
+  }
+
+  const user = getUserById(userId);
+  if (!user) return { error: 'Usuario no encontrado' };
+
+  if (user.role === 'provider') {
+    if (!user.specialties.includes(request.serviceId)) {
+      return { error: 'No tienes esta especialidad' };
+    }
+    request.providerId = user.id;
+    request.status = 'assigned';
+    request.assignedAt = new Date().toISOString();
+  } else if (user.role === 'tecnico') {
+    if (!Array.isArray(user.specialties) || !user.specialties.includes(request.serviceId)) {
+      return { error: 'No tienes esta especialidad' };
+    }
+    if (!user.parentId) return { error: 'Sin socio asignado' };
+    const socio = getUserById(user.parentId);
+    if (!socio) return { error: 'Socio no encontrado' };
+
+    request.providerId = socio.id;
+    request.technicianId = user.id;
+    request.technicianName = user.name;
+    request.technicianPhone = user.phone || null;
+    request.technicianAssignedAt = new Date().toISOString();
+    request.techStatus = 'aceptado';
+    request.status = 'assigned';
+    request.assignedAt = new Date().toISOString();
+  } else {
+    return { error: 'Rol no autorizado' };
+  }
+
+  repository.persist(() => repository.saveRequest(request), `solicitud ${requestId}`);
+  afterEvent((ev) => {
+    ev.onProviderAssigned(request);
+    if (request.technicianId) ev.onTechnicianAssigned(request);
+  });
+  return { success: true, request };
+}
+
 function assignProvider(requestId, providerId) {
   const request = requests.find(r => r.id === requestId);
   if (!request) return null;
@@ -1248,6 +1310,16 @@ function setProviderOnline(providerId, online) {
     provider.online = online;
     repository.persist(() => repository.saveUser(provider), `proveedor ${providerId}`);
     return provider;
+  }
+  return null;
+}
+
+function setTechnicianOnline(tecnicoId, online) {
+  const tecnico = getUserById(tecnicoId);
+  if (tecnico && tecnico.role === 'tecnico') {
+    tecnico.online = online;
+    repository.persist(() => repository.saveUser(tecnico), `tecnico ${tecnicoId}`);
+    return tecnico;
   }
   return null;
 }
@@ -1525,11 +1597,18 @@ function completeOnboarding(userId) {
 }
 
 function exportDataSnapshot({ includeSecurityLogs = true } = {}) {
+  const versionInfo = getAppVersionInfo();
   return {
-    version: 1,
+    schemaVersion: 2,
     exportedAt: new Date().toISOString(),
-    app: 'zilo',
+    app: 'fundez',
+    appVersion: versionInfo.version,
+    appVersionLabel: versionInfo.label,
+    gitCommit: versionInfo.gitCommit,
+    gitTag: versionInfo.gitTag,
     services: JSON.parse(JSON.stringify(SERVICES)),
+    modules: JSON.parse(JSON.stringify(MODULES)),
+    pricing: JSON.parse(JSON.stringify(PRICING_CONFIG || DEFAULT_PRICING)),
     users: JSON.parse(JSON.stringify(USERS)),
     requests: JSON.parse(JSON.stringify(requests)),
     homeLogbook: JSON.parse(JSON.stringify(homeLogbook)),
@@ -1539,6 +1618,30 @@ function exportDataSnapshot({ includeSecurityLogs = true } = {}) {
     securityLogs: includeSecurityLogs ? JSON.parse(JSON.stringify(securityLogs)) : [],
     promos: JSON.parse(JSON.stringify(PROMOS))
   };
+}
+
+async function reloadFromDatabase() {
+  ensureReady();
+  const data = await repository.loadAll();
+  SERVICES = data.services;
+  MODULES = data.modules;
+  PRICING_CONFIG = data.pricing || normalizePricing(DEFAULT_PRICING);
+  USERS = data.users;
+  requests = data.requests;
+  homeLogbook = data.homeLogbook;
+  COMPLAINTS = data.complaints;
+  CHATS = data.chats;
+  consentRecords = data.consentRecords;
+  securityLogs = data.securityLogs;
+  notifications = data.notifications || [];
+  return data;
+}
+
+async function importDataSnapshot(snapshot) {
+  ensureReady();
+  const stats = await repository.restoreFromSnapshot(snapshot);
+  await reloadFromDatabase();
+  return stats;
 }
 
 module.exports = {
@@ -1601,7 +1704,12 @@ module.exports = {
   getRequestsByProvider,
   getAllRequests,
   getPendingRequestsForProvider,
+  getWorkWallItems,
+  tryAcceptRequest,
+  getOnlineTechnicians,
+  setTechnicianOnline,
   providerSockets,
+  technicianSockets,
   get COMPLAINTS() { return COMPLAINTS; },
   get CHATS() { return CHATS; },
   getPayments,
@@ -1638,6 +1746,8 @@ module.exports = {
   updateProviderLocation,
   computeVerificationStatus,
   exportDataSnapshot,
+  importDataSnapshot,
+  reloadFromDatabase,
   needsOnboarding,
   completeOnboarding,
   getAllDteDocuments,

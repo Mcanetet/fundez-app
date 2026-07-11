@@ -8,7 +8,7 @@ const path = require('path');
 
 const store = require('./models/store');
 const company = require('./config/company');
-const { dispatchPendingToProvider } = require('./lib/dispatch');
+const { dispatchPendingToProvider, dispatchPendingToTechnician } = require('./lib/dispatch');
 const { securityHeaders, rateLimitSimple } = require('./middleware/security');
 const backup = require('./lib/backup');
 
@@ -145,9 +145,18 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('register_technico', (tecnicoId) => {
+    store.technicianSockets.set(tecnicoId, socket.id);
+    socket.tecnicoId = tecnicoId;
+    dispatchPendingToTechnician(io, tecnicoId);
+  });
+
   socket.on('disconnect', () => {
     if (socket.providerId) {
       store.providerSockets.delete(socket.providerId);
+    }
+    if (socket.tecnicoId) {
+      store.technicianSockets.delete(socket.tecnicoId);
     }
   });
 });

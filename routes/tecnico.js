@@ -1,4 +1,5 @@
 const express = require('express');
+const { dispatchPendingToTechnician, broadcastRequestTaken, buildWorkWallPayload } = require('../lib/dispatch');
 const router = express.Router();
 const store = require('../models/store');
 const { requireRole } = require('../middleware/auth');
@@ -71,6 +72,37 @@ router.get('/trabajo/:requestId', requireRole('tecnico'), (req, res) => {
     techLabels: TECH_LABELS,
     formatCLP: store.formatCLP
   });
+});
+
+router.get('/muro', requireRole('tecnico'), (req, res) => {
+  res.json({ success: true, items: buildWorkWallPayload(req.session.user.id) });
+});
+
+router.post('/toggle-online', requireRole('tecnico'), (req, res) => {
+  const online = req.body.online === 'true' || req.body.online === true;
+  store.setTechnicianOnline(req.session.user.id, online);
+
+  let synced = 0;
+  if (online) {
+    synced = dispatchPendingToTechnician(req.app.get('io'), req.session.user.id);
+  }
+
+  res.json({ success: true, online, synced });
+});
+
+router.post('/accept/:requestId', requireRole('tecnico'), (req, res) => {
+  const result = store.tryAcceptRequest(req.params.requestId, req.session.user.id);
+  if (result.error) {
+    return res.status(result.code === 'taken' ? 409 : 400).json({ success: false, error: result.error });
+  }
+
+  const request = result.request;
+  const io = req.app.get('io');
+  broadcastRequestTaken(io, request.id, req.session.user.id);
+  io.emit(`request_update_${request.id}`, { request });
+  io.to(store.technicianSockets.get(req.session.user.id) || '').emit(`tecnico_assignment_${req.session.user.id}`, { request: serializeJob(request) });
+
+  res.json({ success: true, request: serializeJob(request) });
 });
 
 router.post('/status/:requestId', requireRole('tecnico'), (req, res) => {

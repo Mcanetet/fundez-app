@@ -11,21 +11,132 @@
   const statusSub = document.getElementById('statusSub');
   const requestModal = document.getElementById('requestModal');
   const activeJob = document.getElementById('activeJob');
+  const workWall = document.getElementById('workWall');
+  const workWallList = document.getElementById('workWallList');
+  const workWallEmpty = document.getElementById('workWallEmpty');
+  const workWallCount = document.getElementById('workWallCount');
 
   let currentRequest = null;
-  let countdownTimer = null;
   let alertInterval = null;
   let audioCtx = null;
   let locationWatchId = null;
   let activeRequestId = null;
+  let wallItems = new Map();
 
-  const COUNTDOWN_SECONDS = 15;
-  const CIRCUMFERENCE = 150.8;
+  const fmt = n => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n);
 
-  function showRequestModal(data) {
+  function playAlertSound() {
+    try {
+      const ctx = getAudioContext();
+      const now = ctx.currentTime;
+      [0, 0.12, 0.24, 0.36].forEach((delay, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = i % 2 === 0 ? 880 : 1175;
+        gain.gain.setValueAtTime(0, now + delay);
+        gain.gain.linearRampToValueAtTime(0.35, now + delay + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.25);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + delay);
+        osc.stop(now + delay + 0.28);
+      });
+    } catch (_) {}
+  }
+
+  function getAudioContext() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function startRepeatingAlert() {
+    stopRepeatingAlert();
+    alertInterval = setInterval(playAlertSound, 2500);
+  }
+
+  function stopRepeatingAlert() {
+    if (alertInterval) {
+      clearInterval(alertInterval);
+      alertInterval = null;
+    }
+  }
+
+  function pushBrowserNotification(title, body) {
+    if (typeof Notification === 'undefined') return;
+    if (Notification.permission === 'granted') {
+      try {
+        new Notification(title, {
+          body,
+          icon: '/favicon-32.png',
+          requireInteraction: true,
+          tag: 'fundez-work-wall'
+        });
+      } catch (_) {
+        new Notification(title, { body, icon: '/favicon-32.png' });
+      }
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission();
+    }
+  }
+
+  function renderWorkWall() {
+    if (!workWallList) return;
+    const items = [...wallItems.values()];
+    if (workWallCount) workWallCount.textContent = String(items.length);
+    if (workWallEmpty) workWallEmpty.classList.toggle('hidden', items.length > 0);
+    workWallList.innerHTML = '';
+
+    items.forEach(data => {
+      const card = document.createElement('article');
+      card.className = 'p-4 rounded-2xl zilo-card-premium border border-zilo-accent/15';
+      card.dataset.requestId = data.request.id;
+      card.innerHTML = `
+        <div class="flex items-start justify-between gap-3 mb-2">
+          <div class="min-w-0">
+            <strong class="text-sm block">${data.service.name}</strong>
+            <span class="text-xs text-zilo-muted block truncate">${data.client.name}</span>
+          </div>
+          <span class="zilo-badge zilo-badge-success shrink-0">Disponible</span>
+        </div>
+        <p class="text-xs text-zilo-muted mb-2 truncate">${data.request.address}</p>
+        <p class="text-xs font-semibold text-zilo-accent mb-3">Visita: ${fmt(data.request.estimatedVisit)}</p>
+        <button type="button" class="w-full py-2.5 rounded-xl zilo-modal-accept !text-sm" data-take="${data.request.id}">Tomar trabajo</button>
+      `;
+      workWallList.appendChild(card);
+    });
+
+    workWallList.querySelectorAll('[data-take]').forEach(btn => {
+      btn.addEventListener('click', () => acceptRequest(btn.dataset.take, btn));
+    });
+  }
+
+  function upsertWallItem(data) {
+    if (!data?.request?.id) return;
+    wallItems.set(data.request.id, data);
+    renderWorkWall();
+  }
+
+  function removeWallItem(requestId) {
+    wallItems.delete(requestId);
+    renderWorkWall();
+    if (currentRequest?.id === requestId) closeModal();
+  }
+
+  async function loadWorkWall() {
+    if (!onlineToggle?.checked) return;
+    try {
+      const res = await fetch('/proveedor/muro');
+      const data = await res.json();
+      wallItems.clear();
+      (data.items || []).forEach(upsertWallItem);
+      renderWorkWall();
+    } catch (_) {}
+  }
+
+  function fillModal(data) {
     currentRequest = data.request;
-    const fmt = n => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n);
-
     document.getElementById('modalServiceIcon').innerHTML = FundezIcons.wrap(data.service.icon, data.service.color, 'w-12 h-12', 28);
     document.getElementById('modalServiceName').textContent = data.service.name;
     document.getElementById('modalClient').textContent = data.client.name;
@@ -44,6 +155,7 @@
         });
       }, 400);
     }
+
     document.getElementById('modalPrice').textContent = `Visita estimada: ${fmt(data.request.estimatedVisit)}`;
     document.getElementById('modalNotes').textContent = data.request.notes || 'Sin detalles adicionales';
 
@@ -51,43 +163,74 @@
     if (data.request.isGift) {
       giftBadge.classList.remove('hidden');
       document.getElementById('modalBeneficiary').textContent = data.request.beneficiaryName;
-      const phoneEl = document.getElementById('modalGiftPhone');
-      phoneEl.textContent = data.request.beneficiaryPhone ? `Tel: ${data.request.beneficiaryPhone}` : '';
-      const msgEl = document.getElementById('modalGiftMessage');
-      msgEl.textContent = data.request.giftMessage ? `"${data.request.giftMessage}"` : '';
+      document.getElementById('modalGiftPhone').textContent = data.request.beneficiaryPhone ? `Tel: ${data.request.beneficiaryPhone}` : '';
+      document.getElementById('modalGiftMessage').textContent = data.request.giftMessage ? `"${data.request.giftMessage}"` : '';
       document.getElementById('modalClient').textContent = `${data.client.name} (quien paga)`;
     } else {
       giftBadge.classList.add('hidden');
       document.getElementById('modalClient').textContent = data.client.name;
     }
-
-    requestModal.classList.remove('hidden');
-    startCountdown(COUNTDOWN_SECONDS);
-    playAlertSound();
-    startRepeatingAlert();
-
-    if (Notification.permission === 'granted') {
-      new Notification('Fundez — Nueva solicitud', {
-        body: `${data.service.name} · ${data.request.address}`,
-        icon: '/favicon-32.png'
-      });
-    } else if (Notification.permission !== 'denied') {
-      Notification.requestPermission();
-    }
   }
 
-  async function checkPendingRequests() {
-    if (!onlineToggle.checked || currentRequest) return;
-    try {
-      const res = await fetch('/proveedor/pendientes');
-      const data = await res.json();
-      if (data.pending) showRequestModal(data.pending);
-    } catch (_) {}
+  function showRequestModal(data) {
+    upsertWallItem(data);
+    fillModal(data);
+    requestModal.classList.remove('hidden');
+    playAlertSound();
+    startRepeatingAlert();
+    pushBrowserNotification('Fundez — Nueva solicitud', `${data.service.name} · ${data.request.address}`);
+  }
+
+  function closeModal() {
+    stopRepeatingAlert();
+    requestModal.classList.add('hidden');
+    currentRequest = null;
+  }
+
+  async function acceptRequest(requestId, btn) {
+    if (btn) btn.disabled = true;
+    const res = await fetch(`/proveedor/accept/${requestId}`, { method: 'POST' });
+    const data = await res.json();
+
+    if (!data.success) {
+      if (btn) btn.disabled = false;
+      FundezNotify.show(data.error || 'No se pudo tomar el trabajo', 'warning');
+      if (res.status === 409) removeWallItem(requestId);
+      return;
+    }
+
+    removeWallItem(requestId);
+    closeModal();
+    showActiveJob(data.request);
+    FundezNotify.show('¡Trabajo tomado!', 'success');
   }
 
   socket.on('connect', () => {
     socket.emit('register_provider', providerId);
-    if (onlineToggle.checked) checkPendingRequests();
+    if (onlineToggle?.checked) loadWorkWall();
+  });
+
+  socket.on('work_wall_sync', ({ items }) => {
+    wallItems.clear();
+    (items || []).forEach(upsertWallItem);
+    renderWorkWall();
+  });
+
+  socket.on('work_wall_new', (data) => {
+    if (!onlineToggle?.checked) return;
+    upsertWallItem(data);
+    showRequestModal(data);
+  });
+
+  socket.on('new_request', (data) => {
+    if (!onlineToggle?.checked) return;
+    upsertWallItem(data);
+    if (!requestModal.classList.contains('hidden') && currentRequest?.id === data.request.id) return;
+    showRequestModal(data);
+  });
+
+  socket.on('request_taken', ({ requestId }) => {
+    removeWallItem(requestId);
   });
 
   function sendLocation(lat, lng) {
@@ -116,22 +259,22 @@
     }
   }
 
-  if (onlineToggle.checked) {
+  if (onlineToggle?.checked) {
     fetch('/proveedor/toggle-online', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ online: true })
     }).then(() => {
       startLocationWatch();
-      setTimeout(checkPendingRequests, 500);
+      loadWorkWall();
     });
   }
 
   setInterval(() => {
-    if (onlineToggle.checked && !currentRequest) checkPendingRequests();
-  }, 5000);
+    if (onlineToggle?.checked) loadWorkWall();
+  }, 15000);
 
-  onlineToggle.addEventListener('change', async () => {
+  onlineToggle?.addEventListener('change', async () => {
     const online = onlineToggle.checked;
     const res = await fetch('/proveedor/toggle-online', {
       method: 'POST',
@@ -153,125 +296,32 @@
     if (online) {
       statusDot.className = 'w-3 h-3 rounded-full bg-zilo-success shadow-lg shadow-zilo-success/40 animate-pulse';
       statusText.textContent = 'En línea';
-      statusSub.textContent = 'Recibiendo solicitudes';
-      FundezNotify.show(data.dispatched > 0 ? `¡${data.dispatched} solicitud(es) recibida(s)!` : 'Modo en línea activado', 'success');
+      statusSub.textContent = 'Muro de trabajos activo';
+      FundezNotify.show(data.dispatched > 0 ? `¡${data.dispatched} solicitud(es) en el muro!` : 'Modo en línea activado', 'success');
       startLocationWatch();
-      checkPendingRequests();
+      loadWorkWall();
+      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
     } else {
       statusDot.className = 'w-3 h-3 rounded-full bg-zilo-muted/40';
       statusText.textContent = 'Fuera de línea';
-      statusSub.textContent = 'Actívate para trabajar';
+      statusSub.textContent = 'Actívate para ver el muro';
+      wallItems.clear();
+      renderWorkWall();
+      closeModal();
       stopLocationWatch();
       FundezNotify.show('Modo fuera de línea', 'info');
     }
   });
 
-  socket.on('new_request', (data) => {
-    if (!onlineToggle.checked || currentRequest) return;
-    showRequestModal(data);
+  document.getElementById('btnAccept')?.addEventListener('click', () => {
+    if (currentRequest) acceptRequest(currentRequest.id);
   });
 
-  function getAudioContext() {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    return audioCtx;
-  }
-
-  function playAlertSound() {
-    try {
-      const ctx = getAudioContext();
-      const now = ctx.currentTime;
-
-      [0, 0.15, 0.3].forEach((delay, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = i % 2 === 0 ? 880 : 1100;
-        gain.gain.setValueAtTime(0, now + delay);
-        gain.gain.linearRampToValueAtTime(0.25, now + delay + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.2);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(now + delay);
-        osc.stop(now + delay + 0.25);
-      });
-    } catch (_) {}
-  }
-
-  function startRepeatingAlert() {
-    stopRepeatingAlert();
-    alertInterval = setInterval(playAlertSound, 3000);
-  }
-
-  function stopRepeatingAlert() {
-    if (alertInterval) {
-      clearInterval(alertInterval);
-      alertInterval = null;
-    }
-  }
-
-  function startCountdown(seconds) {
-    const fill = document.getElementById('countdownFill');
-    const number = document.getElementById('countdownNumber');
-    const circle = document.getElementById('countdownCircle');
-    let remaining = seconds;
-
-    fill.style.width = '100%';
-    number.textContent = remaining;
-    circle.style.strokeDashoffset = '0';
-
-    if (countdownTimer) clearInterval(countdownTimer);
-
-    countdownTimer = setInterval(() => {
-      remaining--;
-      number.textContent = remaining;
-      fill.style.width = `${(remaining / seconds) * 100}%`;
-      circle.style.strokeDashoffset = String(CIRCUMFERENCE * (1 - remaining / seconds));
-
-      if (remaining <= 5) {
-        number.classList.add('text-red-600');
-        circle.setAttribute('stroke', '#EF4444');
-      }
-
-      if (remaining <= 0) {
-        clearInterval(countdownTimer);
-        stopRepeatingAlert();
-        requestModal.classList.add('hidden');
-        currentRequest = null;
-        FundezNotify.show('Solicitud expirada', 'warning');
-        number.classList.remove('text-red-600');
-        circle.setAttribute('stroke', '#3B82F6');
-      }
-    }, 1000);
-  }
-
-  function closeModal() {
-    if (countdownTimer) clearInterval(countdownTimer);
-    stopRepeatingAlert();
-    requestModal.classList.add('hidden');
-    document.getElementById('countdownNumber').classList.remove('text-red-600');
-    document.getElementById('countdownCircle').setAttribute('stroke', '#3B82F6');
-  }
-
-  document.getElementById('btnAccept').addEventListener('click', async () => {
-    if (!currentRequest) return;
-
-    const res = await fetch(`/proveedor/accept/${currentRequest.id}`, { method: 'POST' });
-    const data = await res.json();
-
-    if (data.success) {
-      closeModal();
-      showActiveJob(data.request);
-      FundezNotify.show('¡Servicio aceptado!', 'success');
-    }
-  });
-
-  document.getElementById('btnDecline').addEventListener('click', () => {
+  document.getElementById('btnDecline')?.addEventListener('click', () => {
     closeModal();
-    currentRequest = null;
-    FundezNotify.show('Solicitud rechazada', 'info');
+    FundezNotify.show('Sigue disponible en el muro para otros técnicos', 'info');
   });
 
   function showActiveJob(request) {

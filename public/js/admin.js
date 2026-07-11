@@ -222,7 +222,7 @@
     btn.disabled = false;
     btn.textContent = 'Generar backup ahora';
     if (data.success) {
-      FundezNotify.show(`Backup creado (${data.backup.stats?.totalBytes ? Math.round(data.backup.stats.totalBytes / 1024) + ' KB' : 'ok'})`, 'success');
+      FundezNotify.show(`Backup creado v${data.backup.appVersion || '?'} (${data.backup.stats?.totalBytes ? Math.round(data.backup.stats.totalBytes / 1024) + ' KB' : 'ok'})`, 'success');
       setTimeout(() => location.reload(), 900);
     } else FundezNotify.show(data.error || 'Error al generar backup', 'error');
   });
@@ -244,6 +244,43 @@
       if (data.success) {
         btn.closest('.backup-item')?.remove();
         FundezNotify.show('Backup eliminado', 'success');
+      }
+    });
+  });
+
+  document.querySelectorAll('.btn-restore-backup').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const ver = btn.dataset.version ? `v${btn.dataset.version}` : 'sin versión';
+      const msg = `¿Restaurar backup del ${btn.dataset.date} (${ver})?\n\nSe creará una copia de seguridad automática antes de restaurar.\nLos datos actuales serán reemplazados por los del backup.`;
+      if (!confirm(msg)) return;
+
+      const confirmText = prompt('Escribe RESTAURAR para confirmar:');
+      if (confirmText !== 'RESTAURAR') {
+        FundezNotify.show('Restauración cancelada', 'info');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Restaurando…';
+      try {
+        const res = await fetch(`/admin/backups/${btn.dataset.id}/restore`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confirm: 'RESTAURAR', restoreUploads: true })
+        });
+        const data = await res.json();
+        if (data.success) {
+          FundezNotify.show(`Datos restaurados (backup previo: ${data.preRestoreBackupId?.slice(0, 8)}…)`, 'success');
+          setTimeout(() => location.reload(), 1200);
+        } else {
+          FundezNotify.show(data.error || 'Error al restaurar', 'error');
+          btn.disabled = false;
+          btn.textContent = 'Restaurar';
+        }
+      } catch (_) {
+        FundezNotify.show('Error de conexión al restaurar', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Restaurar';
       }
     });
   });

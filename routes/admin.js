@@ -5,6 +5,7 @@ const fs = require('fs');
 const store = require('../models/store');
 const company = require('../config/company');
 const backup = require('../lib/backup');
+const { getAppVersionInfo } = require('../lib/version');
 const { requireRole } = require('../middleware/auth');
 const { rateLimitLogin, adminIpAllowlist, getClientIp, parseAdminIpAllowlist } = require('../middleware/security');
 const { qrDataUrl } = require('../lib/mfa');
@@ -234,6 +235,7 @@ router.get('/', requireRole('admin'), (req, res) => {
     backups: backup.listBackups().slice(0, 20),
     backupRetention: backup.getRetentionSummary(),
     formatBytes: backup.formatBytes,
+    appVersion: getAppVersionInfo(),
     mfaStatus: store.getAdminMfaStatus(req.session.user.id),
     mfaMessage: req.query.mfa || null,
     mfaError: req.query.mfa_error || null,
@@ -412,7 +414,31 @@ router.get('/backups/:id/download', requireRole('admin'), (req, res) => {
   const snapshotPath = path.join(item.folderPath, 'snapshot.json');
   if (!fs.existsSync(snapshotPath)) return res.status(404).json({ error: 'Archivo no encontrado' });
 
-  res.download(snapshotPath, `zilo-backup-${item.type}-${item.createdAt.slice(0, 10)}.json`);
+  const ver = item.appVersion || 'backup';
+  res.download(snapshotPath, `fundez-backup-v${ver}-${item.createdAt.slice(0, 10)}.json`);
+});
+
+router.post('/backups/:id/restore', requireRole('admin'), async (req, res) => {
+  const confirm = String(req.body.confirm || '').trim().toUpperCase();
+  if (confirm !== 'RESTAURAR') {
+    return res.status(400).json({ error: 'Escribe RESTAURAR para confirmar la restauración' });
+  }
+
+  if (!store.isReady()) {
+    return res.status(503).json({ error: 'La base de datos no está lista' });
+  }
+
+  try {
+    const result = await backup.restoreBackup(store, req.params.id, {
+      triggeredBy: req.session.user.email,
+      restoreUploads: req.body.restoreUploads !== false
+    });
+    store.logSecurityEvent('backup_restore', `${req.params.id} → pre:${result.preRestoreBackupId}`, req);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    store.logSecurityEvent('backup_restore_failed', err.message, req);
+    res.status(400).json({ error: err.message });
+  }
 });
 
 router.delete('/backups/:id', requireRole('admin'), (req, res) => {

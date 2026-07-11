@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const store = require('../models/store');
-const { dispatchPendingToProvider } = require('../lib/dispatch');
+const { dispatchPendingToProvider, broadcastRequestTaken, buildWorkWallPayload } = require('../lib/dispatch');
 const { requireRole } = require('../middleware/auth');
 const { requireModule } = require('../middleware/modules');
 const { saveProviderFile } = require('../lib/uploads');
@@ -37,20 +37,16 @@ router.post('/onboarding/complete', requireRole('provider'), (req, res) => {
 });
 
 router.get('/pendientes', requireRole('provider'), (req, res) => {
-  const pending = store.getPendingRequestsForProvider(req.session.user.id);
-  if (pending.length === 0) {
-    return res.json({ success: true, pending: null });
-  }
-
-  const request = pending[0];
+  const items = buildWorkWallPayload(req.session.user.id);
   res.json({
     success: true,
-    pending: {
-      request,
-      service: store.getServiceById(request.serviceId),
-      client: store.getUserById(request.clientId)
-    }
+    items,
+    pending: items[0] || null
   });
+});
+
+router.get('/muro', requireRole('provider'), (req, res) => {
+  res.json({ success: true, items: buildWorkWallPayload(req.session.user.id) });
 });
 
 router.post('/toggle-online', requireRole('provider'), requireModule('provider_online'), (req, res) => {
@@ -80,21 +76,17 @@ router.post('/toggle-online', requireRole('provider'), requireModule('provider_o
 });
 
 router.post('/accept/:requestId', requireRole('provider'), requireModule('provider_aceptar'), (req, res) => {
-  const request = store.requests.find(r => r.id === req.params.requestId);
-
-  if (!request || request.status !== 'searching') {
-    return res.status(409).json({ error: 'Solicitud ya no está disponible' });
+  const result = store.tryAcceptRequest(req.params.requestId, req.session.user.id);
+  if (result.error) {
+    return res.status(result.code === 'taken' ? 409 : 400).json({ error: result.error });
   }
 
+  const request = result.request;
   const provider = store.getUserById(req.session.user.id);
-  if (!provider.specialties.includes(request.serviceId)) {
-    return res.status(403).json({ error: 'No tienes esta especialidad' });
-  }
-
-  store.assignProvider(req.params.requestId, req.session.user.id);
-
   const io = req.app.get('io');
   const publicProvider = store.getPublicProviderProfile(provider);
+
+  broadcastRequestTaken(io, request.id, provider.id);
   io.emit(`request_update_${request.id}`, {
     request: store.requests.find(r => r.id === request.id),
     provider: publicProvider

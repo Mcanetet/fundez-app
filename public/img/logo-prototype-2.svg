@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-label="Fundez — Prototipo 2: GPS y tuerca">
+  <defs>
+    <linearGradient id="p2Bg" x1="4" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="p2Sheen" x1="24" y1="4" x2="24" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="46" height="46" rx="14" fill="url(#p2Bg)"/>
+  <rect x="1" y="1" width="46" height="46" rx="14" fill="url(#p2Sheen)"/>
+
+  <!-- Pin GPS -->
+  <path d="M24 11c-3.8 0-7 3-7 6.8 0 4.7 7 13.2 7 13.2s7-8.5 7-13.2C31 14 27.8 11 24 11z" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round" fill="none"/>
+
+  <!-- Tuerca en el centro del pin -->
+  <polygon points="24,14.5 27.8,16.7 27.8,21.3 24,23.5 20.2,21.3 20.2,16.7" stroke="#FFFFFF" stroke-width="1.75" stroke-linejoin="round" fill="none"/>
+
+  <!-- Punto en el pie del pin -->
+  <circle cx="24" cy="31.2" r="1.35" fill="#FFFFFF"/>
+</svg>

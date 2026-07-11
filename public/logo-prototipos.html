@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fundez — Prototipos de logo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: #0f0f0f;
+      color: #f5f5f5;
+      min-height: 100vh;
+      padding: 2rem 1.25rem 3rem;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 0.35rem;
+    }
+    .subtitle {
+      text-align: center;
+      color: #a3a3a3;
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+      max-width: 28rem;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.5;
+    }
+    .grid {
+      display: grid;
+      gap: 1.5rem;
+      max-width: 24rem;
+      margin: 0 auto;
+    }
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 1.25rem;
+      padding: 1.5rem;
+      text-align: center;
+    }
+    .card h2 {
+      font-size: 1rem;
+      margin-bottom: 0.25rem;
+    }
+    .card p {
+      font-size: 0.8rem;
+      color: #a3a3a3;
+      margin-bottom: 1.25rem;
+      line-height: 1.45;
+    }
+    .sizes {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .size-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .size-item span {
+      font-size: 0.65rem;
+      color: #737373;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .phone-mock {
+      margin: 1.5rem auto 0;
+      max-width: 14rem;
+      background: #000;
+      border-radius: 2rem;
+      padding: 1rem 0.75rem;
+      border: 3px solid #333;
+      position: relative;
+    }
+    .phone-mock::before {
+      content: '';
+      display: block;
+      width: 3.5rem;
+      height: 0.35rem;
+      background: #333;
+      border-radius: 1rem;
+      margin: 0 auto 0.75rem;
+    }
+    .phone-screen {
+      background: linear-gradient(180deg, #111 0%, #0a0a0a 100%);
+      border-radius: 1.25rem;
+      padding: 1.25rem 1rem;
+      min-height: 8rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .phone-screen .app-name {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #e5e5e5;
+    }
+    .compare {
+      margin-top: 2.5rem;
+      max-width: 24rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .compare h3 {
+      font-size: 0.85rem;
+      color: #a3a3a3;
+      text-align: center;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .row {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .badge {
+      display: inline-block;
+      margin-top: 0.75rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge--1 { background: #262626; color: #E8D5B5; }
+    .badge--2 { background: #1e3a5f; color: #93C5FD; }
+    .badge--3 { background: #3d2e0a; color: #FDE68A; }
+    .badge--4 { background: linear-gradient(135deg, #1e3a5f, #7c2d12); color: #FDE68A; }
+    .badge--5 { background: #171717; color: #22D3EE; border: 1px solid #333; }
+    .badge--6 { background: #1e3a5f; color: #FFFFFF; }
+    .badge--7 { background: #2563EB; color: #FFFFFF; }
+  </style>
+</head>
+<body>
+  <h1>Prototipos de logo Fundez</h1>
+  <p class="subtitle">Tres variantes pensadas para destacar en pantallas de celular. Abre esta página en tu teléfono para ver cómo se leen a tamaño real.</p>
+
+  <div class="grid">
+    <article class="card">
+      <h2>Prototipo 1 — Sopapo clásico</h2>
+      <p>Fondo negro, sopapo de madera con 4 pilares estructurales dentro. Identidad colombiana directa y legible.</p>
+      <div class="sizes">
+        <div class="size-item">
+          <img src="/img/logo-prototype-1.svg" width="64" height="64" alt="Prototipo 1">
+          <span>64px</span>
+        </div>
+        <div class="size-item">
+          <img src="/img/logo-prototype-1.svg" width="40" height="40" alt="Prototipo 1 pequeño">
+          <span>40px</span>
+        </div>
+        <div class="size-item">
+          <img src="/img/logo-prototype-1.svg" width="24" height="24" alt="Prototipo 1 mini">
+          <span>24px</span>
+        </div>
+      </div>
+      <span class="badge badge--1">Tu idea</span>
+      <div class="phone-mock">
+        <div class="phone-screen">
+          <img src="/img/logo-prototype-1.svg" width="56" height="56" alt="">
+          <span class="app-name">Fundez</span>
+        </div>
+      </div>
+    </article>
+
+    <article class="card">
+      <h2>Prototipo 2 — GPS y tuerca</h2>
+      <p>Pin de ubicación con tuerca en el centro y punto blanco en la punta. Minimalista como el logo actual.</p>
+      <div class="sizes">
+        <div class="size-item">
+          <img src="/img/logo-prototype-2.svg" width="64" height="64" alt="Prototipo 2">
+          <span>64px</span>
+        </div>
+        <div class="size-item">
+          <img src="/img/logo-prototype-2.svg" width="40" height="40" alt="Prototipo 2 pequeño">
+          <span>40px</span>
+        </div>
+        <div class="size-item">
+          <img src="/img/logo-prototype-2.svg" width="24" height="24" alt="Prototipo 2 mini">
+          <span>24px</span>
+        </div>
+      </div>
+      <span class="badge badge--2">Novedoso · móvil</span>
+      <div class="phone-mock">
+        <div class="phone-screen">
+          <img src="/img/logo-prototype-2.svg" width="56" height="56" alt="">
+          <span class="app-name">Fundez</span>
+        </div>
+      </div>
+    </article>
+
+    <article class="card">
+      <h2>Prototipo 3 — Escudo sopapo</h2>
+      <p>Sopapo como escudo protector del hogar, con 4 pilares dorados tipo fachada clásica. Sensación de solidez y confianza.</p>
+      <div class="sizes">
+        <div class="size-item">
+          <img src="/img/logo-prototype-3.svg" width="64" height="64" alt="Prototipo 3">
+          <span>64px</span>
+        </div>
+        <div class="size-item">
+          <img src="/img/logo-prototype-3.svg" width="40" height="40" alt="Prototipo 3 pequeño">
+          <span>40px</span>
+        </div>
+        <div class="size-item">
+          <img src="/img/logo-prototype-3.svg" width="24" height="24" alt="Prototipo 3 mini">
+          <span>24px</span>
+        </div>
+      </div>
+      <span class="badge badge--3">Premium · distintivo</span>
+      <div class="phone-mock">
+        <div class="phone-screen">
+          <img src="/img/logo-prototype-3.svg" width="56" height="56" alt="">
+          <span class="app-name">Fundez</span>
+        </div>
+      </div>
+    </article>
+
+    <article class="card">
+      <h2>Prototipo 4 — Facilities móvil</h2>
+      <p>Misma pieza gráfica (pin + tuerca + punto), pero con identidad multiservicio: azul gasfitería, ámbar eléctrico y punto cian GPS. Más contraste para destacar en pantalla de inicio.</p>
+      <div class="sizes">
+        <div class="size-item">
+          <img src="/img/logo-prototype-4.svg" width="64" height="64" alt="Prototipo 4">
+          <span>64px</span>
+        </div>
+        <div class="size-item">
+          <img src="/img/logo-prototype-4.svg" width="40" height="40" alt="Prototipo 4 pequeño">
+          <span>40px</span>
+        </div>
+        <div class="size-item">
+          <img src="/img/logo-prototype-4.svg" width="24" height="24" alt="Prototipo 4 mini">
+          <span>24px</span>
+        </div>
+      </div>
+      <span class="badge badge--4">Branding · facilities</span>
+      <div class="phone-mock">
+        <div class="phone-screen">
+          <img src="/img/logo-prototype-4.svg" width="56" height="56" alt="">
+          <span class="app-name">Fundez</span>
+        </div>
+      </div>
+    </article>
+
+    <article class="card">
+      <h2>Prototipo 5 — Facilities negro</h2>
+      <p>Igual que el P4 (pin + tuerca ámbar + punto blanco), pero con fondo negro. Máximo contraste en pantallas de celular y modo oscuro.</p>
+      <div class="sizes">
+        <div class="size-item">
+          <img src="/img/logo-prototype-5.svg" width="64" height="64" alt="Prototipo 5">
+          <span>64px</span>
+        </div>
+        <div class="size-item">
+          <img src="/img/logo-prototype-5.svg" width="40" height="40" alt="Prototipo 5 pequeño">
+          <span>40px</span>
+        </div>
+        <div class="size-item">
+          <img src="/img/logo-prototype-5.svg" width="24" height="24" alt="Prototipo 5 mini">
+          <span>24px</span>
+        </div>
+      </div>
+      <span class="badge badge--5">Oscuro · móvil</span>
+      <div class="phone-mock">
+        <div class="phone-screen">
+          <img src="/img/logo-prototype-5.svg" width="56" height="56" alt="">
+          <span class="app-name">Fundez</span>
+        </div>
+      </div>
+    </article>
+
+    <article class="card">
+      <h2>Prototipo 6 — Hogar y napoleón</h2>
+      <p>Misma casa del logo actual. En lugar de puerta: llave Stilson (napoleón) girando una tuerca.</p>
+      <div class="sizes">
+        <div class="size-item">
+          <img src="/img/logo-prototype-6.svg" width="64" height="64" alt="Prototipo 6">
+          <span>64px</span>
+        </div>
+        <div class="size-item">
+          <img src="/img/logo-prototype-6.svg" width="40" height="40" alt="Prototipo 6 pequeño">
+          <span>40px</span>
+        </div>
+        <div class="size-item">
+          <img src="/img/logo-prototype-6.svg" width="24" height="24" alt="Prototipo 6 mini">
+          <span>24px</span>
+        </div>
+      </div>
+      <span class="badge badge--6">Minimal · hogar</span>
+      <div class="phone-mock">
+        <div class="phone-screen">
+          <img src="/img/logo-prototype-6.svg" width="56" height="56" alt="">
+          <span class="app-name">Fundez</span>
+        </div>
+      </div>
+    </article>
+
+    <article class="card">
+      <h2>Prototipo 7 — Hogar y ojo</h2>
+      <p>Casa vacía con el ojo que todo lo ve adentro — estilo minimal, vigilancia del hogar.</p>
+      <div class="sizes">
+        <div class="size-item">
+          <img src="/img/logo-prototype-7.svg" width="64" height="64" alt="Prototipo 7">
+          <span>64px</span>
+        </div>
+        <div class="size-item">
+          <img src="/img/logo-prototype-7.svg" width="40" height="40" alt="Prototipo 7 pequeño">
+          <span>40px</span>
+        </div>
+        <div class="size-item">
+          <img src="/img/logo-prototype-7.svg" width="24" height="24" alt="Prototipo 7 mini">
+          <span>24px</span>
+        </div>
+      </div>
+      <span class="badge badge--7">Ultra minimal</span>
+      <div class="phone-mock">
+        <div class="phone-screen">
+          <img src="/img/logo-prototype-7.svg" width="56" height="56" alt="">
+          <span class="app-name">Fundez</span>
+        </div>
+      </div>
+    </article>
+  </div>
+
+  <section class="compare">
+    <h3>Logo actual vs prototipos</h3>
+    <div class="row">
+      <div class="size-item">
+        <img src="/img/logo.svg" width="48" height="48" alt="Logo actual">
+        <span>Actual</span>
+      </div>
+      <div class="size-item">
+        <img src="/img/logo-prototype-1.svg" width="48" height="48" alt="">
+        <span>P1</span>
+      </div>
+      <div class="size-item">
+        <img src="/img/logo-prototype-2.svg" width="48" height="48" alt="">
+        <span>P2</span>
+      </div>
+      <div class="size-item">
+        <img src="/img/logo-prototype-3.svg" width="48" height="48" alt="">
+        <span>P3</span>
+      </div>
+      <div class="size-item">
+        <img src="/img/logo-prototype-4.svg" width="48" height="48" alt="">
+        <span>P4</span>
+      </div>
+      <div class="size-item">
+        <img src="/img/logo-prototype-5.svg" width="48" height="48" alt="">
+        <span>P5</span>
+      </div>
+      <div class="size-item">
+        <img src="/img/logo-prototype-6.svg" width="48" height="48" alt="">
+        <span>P6</span>
+      </div>
+      <div class="size-item">
+        <img src="/img/logo-prototype-7.svg" width="48" height="48" alt="">
+        <span>P7</span>
+      </div>
+    </div>
+  </section>
+</body>
+</html>

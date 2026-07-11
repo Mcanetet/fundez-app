@@ -767,6 +767,94 @@ async function saveNotification(record) {
   );
 }
 
+async function saveChat(chat) {
+  await db.query(
+    `INSERT INTO chats (id, client_name, client_phone, last_message, channel, status, unread, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       client_name = VALUES(client_name),
+       client_phone = VALUES(client_phone),
+       last_message = VALUES(last_message),
+       channel = VALUES(channel),
+       status = VALUES(status),
+       unread = VALUES(unread),
+       updated_at = VALUES(updated_at)`,
+    [
+      chat.id, chat.clientName, chat.clientPhone, chat.lastMessage,
+      chat.channel, chat.status, chat.unread || 0, chat.updatedAt
+    ]
+  );
+}
+
+async function restoreFromSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') {
+    throw new Error('Snapshot inválido');
+  }
+
+  const stats = {
+    users: 0,
+    services: 0,
+    modules: 0,
+    requests: 0,
+    homeLogbook: 0,
+    complaints: 0,
+    chats: 0,
+    consents: 0,
+    securityLogs: 0
+  };
+
+  for (const service of snapshot.services || []) {
+    await saveService(service);
+    stats.services++;
+  }
+
+  for (const mod of snapshot.modules || []) {
+    await saveModule(mod);
+    stats.modules++;
+  }
+
+  if (snapshot.pricing) {
+    await savePricingConfig(snapshot.pricing);
+  }
+
+  for (const user of snapshot.users || []) {
+    await saveUser(user);
+    stats.users++;
+  }
+
+  for (const request of snapshot.requests || []) {
+    await saveRequest(request);
+    stats.requests++;
+  }
+
+  for (const entry of snapshot.homeLogbook || []) {
+    await saveLogbookEntry(entry);
+    stats.homeLogbook++;
+  }
+
+  for (const complaint of snapshot.complaints || []) {
+    await saveComplaint(complaint);
+    stats.complaints++;
+  }
+
+  for (const chat of snapshot.chats || []) {
+    await saveChat(chat);
+    stats.chats++;
+  }
+
+  for (const record of snapshot.consentRecords || []) {
+    await saveConsent(record);
+    stats.consents++;
+  }
+
+  for (const log of snapshot.securityLogs || []) {
+    await saveSecurityLog(log);
+    stats.securityLogs++;
+  }
+
+  return stats;
+}
+
 function persist(fn, label) {
   fn().catch((err) => {
     console.error(`Error persistiendo ${label}:`, err.message);
@@ -789,6 +877,8 @@ module.exports = {
   saveConsent,
   saveSecurityLog,
   saveNotification,
+  saveChat,
+  restoreFromSnapshot,
   persist,
   defaultProviderVerification,
   defaultLocationShare

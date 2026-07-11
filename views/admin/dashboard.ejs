@@ -8,6 +8,9 @@
         <div>
           <span class="zilo-label !text-[9px]">Operaciones</span>
           <h1 class="text-base font-semibold">Fundez Admin</h1>
+          <% if (typeof appVersion !== 'undefined' && appVersion) { %>
+            <p class="text-[10px] text-zilo-muted font-mono mt-0.5"><%= appVersion.label %></p>
+          <% } %>
         </div>
       </div>
       <div class="flex items-center gap-2">
@@ -564,9 +567,13 @@
     <!-- BACKUPS -->
     <section class="admin-panel hidden" data-panel="backups">
       <h3 class="text-lg font-semibold mb-1">Copias de seguridad</h3>
-      <p class="text-xs text-gray-500 mb-4">Política GFS (estándar mercado SaaS) · datos del servidor + documentos de proveedores</p>
+      <p class="text-xs text-gray-500 mb-4">Política GFS · cada backup guarda la versión de la app. Antes de restaurar se crea una copia de seguridad automática.</p>
 
       <div class="grid grid-cols-2 gap-2 mb-4">
+        <div class="p-3 rounded-xl bg-violet-500/10 border border-violet-500/20 text-center col-span-2">
+          <span class="text-[9px] text-gray-500 uppercase block">Versión actual de la app</span>
+          <strong class="text-sm font-mono text-violet-700"><%= appVersion ? appVersion.label : '—' %></strong>
+        </div>
         <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
           <span class="text-[9px] text-gray-500 uppercase block">Estado</span>
           <strong class="text-sm <%= backupConfig.enabled ? 'text-emerald-600' : 'text-red-600' %>"><%= backupConfig.enabled ? 'Activo' : 'Pausado' %></strong>
@@ -673,12 +680,14 @@
               <span class="text-gray-600"><%= formatBytes(b.stats?.totalBytes || 0) %></span>
             </div>
             <p class="text-gray-500 mb-2">
+              <% if (b.appVersion) { %><span class="font-mono text-violet-600">v<%= b.appVersion %></span> · <% } %>
               <%= b.stats?.users || 0 %> usuarios · <%= b.stats?.requests || 0 %> solicitudes
               <%= b.includesUploads ? ' · + documentos' : '' %>
             </p>
-            <div class="flex gap-2">
-              <a href="/admin/backups/<%= b.id %>/download" class="flex-1 py-1.5 rounded-lg bg-gray-50 text-center text-gray-700 hover:bg-gray-100">Descargar JSON</a>
-              <button type="button" class="btn-delete-backup flex-1 py-1.5 rounded-lg bg-red-500/10 text-red-600" data-id="<%= b.id %>">Eliminar</button>
+            <div class="flex flex-wrap gap-2">
+              <a href="/admin/backups/<%= b.id %>/download" class="flex-1 min-w-[7rem] py-1.5 rounded-lg bg-gray-50 text-center text-gray-700 hover:bg-gray-100">Descargar</a>
+              <button type="button" class="btn-restore-backup flex-1 min-w-[7rem] py-1.5 rounded-lg bg-amber-500/15 text-amber-700 font-medium" data-id="<%= b.id %>" data-version="<%= b.appVersion || '' %>" data-date="<%= new Date(b.createdAt).toLocaleString('es-CL') %>">Restaurar</button>
+              <button type="button" class="btn-delete-backup flex-1 min-w-[7rem] py-1.5 rounded-lg bg-red-500/10 text-red-600" data-id="<%= b.id %>">Eliminar</button>
             </div>
           </div>
         <% }); %>
