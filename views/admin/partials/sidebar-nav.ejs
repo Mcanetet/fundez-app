@@ -1,0 +1,13 @@
+<nav class="admin-sidebar-nav" id="adminTabs">
+  <% adminNav.forEach(function(section) { %>
+    <div class="admin-nav-group">
+      <p class="admin-nav-group-label"><%= section.group %></p>
+      <% section.items.forEach(function(item) { %>
+        <button type="button" data-tab="<%= item.id %>" class="admin-nav-item <%= item.id === initialTab ? 'admin-nav-item-active' : '' %>" title="<%= item.label %>">
+          <span class="admin-nav-icon admin-nav-icon-<%= item.icon %>" aria-hidden="true"></span>
+          <span class="admin-nav-label"><%= item.label %></span>
+        </button>
+      <% }); %>
+    </div>
+  <% }); %>
+</nav>

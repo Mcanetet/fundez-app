@@ -198,7 +198,8 @@ const SEED_USERS = [
     password: 'admin123',
     name: 'Admin Fundez',
     role: 'admin',
-    phone: '+56 9 0000 0000'
+    phone: '+56 9 0000 0000',
+    adminAccess: { profileId: 'superadmin', isSuperAdmin: true, permissions: [] }
   }
 ];
 
@@ -271,6 +272,7 @@ function rowToUser(row) {
 
   if (row.role === 'admin') {
     user.mfa = normalizeMfa(parseJson(row.mfa, null));
+    user.adminAccess = parseJson(row.admin_access, null);
   }
 
   if (row.role === 'provider' || row.role === 'tecnico') {
@@ -319,6 +321,7 @@ function userToRow(user) {
     location_share: user.locationShare ? JSON.stringify(user.locationShare) : null,
     billing: user.billing ? JSON.stringify(user.billing) : null,
     mfa: user.mfa ? JSON.stringify(user.mfa) : null,
+    admin_access: user.adminAccess ? JSON.stringify(user.adminAccess) : null,
     active: user.active === false ? 0 : 1
   };
 }
@@ -603,8 +606,8 @@ async function saveUser(user) {
       zilo_points, credits_clp, referrals_count, services_count,
       used_welcome_promo, used_referral, member_since,
       onboarding_completed, onboarding_completed_at,
-      specialties, rating, reviews_count, online, avatar, bio, reviews, verification, location_share, billing, mfa, active
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      specialties, rating, reviews_count, online, avatar, bio, reviews, verification, location_share, billing, mfa, admin_access, active
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       email = VALUES(email),
       password = VALUES(password),
@@ -634,13 +637,14 @@ async function saveUser(user) {
       location_share = VALUES(location_share),
       billing = VALUES(billing),
       mfa = VALUES(mfa),
+      admin_access = VALUES(admin_access),
       active = VALUES(active)`,
     [
       row.id, row.email, row.password, row.name, row.role, row.parent_id, row.phone, row.address, row.referral_code,
       row.zilo_points, row.credits_clp, row.referrals_count, row.services_count,
       row.used_welcome_promo ? 1 : 0, row.used_referral ? 1 : 0, row.member_since,
       row.onboarding_completed ? 1 : 0, row.onboarding_completed_at,
-      row.specialties, row.rating, row.reviews_count, row.online ? 1 : 0, row.avatar, row.bio, row.reviews, row.verification, row.location_share, row.billing, row.mfa, row.active
+      row.specialties, row.rating, row.reviews_count, row.online ? 1 : 0, row.avatar, row.bio, row.reviews, row.verification, row.location_share, row.billing, row.mfa, row.admin_access, row.active
     ]
   );
 }

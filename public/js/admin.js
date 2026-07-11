@@ -2,34 +2,248 @@
   const dashboard = document.getElementById('adminDashboard');
   if (!dashboard) return;
 
-  const tabs = document.querySelectorAll('.admin-tab');
+  const PANEL_TITLES = {
+    resumen: 'Resumen',
+    finanzas: 'Finanzas',
+    documentos: 'DTE / SII',
+    notificaciones: 'Notificaciones',
+    modulos: 'Módulos',
+    servicios: 'Servicios',
+    demo: 'Cuentas demo',
+    pagos: 'Pagos',
+    proveedores: 'Socios',
+    reclamos: 'Reclamos',
+    whatsapp: 'WhatsApp',
+    datos: 'Datos',
+    backups: 'Backups',
+    equipo: 'Equipo y permisos',
+    seguridad: 'Seguridad'
+  };
+
+  const tabs = document.querySelectorAll('.admin-nav-item');
   const panels = document.querySelectorAll('.admin-panel');
+  const panelTitle = document.getElementById('adminPanelTitle');
+  const sidebar = document.getElementById('adminSidebar');
+  const backdrop = document.getElementById('adminSidebarBackdrop');
+  const menuBtn = document.getElementById('adminMenuBtn');
+
+  function closeSidebar() {
+    sidebar?.classList.remove('is-open');
+    backdrop?.classList.remove('is-open');
+  }
+
+  function openSidebar() {
+    sidebar?.classList.add('is-open');
+    backdrop?.classList.add('is-open');
+  }
+
+  menuBtn?.addEventListener('click', () => {
+    if (sidebar?.classList.contains('is-open')) closeSidebar();
+    else openSidebar();
+  });
+  backdrop?.addEventListener('click', closeSidebar);
+
+  function activateTab(id) {
+    tabs.forEach(t => {
+      t.classList.toggle('admin-nav-item-active', t.dataset.tab === id);
+    });
+    panels.forEach(p => p.classList.toggle('hidden', p.dataset.panel !== id));
+    if (panelTitle && PANEL_TITLES[id]) panelTitle.textContent = PANEL_TITLES[id];
+    closeSidebar();
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', id);
+    window.history.replaceState({}, '', url.pathname + url.search);
+  }
 
   tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const id = tab.dataset.tab;
-      tabs.forEach(t => {
-        t.className = 'admin-tab';
-      });
-      tab.className = 'admin-tab admin-tab-active';
-      panels.forEach(p => p.classList.toggle('hidden', p.dataset.panel !== id));
-    });
+    tab.addEventListener('click', () => activateTab(tab.dataset.tab));
   });
 
   const initialTab = new URLSearchParams(window.location.search).get('tab')
     || dashboard.dataset.initialTab
     || null;
-  if (initialTab) {
-    const tab = document.querySelector(`.admin-tab[data-tab="${initialTab}"]`);
-    if (tab) tab.click();
+  if (initialTab && document.querySelector(`.admin-nav-item[data-tab="${initialTab}"]`)) {
+    activateTab(initialTab);
+  } else if (tabs.length) {
+    activateTab(tabs[0].dataset.tab);
   }
 
   document.querySelectorAll('.admin-goto-tab').forEach((btn) => {
+    btn.addEventListener('click', () => activateTab(btn.dataset.tab));
+  });
+
+  /* ——— Equipo admin ——— */
+  const profilesScript = document.getElementById('adminProfilesData');
+  const teamScript = document.getElementById('adminTeamData');
+  const adminProfiles = profilesScript ? JSON.parse(profilesScript.textContent || '[]') : [];
+  const adminTeam = teamScript ? JSON.parse(teamScript.textContent || '[]') : [];
+  const teamFormWrap = document.getElementById('adminTeamFormWrap');
+  const teamForm = document.getElementById('adminTeamForm');
+  const profileSelect = document.getElementById('adminFormProfile');
+  const superCheckbox = document.getElementById('adminFormSuper');
+  const permInputs = document.querySelectorAll('.admin-perm-input');
+  const checklist = document.getElementById('adminPermissionsChecklist');
+
+  function applyProfileToChecklist(profileId) {
+    const profile = adminProfiles.find(p => p.id === profileId);
+    permInputs.forEach(input => {
+      input.checked = profile ? profile.permissions.includes(input.value) : false;
+    });
+  }
+
+  function setChecklistDisabled(disabled) {
+    permInputs.forEach(input => { input.disabled = disabled; });
+    if (checklist) checklist.classList.toggle('opacity-50', disabled);
+  }
+
+  profileSelect?.addEventListener('change', () => {
+    if (superCheckbox?.checked) return;
+    if (profileSelect.value === 'custom') {
+      setChecklistDisabled(false);
+      return;
+    }
+    applyProfileToChecklist(profileSelect.value);
+    setChecklistDisabled(false);
+  });
+
+  superCheckbox?.addEventListener('change', () => {
+    if (superCheckbox.checked) {
+      permInputs.forEach(input => { input.checked = true; });
+      setChecklistDisabled(true);
+    } else {
+      setChecklistDisabled(false);
+      if (profileSelect?.value && profileSelect.value !== 'custom') {
+        applyProfileToChecklist(profileSelect.value);
+      }
+    }
+  });
+
+  function resetTeamForm() {
+    teamForm?.reset();
+    document.getElementById('adminFormId').value = '';
+    document.getElementById('adminFormTitle').textContent = 'Nuevo administrador';
+    document.getElementById('adminFormSubmit').textContent = 'Crear administrador';
+    document.getElementById('adminFormEmail').disabled = false;
+    document.getElementById('adminFormPassword').required = true;
+    document.getElementById('adminFormPasswordHint').textContent = '';
+    applyProfileToChecklist(profileSelect?.value || 'operaciones');
+    setChecklistDisabled(false);
+    teamFormWrap?.classList.add('hidden');
+  }
+
+  document.getElementById('btnNewAdmin')?.addEventListener('click', () => {
+    resetTeamForm();
+    teamFormWrap?.classList.remove('hidden');
+    applyProfileToChecklist('operaciones');
+    teamFormWrap?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  document.getElementById('adminFormCancel')?.addEventListener('click', resetTeamForm);
+
+  document.querySelectorAll('.btn-edit-admin').forEach(btn => {
     btn.addEventListener('click', () => {
-      const tab = document.querySelector(`.admin-tab[data-tab="${btn.dataset.tab}"]`);
-      if (tab) tab.click();
+      const member = adminTeam.find(m => m.id === btn.dataset.id);
+      if (!member) return;
+
+      document.getElementById('adminFormId').value = member.id;
+      document.getElementById('adminFormTitle').textContent = 'Editar administrador';
+      document.getElementById('adminFormSubmit').textContent = 'Guardar cambios';
+      document.getElementById('adminFormName').value = member.name || '';
+      document.getElementById('adminFormEmail').value = member.email || '';
+      document.getElementById('adminFormEmail').disabled = true;
+      document.getElementById('adminFormPassword').required = false;
+      document.getElementById('adminFormPasswordHint').textContent = 'Deja vacío para mantener la contraseña actual.';
+
+      if (profileSelect) {
+        profileSelect.value = member.isSuperAdmin ? 'superadmin' : (member.profileId || 'custom');
+      }
+
+      permInputs.forEach(input => {
+        input.checked = member.permissions.includes(input.value);
+      });
+
+      if (superCheckbox) {
+        superCheckbox.checked = Boolean(member.isSuperAdmin);
+        setChecklistDisabled(Boolean(member.isSuperAdmin));
+      }
+
+      teamFormWrap?.classList.remove('hidden');
+      teamFormWrap?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
+
+  teamForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const adminId = document.getElementById('adminFormId').value;
+    const permissions = [...permInputs].filter(i => i.checked).map(i => i.value);
+    const body = {
+      name: document.getElementById('adminFormName').value,
+      profileId: profileSelect?.value === 'custom' ? 'custom' : profileSelect?.value,
+      permissions,
+      isSuperAdmin: superCheckbox?.checked || false
+    };
+    const password = document.getElementById('adminFormPassword').value;
+    if (password) body.password = password;
+
+    try {
+      let res;
+      if (adminId) {
+        res = await fetch(`/admin/team/${adminId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+      } else {
+        body.email = document.getElementById('adminFormEmail').value;
+        if (!password) {
+          FundezNotify.show('La contraseña es obligatoria para nuevos administradores', 'error');
+          return;
+        }
+        res = await fetch('/admin/team', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+      }
+      const data = await res.json();
+      if (data.success) {
+        FundezNotify.show(adminId ? 'Administrador actualizado' : 'Administrador creado', 'success');
+        setTimeout(() => location.reload(), 800);
+      } else {
+        FundezNotify.show(data.error || 'No se pudo guardar', 'error');
+      }
+    } catch (_) {
+      FundezNotify.show('Error de conexión', 'error');
+    }
+  });
+
+  document.querySelectorAll('.admin-team-toggle').forEach(toggle => {
+    toggle.addEventListener('change', async () => {
+      const id = toggle.dataset.id;
+      const active = toggle.checked;
+      try {
+        const res = await fetch(`/admin/team/${id}/toggle`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ active })
+        });
+        const data = await res.json();
+        if (data.success) {
+          FundezNotify.show(`Cuenta ${active ? 'activada' : 'desactivada'}`, active ? 'success' : 'warning');
+        } else {
+          toggle.checked = !active;
+          FundezNotify.show(data.error || 'Error', 'error');
+        }
+      } catch (_) {
+        toggle.checked = !active;
+        FundezNotify.show('Error de conexión', 'error');
+      }
+    });
+  });
+
+  if (profileSelect && adminProfiles.length) {
+    applyProfileToChecklist(profileSelect.value || 'operaciones');
+  }
 
   document.querySelectorAll('.service-toggle').forEach(toggle => {
     toggle.addEventListener('change', async () => {

@@ -18,7 +18,14 @@ const {
   calculatePaymentSurcharge,
   computeRequestFinancials
 } = require('../lib/pricing');
-const { normalizeBilling, validateBilling, createBillingSnapshot } = require('../lib/billing');
+const {
+  normalizeAdminAccess,
+  resolveAdminAccess,
+  permissionsFromBody,
+  PROFILES,
+  getProfilesList,
+  getPermissionGroups
+} = require('../lib/adminPermissions');
 
 let SERVICES = [];
 let MODULES = [];
@@ -889,6 +896,93 @@ function setUserActive(userId, active) {
   return user;
 }
 
+function getAdminTeamUsers() {
+  return USERS
+    .filter((u) => u.role === 'admin')
+    .map((u) => {
+      const access = resolveAdminAccess(u);
+      return {
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        phone: u.phone || '',
+        active: u.active !== false,
+        profileId: access.profileId,
+        isSuperAdmin: access.isSuperAdmin,
+        permissions: access.permissions,
+        mfaEnabled: isMfaEnabled(u.id),
+        createdAt: u.memberSince || null
+      };
+    })
+    .sort((a, b) => a.email.localeCompare(b.email));
+}
+
+async function createAdminUser({ name, email, password, profileId, permissions, isSuperAdmin }, actorId) {
+  ensureReady();
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!normalizedEmail || !password || !name) {
+    return { error: 'Nombre, email y contraseña son obligatorios.' };
+  }
+  if (password.length < 8) {
+    return { error: 'La contraseña debe tener al menos 8 caracteres.' };
+  }
+  if (getUserByEmail(normalizedEmail)) {
+    return { error: 'Ya existe una cuenta con ese email.' };
+  }
+
+  const profile = PROFILES[profileId] || PROFILES.operaciones;
+  const adminAccess = normalizeAdminAccess({
+    profileId: isSuperAdmin ? 'superadmin' : (profileId || profile.id),
+    permissions: permissions || profile.permissions,
+    isSuperAdmin: Boolean(isSuperAdmin)
+  });
+
+  const user = {
+    id: `admin-${uuidv4().slice(0, 8)}`,
+    email: normalizedEmail,
+    password: await hashPassword(password),
+    name: String(name).trim(),
+    role: 'admin',
+    phone: null,
+    active: true,
+    adminAccess,
+    memberSince: new Date().toISOString().slice(0, 10)
+  };
+
+  USERS.push(user);
+  await repository.saveUser(user);
+  return { success: true, user: getAdminTeamUsers().find((u) => u.id === user.id) };
+}
+
+async function updateAdminUserAccess(userId, { name, profileId, permissions, isSuperAdmin, password }, actorId) {
+  ensureReady();
+  const user = getUserById(userId);
+  if (!user || user.role !== 'admin') return { error: 'Administrador no encontrado.' };
+
+  if (name) user.name = String(name).trim();
+  if (password) {
+    if (password.length < 8) return { error: 'La contraseña debe tener al menos 8 caracteres.' };
+    user.password = await hashPassword(password);
+  }
+
+  const profile = PROFILES[profileId] || null;
+  user.adminAccess = normalizeAdminAccess({
+    profileId: isSuperAdmin ? 'superadmin' : (profileId || user.adminAccess?.profileId || 'custom'),
+    permissions: permissions || profile?.permissions || user.adminAccess?.permissions,
+    isSuperAdmin: Boolean(isSuperAdmin)
+  });
+
+  await repository.saveUser(user);
+  return { success: true, user: getAdminTeamUsers().find((u) => u.id === userId) };
+}
+
+function getAdminPermissionMeta() {
+  return {
+    profiles: getProfilesList(),
+    groups: getPermissionGroups()
+  };
+}
+
 function isMfaEnabled(userId) {
   const user = getUserById(userId);
   return Boolean(user?.mfa?.enabled && user.mfa.secret);
@@ -1671,6 +1765,11 @@ module.exports = {
   getTechniciansByProvider,
   getTechnicianForProvider,
   setUserActive,
+  getAdminTeamUsers,
+  createAdminUser,
+  updateAdminUserAccess,
+  getAdminPermissionMeta,
+  resolveAdminAccess,
   isMfaEnabled,
   beginMfaSetup,
   confirmMfaSetup,

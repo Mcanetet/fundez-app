@@ -1,39 +1,72 @@
 <%- include('../partials/head', { bodyClass: 'admin-page' }) %>
+<%
+function panelClass(id) {
+  if (!canAccessPanel(id)) return 'admin-panel hidden';
+  return id === initialTab ? 'admin-panel' : 'admin-panel hidden';
+}
+const currentProfile = adminProfiles.find(function(p) { return p.id === adminAccess.profileId; });
+const profileLabel = currentProfile ? currentProfile.name : (adminAccess.isSuperAdmin ? 'Superadministrador' : 'Personalizado');
+const canManageTeam = adminAccess.isSuperAdmin || (adminAccess.permissions || []).includes('equipo.manage');
+function hasPerm(key) {
+  return adminAccess.isSuperAdmin || (adminAccess.permissions || []).indexOf(key) !== -1;
+}
+%>
 
-<div class="max-w-2xl mx-auto min-h-screen flex flex-col" id="adminDashboard" data-initial-tab="<%= typeof initialTab !== 'undefined' && initialTab ? initialTab : '' %>">
-  <header class="sticky top-0 z-50 bg-zilo-bg/95 backdrop-blur-xl border-b border-zilo-border">
-    <div class="px-5 py-4 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <%- include('../partials/logo', { className: 'w-9 h-9' }) %>
-        <div>
-          <span class="zilo-label !text-[9px]">Operaciones</span>
-          <h1 class="text-base font-semibold">Fundez Admin</h1>
-          <% if (typeof appVersion !== 'undefined' && appVersion) { %>
-            <p class="text-[10px] text-zilo-muted font-mono mt-0.5"><%= appVersion.label %></p>
-          <% } %>
-        </div>
-      </div>
-      <div class="flex items-center gap-2">
-        <a href="/admin/precios" class="zilo-icon-btn" title="Configurar precios">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-        </a>
-        <a href="/logout" class="zilo-icon-btn" title="Cerrar sesión">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-        </a>
+<div class="admin-shell" id="adminDashboard" data-initial-tab="<%= initialTab %>">
+  <div class="admin-sidebar-backdrop" id="adminSidebarBackdrop" aria-hidden="true"></div>
+
+  <aside class="admin-sidebar" id="adminSidebar" aria-label="Navegación administración">
+    <div class="admin-sidebar-brand">
+      <%- include('../partials/logo', { className: 'w-9 h-9 shrink-0' }) %>
+      <div class="min-w-0">
+        <span class="zilo-label !text-[9px]">Operaciones</span>
+        <h1 class="text-sm font-semibold truncate">Fundez Admin</h1>
+        <% if (typeof appVersion !== 'undefined' && appVersion) { %>
+          <p class="text-[10px] text-zilo-muted font-mono truncate"><%= appVersion.label %></p>
+        <% } %>
       </div>
     </div>
-    <nav class="admin-tabs flex gap-1 px-3 pb-3 overflow-x-auto scrollbar-hide" id="adminTabs">
-      <% [['resumen','Resumen'],['finanzas','Finanzas'],['documentos','DTE / SII'],['notificaciones','Notificaciones'],['modulos','Módulos'],['servicios','Servicios'],['demo','Cuentas demo'],['pagos','Pagos'],['proveedores','Socios'],['reclamos','Reclamos'],['whatsapp','WhatsApp'],['datos','Datos'],['backups','Backups'],['seguridad','Seguridad']].forEach(([id,label]) => { %>
-        <button type="button" data-tab="<%= id %>" class="admin-tab <%= id === 'resumen' ? 'admin-tab-active' : '' %>"><%= label %></button>
-      <% }); %>
-    </nav>
-  </header>
 
-  <main class="flex-1 px-5 py-5 pb-10">
+    <%- include('./partials/sidebar-nav') %>
+
+    <div class="admin-sidebar-footer">
+      <div class="admin-user-chip">
+        <span class="admin-user-avatar"><%= (user.name || 'A').slice(0, 1).toUpperCase() %></span>
+        <div class="min-w-0">
+          <p class="text-xs font-medium truncate"><%= user.name %></p>
+          <p class="text-[10px] text-zilo-muted truncate"><%= profileLabel %></p>
+        </div>
+      </div>
+      <a href="/logout" class="admin-sidebar-logout" title="Cerrar sesión">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        Salir
+      </a>
+    </div>
+  </aside>
+
+  <div class="admin-main">
+    <header class="admin-topbar">
+      <button type="button" class="admin-menu-btn" id="adminMenuBtn" aria-label="Abrir menú">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <div class="admin-topbar-title">
+        <h2 class="text-base font-semibold" id="adminPanelTitle">Panel de administración</h2>
+        <p class="text-xs text-zilo-muted hidden sm:block">Gestión centralizada de Fundez</p>
+      </div>
+      <div class="admin-topbar-actions">
+        <% if (adminAccess.isSuperAdmin || (adminAccess.permissions || []).includes('precios.view') || (adminAccess.permissions || []).includes('precios.manage')) { %>
+          <a href="/admin/precios" class="zilo-icon-btn" title="Precios y urgencia">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+          </a>
+        <% } %>
+      </div>
+    </header>
+
+    <main class="admin-content">
 
     <!-- RESUMEN -->
-    <section class="admin-panel" data-panel="resumen">
-      <div class="grid grid-cols-2 gap-2 mb-4">
+    <section class="<%= panelClass('resumen') %>" data-panel="resumen">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <div class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/25">
           <span class="text-[10px] text-gray-500 uppercase">Ingresos</span>
           <p class="text-lg font-extrabold text-emerald-600"><%= formatCLP(stats.totalRevenue) %></p>
@@ -78,7 +111,7 @@
     </section>
 
     <!-- FINANZAS -->
-    <section class="admin-panel hidden" data-panel="finanzas">
+    <section class="<%= panelClass('finanzas') %>" data-panel="finanzas">
       <% const fin = financialReport.summary; %>
       <div class="flex justify-between items-start gap-3 mb-4">
         <div>
@@ -182,7 +215,7 @@
     </section>
 
     <!-- DOCUMENTOS TRIBUTARIOS -->
-    <section class="admin-panel hidden" data-panel="documentos">
+    <section class="<%= panelClass('documentos') %>" data-panel="documentos">
       <div class="flex justify-between items-start gap-3 mb-4">
         <div>
           <h3 class="text-lg font-semibold">Boletas y facturas electrónicas</h3>
@@ -226,7 +259,7 @@
     </section>
 
     <!-- NOTIFICACIONES -->
-    <section class="admin-panel hidden" data-panel="notificaciones">
+    <section class="<%= panelClass('notificaciones') %>" data-panel="notificaciones">
       <h3 class="text-lg font-semibold mb-1">Notificaciones</h3>
       <p class="text-xs text-gray-500 mb-4">Email y WhatsApp en hitos del servicio · SMTP: <%= notificationStats.emailConfigured ? 'configurado' : 'modo demo (consola)' %></p>
 
@@ -264,7 +297,7 @@
     </section>
 
     <!-- MÓDULOS -->
-    <section class="admin-panel hidden" data-panel="modulos">
+    <section class="<%= panelClass('modulos') %>" data-panel="modulos">
       <div class="flex justify-between items-center mb-3">
         <h3 class="text-lg font-semibold">Módulos de la plataforma</h3>
         <span class="text-xs text-gray-500"><%= modules.filter(m => m.enabled).length %>/<%= modules.length %> activos</span>
@@ -311,7 +344,7 @@
     </section>
 
     <!-- SERVICIOS -->
-    <section class="admin-panel hidden" data-panel="servicios">
+    <section class="<%= panelClass('servicios') %>" data-panel="servicios">
       <div class="flex justify-between items-center mb-3">
         <h3 class="text-lg font-semibold">Control de servicios</h3>
         <span class="text-xs text-gray-500"><%= stats.activeServices %>/<%= stats.totalServices %> activos</span>
@@ -339,7 +372,7 @@
     </section>
 
     <!-- CUENTAS DEMO -->
-    <section class="admin-panel hidden" data-panel="demo">
+    <section class="<%= panelClass('demo') %>" data-panel="demo">
       <div class="flex justify-between items-center mb-3">
         <h3 class="text-lg font-semibold">Cuentas demo del login</h3>
         <span class="text-xs text-gray-500"><%= demoAccounts.filter(a => a.active).length %>/<%= demoAccounts.length %> visibles</span>
@@ -368,7 +401,7 @@
     </section>
 
     <!-- PAGOS -->
-    <section class="admin-panel hidden" data-panel="pagos">
+    <section class="<%= panelClass('pagos') %>" data-panel="pagos">
       <h3 class="text-lg font-semibold mb-3">Pagos y transferencias</h3>
 
       <% if (pendingTransfers.length > 0) { %>
@@ -420,7 +453,7 @@
     </section>
 
     <!-- PROVEEDORES / PAYOUTS -->
-    <section class="admin-panel hidden" data-panel="proveedores">
+    <section class="<%= panelClass('proveedores') %>" data-panel="proveedores">
       <h3 class="text-lg font-semibold mb-1">Liquidación proveedores</h3>
       <p class="text-xs text-gray-500 mb-4">Comisión Fundez: <%= Math.round(pricing.laborCommissionRate * 100) %>% mano de obra · <%= Math.round(pricing.materialsCommissionRate * 100) %>% materiales · Pago pendiente tras servicio completado</p>
       <div class="space-y-3">
@@ -469,7 +502,7 @@
     </section>
 
     <!-- RECLAMOS -->
-    <section class="admin-panel hidden" data-panel="reclamos">
+    <section class="<%= panelClass('reclamos') %>" data-panel="reclamos">
       <h3 class="text-lg font-semibold mb-3">Reclamos y disputas</h3>
       <div class="space-y-2">
         <% complaints.forEach(c => { %>
@@ -497,7 +530,7 @@
     </section>
 
     <!-- WHATSAPP -->
-    <section class="admin-panel hidden" data-panel="whatsapp">
+    <section class="<%= panelClass('whatsapp') %>" data-panel="whatsapp">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-lg font-semibold">Soporte WhatsApp</h3>
         <a href="<%= company.whatsappLink('Hola, soy soporte Fundez Admin') %>" target="_blank" rel="noopener" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#25D366]/20 border border-[#25D366]/40 text-[#25D366] text-xs font-semibold">
@@ -527,7 +560,7 @@
     </section>
 
     <!-- DATOS / CONSENTIMIENTO -->
-    <section class="admin-panel hidden" data-panel="datos">
+    <section class="<%= panelClass('datos') %>" data-panel="datos">
       <h3 class="text-lg font-semibold mb-1">Privacidad y consentimiento</h3>
       <p class="text-xs text-gray-500 mb-4">Cumplimiento Ley 19.628 (Chile) · DPO: <%= company.dpoEmail %></p>
       <div class="p-4 rounded-2xl bg-zilo-card border border-gray-200 mb-4">
@@ -565,7 +598,7 @@
     </section>
 
     <!-- BACKUPS -->
-    <section class="admin-panel hidden" data-panel="backups">
+    <section class="<%= panelClass('backups') %>" data-panel="backups">
       <h3 class="text-lg font-semibold mb-1">Copias de seguridad</h3>
       <p class="text-xs text-gray-500 mb-4">Política GFS · cada backup guarda la versión de la app. Antes de restaurar se crea una copia de seguridad automática.</p>
 
@@ -686,16 +719,138 @@
             </p>
             <div class="flex flex-wrap gap-2">
               <a href="/admin/backups/<%= b.id %>/download" class="flex-1 min-w-[7rem] py-1.5 rounded-lg bg-gray-50 text-center text-gray-700 hover:bg-gray-100">Descargar</a>
+              <% if (hasPerm('backups.restore')) { %>
               <button type="button" class="btn-restore-backup flex-1 min-w-[7rem] py-1.5 rounded-lg bg-amber-500/15 text-amber-700 font-medium" data-id="<%= b.id %>" data-version="<%= b.appVersion || '' %>" data-date="<%= new Date(b.createdAt).toLocaleString('es-CL') %>">Restaurar</button>
+              <% } %>
+              <% if (hasPerm('backups.manage')) { %>
               <button type="button" class="btn-delete-backup flex-1 min-w-[7rem] py-1.5 rounded-lg bg-red-500/10 text-red-600" data-id="<%= b.id %>">Eliminar</button>
+              <% } %>
             </div>
           </div>
         <% }); %>
       </div>
     </section>
 
+    <% if (canAccessPanel('equipo')) { %>
+    <!-- EQUIPO -->
+    <section class="<%= panelClass('equipo') %>" data-panel="equipo">
+      <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-5">
+        <div>
+          <h3 class="text-lg font-semibold">Equipo y permisos</h3>
+          <p class="text-xs text-gray-500 mt-1">Crea administradores con perfiles predefinidos o permisos personalizados por checklist.</p>
+        </div>
+        <% if (canManageTeam) { %>
+          <button type="button" id="btnNewAdmin" class="admin-primary-btn shrink-0">+ Nuevo administrador</button>
+        <% } %>
+      </div>
+
+      <div class="grid gap-4 mb-6">
+        <% adminTeam.forEach(function(member) {
+          const memberProfile = adminProfiles.find(function(p) { return p.id === member.profileId; });
+        %>
+          <article class="admin-card admin-team-card" data-admin-id="<%= member.id %>">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <span class="admin-user-avatar admin-user-avatar-lg"><%= member.name.slice(0, 1).toUpperCase() %></span>
+                <div class="min-w-0">
+                  <h4 class="font-semibold text-sm truncate"><%= member.name %><% if (member.id === user.id) { %> <span class="text-[10px] text-blue-600 font-normal">(tú)</span><% } %></h4>
+                  <p class="text-xs text-gray-500 truncate"><%= member.email %></p>
+                  <div class="flex flex-wrap gap-1.5 mt-1.5">
+                    <span class="admin-badge admin-badge-blue"><%= memberProfile ? memberProfile.name : member.profileId %></span>
+                    <% if (member.mfaEnabled) { %><span class="admin-badge admin-badge-green">MFA</span><% } %>
+                    <span class="admin-badge <%= member.active ? 'admin-badge-green' : 'admin-badge-gray' %>"><%= member.active ? 'Activo' : 'Inactivo' %></span>
+                  </div>
+                </div>
+              </div>
+              <% if (canManageTeam) { %>
+                <div class="flex items-center gap-2">
+                  <button type="button" class="btn-edit-admin text-xs px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-200 hover:border-blue-500/40" data-id="<%= member.id %>">Editar</button>
+                  <% if (member.id !== user.id) { %>
+                    <label class="inline-flex items-center gap-2 text-xs">
+                      <input type="checkbox" class="admin-team-toggle" data-id="<%= member.id %>" <%= member.active ? 'checked' : '' %>>
+                      Activo
+                    </label>
+                  <% } %>
+                </div>
+              <% } %>
+            </div>
+            <details class="mt-3">
+              <summary class="text-xs text-blue-600 cursor-pointer select-none">Ver permisos (<%= member.permissions.length %>)</summary>
+              <div class="flex flex-wrap gap-1.5 mt-2">
+                <% member.permissions.forEach(function(perm) { %>
+                  <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"><%= perm %></span>
+                <% }); %>
+              </div>
+            </details>
+          </article>
+        <% }); %>
+      </div>
+
+      <% if (canManageTeam) { %>
+      <div id="adminTeamFormWrap" class="admin-card hidden">
+        <h4 class="text-sm font-semibold mb-3" id="adminFormTitle">Nuevo administrador</h4>
+        <form id="adminTeamForm" class="space-y-4">
+          <input type="hidden" name="adminId" id="adminFormId" value="">
+          <div class="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label class="admin-field-label">Nombre</label>
+              <input type="text" name="name" id="adminFormName" required class="admin-field-input">
+            </div>
+            <div>
+              <label class="admin-field-label">Email</label>
+              <input type="email" name="email" id="adminFormEmail" required class="admin-field-input">
+            </div>
+          </div>
+          <div>
+            <label class="admin-field-label" id="adminFormPasswordLabel">Contraseña</label>
+            <input type="password" name="password" id="adminFormPassword" minlength="8" class="admin-field-input" placeholder="Mínimo 8 caracteres">
+            <p class="text-[10px] text-gray-500 mt-1" id="adminFormPasswordHint"></p>
+          </div>
+          <div>
+            <label class="admin-field-label">Perfil base</label>
+            <select name="profileId" id="adminFormProfile" class="admin-field-input">
+              <% adminProfiles.forEach(function(profile) { %>
+                <option value="<%= profile.id %>"><%= profile.name %> — <%= profile.description %></option>
+              <% }); %>
+              <option value="custom">Personalizado (checklist manual)</option>
+            </select>
+          </div>
+          <label class="inline-flex items-center gap-2 text-sm">
+            <input type="checkbox" name="isSuperAdmin" id="adminFormSuper" class="rounded border-gray-300">
+            Superadministrador (acceso total)
+          </label>
+          <div id="adminPermissionsChecklist" class="border border-gray-200 rounded-xl p-4 bg-gray-50/80 max-h-72 overflow-y-auto">
+            <% Object.entries(adminPermissionGroups).forEach(function(entry) {
+              const groupName = entry[0];
+              const perms = entry[1];
+            %>
+              <div class="mb-4 last:mb-0">
+                <p class="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-2"><%= groupName %></p>
+                <div class="grid sm:grid-cols-2 gap-2">
+                  <% perms.forEach(function(perm) { %>
+                    <label class="admin-perm-check">
+                      <input type="checkbox" name="permissions" value="<%= perm.key %>" class="admin-perm-input" data-perm="<%= perm.key %>">
+                      <span><%= perm.label %></span>
+                    </label>
+                  <% }); %>
+                </div>
+              </div>
+            <% }); %>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="submit" class="admin-primary-btn" id="adminFormSubmit">Crear administrador</button>
+            <button type="button" class="admin-secondary-btn" id="adminFormCancel">Cancelar</button>
+          </div>
+        </form>
+      </div>
+      <% } else { %>
+        <p class="text-sm text-gray-500">Tu perfil permite ver el equipo pero no crear ni editar administradores.</p>
+      <% } %>
+    </section>
+    <% } %>
+
     <!-- SEGURIDAD -->
-    <section class="admin-panel hidden" data-panel="seguridad">
+    <section class="<%= panelClass('seguridad') %>" data-panel="seguridad">
       <h3 class="text-lg font-semibold mb-3">Ciberseguridad</h3>
 
       <% if (typeof mfaMessage !== 'undefined' && mfaMessage === 'enabled') { %>
@@ -786,7 +941,11 @@
       </div>
     </section>
 
-  </main>
+    </main>
+  </div>
 </div>
+
+<script type="application/json" id="adminProfilesData"><%- JSON.stringify(adminProfiles) %></script>
+<script type="application/json" id="adminTeamData"><%- JSON.stringify(adminTeam) %></script>
 
 <%- include('../partials/footer', { pageScript: '/js/admin.js' }) %>
