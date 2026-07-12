@@ -6,7 +6,7 @@
   <main class="flex-1 px-5 py-5 space-y-5">
     <div class="p-4 rounded-2xl zilo-card-premium text-sm">
       <p class="text-zilo-muted leading-relaxed">Gestiona tus consentimientos conforme a la <strong class="text-zilo-text">Ley 21.719</strong>. Los consentimientos obligatorios para usar la plataforma no pueden revocarse sin cerrar tu cuenta.</p>
-      <p class="text-xs text-zilo-muted mt-2">DPD: <a href="mailto:<%= company.dpoEmail %>" class="text-zilo-accent underline"><%= company.dpoEmail %></a> · <a href="/legal/privacidad" class="text-zilo-accent underline">Política completa</a></p>
+      <p class="text-xs text-zilo-muted mt-2">Soporte: <a href="mailto:<%= company.supportEmail %>" class="text-zilo-accent underline"><%= company.supportEmail %></a> · DPD: <a href="mailto:<%= company.dpoEmail %>" class="text-zilo-accent underline"><%= company.dpoEmail %></a> · <a href="/legal/privacidad" class="text-zilo-accent underline">Política completa</a></p>
     </div>
 
     <section class="space-y-3">
@@ -35,7 +35,7 @@
 
     <section class="p-4 rounded-2xl border border-zilo-border text-xs text-zilo-muted space-y-2">
       <p class="font-semibold text-zilo-text text-sm">Ejercer otros derechos ARCO+</p>
-      <p>Para acceso, rectificación, supresión, portabilidad u oposición, escribe al DPD indicando tu correo registrado (<strong><%= user.email %></strong>) y el derecho que deseas ejercer.</p>
+      <p>Para acceso, rectificación, supresión, portabilidad u oposición, escribe al DPD en <a href="mailto:<%= company.dpoEmail %>" class="text-zilo-accent underline"><%= company.dpoEmail %></a> indicando tu correo registrado (<strong><%= user.email %></strong>) y el derecho que deseas ejercer.</p>
     </section>
   </main>
 </div>

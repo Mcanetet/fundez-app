@@ -29,7 +29,7 @@
       <div class="mb-4 p-3 rounded-xl bg-zilo-danger/10 border border-zilo-danger/30 text-zilo-danger text-sm text-center"><%= error %></div>
     <% } %>
 
-    <form action="/registro" method="POST" class="space-y-4">
+    <form id="registrationForm" action="/registro" method="POST" class="space-y-4">
       <div>
         <span class="zilo-label block mb-1.5"><%= t('register.role_label') %></span>
         <div class="grid grid-cols-2 gap-2" id="roleSelector">
@@ -52,11 +52,11 @@
 
       <div>
         <label for="name" class="zilo-label block mb-1.5"><%= t('register.name') %></label>
-        <input type="text" id="name" name="name" required autocomplete="name" placeholder="Tu nombre" class="zilo-input" value="<%= form.name || '' %>">
+        <input type="text" id="name" name="name" required autocomplete="name" placeholder="<%= t('register.name_placeholder') %>" class="zilo-input" value="<%= form.name || '' %>">
       </div>
       <div>
         <label for="email" class="zilo-label block mb-1.5"><%= t('auth.email') %></label>
-        <input type="email" id="email" name="email" required autocomplete="email" placeholder="tu@email.com" class="zilo-input" value="<%= form.email || '' %>">
+        <input type="email" id="email" name="email" required autocomplete="email" placeholder="<%= t('auth.email_placeholder') %>" class="zilo-input" value="<%= form.email || '' %>">
       </div>
       <div>
         <label for="phone" class="zilo-label block mb-1.5"><%= t('register.phone') %> <span class="text-zilo-muted normal-case"><%= t('register.phone_whatsapp') %></span></label>
@@ -70,7 +70,7 @@
       <div id="clientFields" class="space-y-4">
         <div>
           <label for="address" class="zilo-label block mb-1.5"><%= t('register.address') %> <span class="text-zilo-muted normal-case"><%= t('register.address_optional') %></span></label>
-          <input type="text" id="address" name="address" autocomplete="street-address" placeholder="Calle, número, comuna" class="zilo-input" value="<%= form.address || '' %>">
+          <input type="text" id="address" name="address" autocomplete="street-address" placeholder="<%= t('register.address_placeholder') %>" class="zilo-input" value="<%= form.address || '' %>">
         </div>
       </div>
 
@@ -122,15 +122,41 @@
 
 <script>
   (function () {
+    const form = document.getElementById('registrationForm');
     const providerFields = document.getElementById('providerFields');
     const clientFields = document.getElementById('clientFields');
     const roleInputs = document.querySelectorAll('input[name="role"]');
+    const validationMessages = <%- JSON.stringify({
+      required: t('register.validation_required'),
+      email: t('register.validation_email'),
+      password: t('register.validation_password')
+    }) %>;
+
     function sync() {
       const role = document.querySelector('input[name="role"]:checked').value;
       const isProvider = role === 'provider';
       providerFields.classList.toggle('hidden', !isProvider);
       clientFields.classList.toggle('hidden', isProvider);
     }
+
+    form.addEventListener('invalid', (event) => {
+      const field = event.target;
+      field.setCustomValidity('');
+      if (field.validity.valueMissing) {
+        field.setCustomValidity(validationMessages.required);
+      } else if (field.type === 'email' && field.validity.typeMismatch) {
+        field.setCustomValidity(validationMessages.email);
+      } else if (field.name === 'password' && field.validity.tooShort) {
+        field.setCustomValidity(validationMessages.password);
+      }
+    }, true);
+
+    form.querySelectorAll('input').forEach((field) => {
+      const clearValidation = () => field.setCustomValidity('');
+      field.addEventListener('input', clearValidation);
+      field.addEventListener('change', clearValidation);
+    });
+
     roleInputs.forEach(r => r.addEventListener('change', sync));
     sync();
   })();

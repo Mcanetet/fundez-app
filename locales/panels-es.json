@@ -112,7 +112,7 @@
   "admin.whatsapp.official_line": "Línea oficial",
 
   "admin.datos.title": "Privacidad y consentimiento",
-  "admin.datos.subtitle": "Cumplimiento Ley 19.628 (Chile) · DPO: {{email}}",
+  "admin.datos.subtitle": "Cumplimiento Ley 21.719 (Chile) · DPD: {{email}}",
   "admin.datos.consent_rate": "Tasa de consentimiento",
   "admin.datos.recent_records": "Registros recientes",
   "admin.datos.legal_checklist": "Checklist legal pre-lanzamiento",

@@ -72,7 +72,7 @@ router.post('/login', rateLimitLogin(12), async (req, res) => {
     store.logSecurityEvent('login_blocked', email, req);
     return res.render('login', {
       title: 'Iniciar sesión',
-      error: 'Esta cuenta está desactivada. Contacta al administrador.',
+      error: 'Esta cuenta está desactivada. Escribe a soporte@fundez.cl para reactivarla.',
       demoAccounts: store.getDemoAccounts(),
       referralCode: req.session.pendingReferral || null
     });

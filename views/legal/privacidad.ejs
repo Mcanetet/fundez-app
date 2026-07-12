@@ -10,7 +10,7 @@
     <section>
       <h2 class="text-lg font-semibold text-zilo-text mb-2">1. Responsable del tratamiento</h2>
       <p><strong><%= company.name %></strong>, RUT <%= company.rut %>, domicilio en <%= company.address %>.</p>
-      <p class="mt-2">Correo general: <a href="mailto:<%= company.email %>" class="text-blue-600"><%= company.email %></a></p>
+      <p class="mt-2">Correo de soporte y atención al cliente: <a href="mailto:<%= company.supportEmail %>" class="text-blue-600"><%= company.supportEmail %></a></p>
     </section>
 
     <section>
@@ -81,7 +81,7 @@
         <li><strong>Bloqueo</strong> — limitar el tratamiento en casos previstos por ley.</li>
         <li><strong>Revocar consentimientos</strong> — retirar consentimientos revocables sin afectar tratamientos previos lícitos.</li>
       </ul>
-      <p class="mt-3">Ejercicio de derechos: escribe a <a href="mailto:<%= company.dpoEmail %>" class="text-blue-600"><%= company.dpoEmail %></a> o usa <a href="/legal/mis-datos" class="text-blue-600">Mis datos personales</a> (requiere iniciar sesión). Responderemos en los plazos legales.</p>
+      <p class="mt-3">Ejercicio de derechos: escribe a <a href="mailto:<%= company.dpoEmail %>" class="text-blue-600"><%= company.dpoEmail %></a> o usa <a href="/legal/mis-datos" class="text-blue-600">Mis datos personales</a> (requiere iniciar sesión). Para consultas generales de servicio: <a href="mailto:<%= company.supportEmail %>" class="text-blue-600"><%= company.supportEmail %></a>. Responderemos en los plazos legales.</p>
     </section>
 
     <section>

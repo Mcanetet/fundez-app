@@ -32,7 +32,7 @@
     <form action="/login" method="POST" class="space-y-4">
       <div>
         <label for="email" class="zilo-label block mb-1.5"><%= t('auth.email') %></label>
-        <input type="email" id="email" name="email" required autocomplete="email" placeholder="tu@email.com" class="zilo-input">
+        <input type="email" id="email" name="email" required autocomplete="email" placeholder="<%= t('auth.email_placeholder') %>" class="zilo-input">
       </div>
       <div>
         <label for="password" class="zilo-label block mb-1.5"><%= t('auth.password') %></label>

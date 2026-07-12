@@ -1,12 +1,16 @@
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'soporte@fundez.cl';
+const DPO_EMAIL = process.env.DPO_EMAIL || 'privacidad@fundez.cl';
+
 module.exports = {
   name: 'Fundez SpA',
   rut: '77.777.777-7',
-  email: 'contacto@fundez.cl',
+  supportEmail: SUPPORT_EMAIL,
+  email: SUPPORT_EMAIL,
   address: 'Santiago, Región Metropolitana, Chile',
   whatsapp: process.env.WHATSAPP_NUMBER || '56912345678',
   whatsappDisplay: process.env.WHATSAPP_DISPLAY || '+56 9 1234 5678',
   commissionRate: parseFloat(process.env.PLATFORM_COMMISSION || '0.15'),
-  dpoEmail: process.env.DPO_EMAIL || 'privacidad@fundez.cl',
+  dpoEmail: DPO_EMAIL,
   appUrl: process.env.APP_URL || 'http://localhost:3000',
 
   whatsappLink(message) {

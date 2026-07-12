@@ -38,6 +38,9 @@ Abre http://localhost:3000
    - `APP_URL=https://tudominio.cl`
    - `MP_ACCESS_TOKEN` (producción o sandbox)
    - `WHATSAPP_NUMBER`
+   - `SUPPORT_EMAIL=soporte@fundez.cl`
+   - `DPO_EMAIL=privacidad@fundez.cl`
+   - `SMTP_HOST`, `SMTP_USER=soporte@fundez.cl`, `SMTP_PASS` (correo Hostinger)
 4. Ejecuta `npm install` en el terminal de Hostinger.
 5. Activa SSL/HTTPS (obligatorio para cookies seguras y HSTS).
 
@@ -47,7 +50,7 @@ Abre http://localhost:3000
 app.js              → Entrada (PORT dinámico)
 models/store.js     → Datos in-memory
 routes/             → auth, cliente, proveedor, admin, pagos, legal
-config/company.js   → WhatsApp, comisiones, DPO
+config/company.js   → WhatsApp, soporte@fundez.cl, DPD privacidad@fundez.cl
 middleware/security.js → Headers HTTP, rate limiting
 views/legal/        → Privacidad, términos, cookies
 public/             → CSS, JS, iconos SVG
@@ -59,8 +62,9 @@ public/             → CSS, JS, iconos SVG
 - Pagos Mercado Pago y comisiones
 - Liquidación a proveedores (15% plataforma)
 - Reclamos y disputas
-- Chat soporte vía WhatsApp
-- Consentimiento de datos (Ley 19.628)
+- Chat soporte vía WhatsApp y correo **soporte@fundez.cl**
+- Privacidad / DPD: **privacidad@fundez.cl**
+- Consentimiento de datos (Ley 21.719)
 - Auditoría de ciberseguridad
 
 ## Legal

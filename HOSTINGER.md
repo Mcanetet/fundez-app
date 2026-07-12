@@ -90,9 +90,18 @@ DB_PORT=3306
 DB_NAME=u482073296_fundezapp_bd
 DB_USER=u482073296_fundezapp_user
 DB_PASSWORD=tu-clave-mysql
+SUPPORT_EMAIL=soporte@fundez.cl
+DPO_EMAIL=privacidad@fundez.cl
+SMTP_HOST=smtp.hostinger.com
+SMTP_PORT=587
+SMTP_USER=soporte@fundez.cl
+SMTP_PASS=clave-del-buzon-hostinger
+SMTP_FROM=Fundez <soporte@fundez.cl>
 ```
 
 (O usa `DATABASE_URL=mysql://usuario:clave@127.0.0.1:3306/u482073296_fundezapp_bd`)
+
+> **Correos:** soporte al cliente y notificaciones desde **soporte@fundez.cl**; privacidad y derechos ARCO+ al DPD en **privacidad@fundez.cl** (ambos en Hostinger).
 
 ---
 

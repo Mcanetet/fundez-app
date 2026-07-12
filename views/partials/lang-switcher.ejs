@@ -7,12 +7,86 @@
 </div>
 <script>
 (function () {
+  var draftKey = 'fundez-language-form:' + window.location.pathname;
+
+  function savePageState() {
+    try {
+      var forms = Array.from(document.forms).map(function (form) {
+        return Array.from(form.elements)
+          .filter(function (field) { return field.name && !['submit', 'button', 'file'].includes(field.type); })
+          .map(function (field) {
+            return {
+              name: field.name,
+              type: field.type,
+              value: field.value,
+              checked: typeof field.checked === 'boolean' ? field.checked : null
+            };
+          });
+      });
+      sessionStorage.setItem(draftKey, JSON.stringify({
+        path: window.location.pathname,
+        scrollY: window.scrollY,
+        forms: forms
+      }));
+    } catch (_) { /* El cambio de idioma continúa aunque el almacenamiento esté bloqueado. */ }
+  }
+
+  function restorePageState() {
+    try {
+      var raw = sessionStorage.getItem(draftKey);
+      if (!raw) return;
+      sessionStorage.removeItem(draftKey);
+      var draft = JSON.parse(raw);
+      if (draft.path !== window.location.pathname) return;
+
+      (draft.forms || []).forEach(function (fields, formIndex) {
+        var form = document.forms[formIndex];
+        if (!form) return;
+        var used = [];
+        fields.forEach(function (saved) {
+          var matches = Array.from(form.elements).filter(function (field) {
+            return field.name === saved.name && field.type === saved.type;
+          });
+          var field = matches.find(function (candidate, index) {
+            if (used.includes(candidate)) return false;
+            if (['checkbox', 'radio'].includes(saved.type)) return candidate.value === saved.value;
+            return index === 0;
+          });
+          if (!field) return;
+          used.push(field);
+          if (['checkbox', 'radio'].includes(saved.type)) {
+            field.checked = Boolean(saved.checked);
+          } else {
+            field.value = saved.value;
+          }
+          field.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+      });
+
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          window.scrollTo(0, Number(draft.scrollY) || 0);
+        });
+      });
+    } catch (_) {
+      sessionStorage.removeItem(draftKey);
+    }
+  }
+
   document.querySelectorAll('.lang-switch-link').forEach(function (link) {
     link.addEventListener('click', function (e) {
       e.preventDefault();
+      if (link.getAttribute('aria-current') === 'true') return;
+      savePageState();
       var redirect = window.location.pathname + window.location.search;
       window.location.href = '/lang/' + link.dataset.lang + '?redirect=' + encodeURIComponent(redirect);
     });
   });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', restorePageState, { once: true });
+  } else {
+    restorePageState();
+  }
 })();
 </script>

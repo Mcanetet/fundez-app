@@ -8,7 +8,7 @@
   <% if (typeof query !== 'undefined' && query.motivo === 'cancelado') { %>
     <p class="text-zilo-muted mb-8 max-w-xs leading-relaxed">Cancelaste el pago en la pasarela. Puedes intentarlo nuevamente desde el checkout.</p>
   <% } else { %>
-    <p class="text-zilo-muted mb-8 max-w-xs leading-relaxed">No pudimos procesar el pago. Si el cargo apareció en tu cuenta, contáctanos por soporte.</p>
+    <p class="text-zilo-muted mb-8 max-w-xs leading-relaxed">No pudimos procesar el pago. Si el cargo apareció en tu cuenta, escríbenos a <a href="mailto:<%= company.supportEmail %>" class="text-zilo-accent underline"><%= company.supportEmail %></a>.</p>
   <% } %>
   <% if (request) { %>
     <a href="/pagos/checkout?ref=<%= request.id %>" class="zilo-btn-primary !w-auto !px-10 mb-3">Reintentar pago</a>

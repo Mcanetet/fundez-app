@@ -112,7 +112,7 @@
   "admin.whatsapp.official_line": "Official line",
 
   "admin.datos.title": "Privacy & consent",
-  "admin.datos.subtitle": "Chile Law 19.628 compliance · DPO: {{email}}",
+  "admin.datos.subtitle": "Chile Law 21.719 compliance · DPO: {{email}}",
   "admin.datos.consent_rate": "Consent rate",
   "admin.datos.recent_records": "Recent records",
   "admin.datos.legal_checklist": "Pre-launch legal checklist",

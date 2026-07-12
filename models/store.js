@@ -758,7 +758,7 @@ function canProviderGoOnline(provider) {
   const contractSummary = getContractSummary(provider.providerContract);
   if (!contractSummary.canOperate) {
     if (contractSummary.status === 'pending_review') missing.push('contrato en revisión legal');
-    else if (contractSummary.status === 'rejected') missing.push('contrato rechazado — contacta soporte');
+    else if (contractSummary.status === 'rejected') missing.push('contrato rechazado — escribe a soporte@fundez.cl');
     else if (contractSummary.status === 'needs_info') missing.push('contrato — antecedentes pendientes');
     else if (contractSummary.status === 'expired') missing.push('contrato vencido — renovar');
     else missing.push('contrato de socio firmado y aprobado');
