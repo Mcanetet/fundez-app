@@ -269,6 +269,9 @@ function rowToUser(row) {
     parentId: row.parent_id || null,
     phone: row.phone,
     address: row.address,
+    addressLat: row.address_lat != null ? Number(row.address_lat) : null,
+    addressLng: row.address_lng != null ? Number(row.address_lng) : null,
+    addressPlaceId: row.address_place_id || null,
     referralCode: row.referral_code,
     ziloPoints: row.zilo_points,
     creditsCLP: row.credits_clp,
@@ -325,6 +328,9 @@ function userToRow(user) {
     parent_id: user.parentId || null,
     phone: user.phone || null,
     address: user.address || null,
+    address_lat: user.addressLat ?? null,
+    address_lng: user.addressLng ?? null,
+    address_place_id: user.addressPlaceId || null,
     referral_code: user.referralCode || null,
     zilo_points: user.ziloPoints || 0,
     credits_clp: user.creditsCLP || 0,
@@ -855,13 +861,13 @@ async function saveUser(user) {
   const row = userToRow(user);
   await db.query(
     `INSERT INTO users (
-      id, email, password, name, role, parent_id, phone, address, referral_code,
+      id, email, password, name, role, parent_id, phone, address, address_lat, address_lng, address_place_id, referral_code,
       zilo_points, credits_clp, referrals_count, services_count,
       used_welcome_promo, used_referral, member_since,
       onboarding_completed, onboarding_completed_at,
       specialties, rating, reviews_count, online, avatar, bio, reviews, verification, location_share, billing, mfa, admin_access, provider_contract, active,
       email_verified_at, email_verification_code_hash, email_verification_expires_at, email_verification_sent_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       email = VALUES(email),
       password = VALUES(password),
@@ -870,6 +876,9 @@ async function saveUser(user) {
       parent_id = VALUES(parent_id),
       phone = VALUES(phone),
       address = VALUES(address),
+      address_lat = VALUES(address_lat),
+      address_lng = VALUES(address_lng),
+      address_place_id = VALUES(address_place_id),
       referral_code = VALUES(referral_code),
       zilo_points = VALUES(zilo_points),
       credits_clp = VALUES(credits_clp),
@@ -899,7 +908,7 @@ async function saveUser(user) {
       email_verification_expires_at = VALUES(email_verification_expires_at),
       email_verification_sent_at = VALUES(email_verification_sent_at)`,
     [
-      row.id, row.email, row.password, row.name, row.role, row.parent_id, row.phone, row.address, row.referral_code,
+      row.id, row.email, row.password, row.name, row.role, row.parent_id, row.phone, row.address, row.address_lat, row.address_lng, row.address_place_id, row.referral_code,
       row.zilo_points, row.credits_clp, row.referrals_count, row.services_count,
       row.used_welcome_promo ? 1 : 0, row.used_referral ? 1 : 0, row.member_since,
       row.onboarding_completed ? 1 : 0, row.onboarding_completed_at,

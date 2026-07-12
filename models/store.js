@@ -1,5 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
-const { geocodeAddress } = require('../lib/geocode');
+const { geocodeAddress, haversineKm } = require('../lib/geocode');
 const db = require('../lib/db');
 const repository = require('./repository');
 const { getAppVersionInfo } = require('../lib/version');
@@ -32,8 +32,10 @@ const {
   LEGAL_DECLARATIONS,
   CONTRACT_CLAUSES,
   ENTITY_TYPES,
-  TEMPLATE_VERSION
+  TEMPLATE_VERSION,
+  validateProviderRegistrationDocuments
 } = require('../lib/contracts');
+const { saveProviderFile } = require('../lib/uploads');
 const {
   normalizeAdminAccess,
   resolveAdminAccess,
@@ -1052,25 +1054,120 @@ function generateReferralCode(name) {
   return `${base}${rand}`;
 }
 
-async function registerUser({ name, email, password, phone, role, address, specialties }) {
+function attachProviderRegistrationDocuments(provider, {
+  documents, companyRut, companyLegalName, repRut, repName
+}) {
+  ensureProviderFields(provider);
+  const c = provider.providerContract;
+  c.entityType = 'empresa';
+  c.legalEntity = {
+    ...c.legalEntity,
+    rut: (companyRut || '').trim(),
+    legalName: (companyLegalName || '').trim(),
+    tradeName: (companyLegalName || '').trim(),
+    fiscalAddress: provider.address || '',
+    email: provider.email,
+    phone: provider.phone || ''
+  };
+  c.legalRepresentative = {
+    ...c.legalRepresentative,
+    fullName: (repName || provider.name || '').trim(),
+    rut: (repRut || '').trim(),
+    role: 'Representante legal',
+    email: provider.email,
+    phone: provider.phone || ''
+  };
+
+  for (const key of Object.keys(documents || {})) {
+    const data = documents[key];
+    if (!data) continue;
+    const url = saveProviderFile(provider.id, key, data);
+    c.documents[key] = { url, uploadedAt: new Date().toISOString() };
+    if (key === 'rep_id_front') provider.verification.idCardFront = url;
+    if (key === 'rep_id_back') provider.verification.idCardBack = url;
+  }
+
+  c.status = 'incomplete';
+  c.history.push({
+    at: new Date().toISOString(),
+    action: 'registration_docs_uploaded',
+    by: provider.email
+  });
+  provider.verification.submittedAt = new Date().toISOString();
+  provider.verification.status = computeVerificationStatus(provider);
+  provider.providerContract = normalizeProviderContract(c);
+  return provider;
+}
+
+async function registerUser({
+  name, email, password, phone, role, address, addressLat, addressLng, addressPlaceId, specialties,
+  companyRut, companyLegalName, repRut, providerDocuments
+}) {
   name = (name || '').trim();
   email = (email || '').trim().toLowerCase();
   password = password || '';
   role = role === 'provider' ? 'provider' : 'client';
 
-  if (!name || !email || !password) return { error: 'Completa nombre, correo y contraseña.' };
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: 'Ingresa un correo válido.' };
-  if (password.length < 6) return { error: 'La contraseña debe tener al menos 6 caracteres.' };
+  if (!name || !email || !password) return { errorKey: 'register.error_incomplete' };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { errorKey: 'register.error_invalid_email' };
+  if (password.length < 6) return { errorKey: 'register.error_password_short' };
   if (getUserByEmail(email)) {
-    return { error: 'Ya existe una cuenta con ese correo.', code: 'email_exists' };
+    return { errorKey: 'register.error_email_exists', code: 'email_exists' };
   }
 
   let cleanSpecialties = [];
   if (role === 'provider') {
     const raw = Array.isArray(specialties) ? specialties : (specialties ? [specialties] : []);
     cleanSpecialties = raw.filter(id => SERVICES.some(s => s.id === id));
-    if (cleanSpecialties.length === 0) return { error: 'Selecciona al menos una especialidad.' };
+    if (cleanSpecialties.length === 0) return { errorKey: 'register.error_specialties' };
+    if (!(companyLegalName || '').trim()) return { errorKey: 'register.error_company_name' };
+    if (!(companyRut || '').trim()) return { errorKey: 'register.error_company_rut' };
+    if (!(repRut || '').trim()) return { errorKey: 'register.error_rep_rut' };
+    const docCheck = validateProviderRegistrationDocuments(providerDocuments);
+    if (!docCheck.ok) return { errorKey: docCheck.errorKey, missingDocs: docCheck.missing };
   }
+
+  let resolvedAddress = null;
+  let resolvedCoords = null;
+  let resolvedPlaceId = null;
+
+  const addr = (address || '').trim();
+  if (addr.length < 5) {
+    return {
+      errorKey: role === 'provider'
+        ? 'register.error_address_required_provider'
+        : 'register.error_address_required'
+    };
+  }
+
+  const lat = parseFloat(addressLat);
+  const lng = parseFloat(addressLng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return { errorKey: 'register.error_address_select' };
+  }
+
+  const geo = await geocodeAddress(addr, { strict: true });
+  if (geo.found) {
+    const distKm = haversineKm(lat, lng, geo.lat, geo.lng);
+    if (distKm > 0.35) return { errorKey: 'register.error_address_mismatch' };
+  }
+
+  const coverage = validateAddressCoverage({
+    address: addr,
+    displayName: geo.displayName || addr,
+    nominatimAddress: geo.address
+  });
+  if (!coverage.covered) {
+    return {
+      errorKey: coverage.messageKey || 'coverage.not_available',
+      code: 'coverage',
+      coverage
+    };
+  }
+
+  resolvedAddress = geo.displayName || addr;
+  resolvedCoords = { lat, lng };
+  resolvedPlaceId = (addressPlaceId || geo.placeId || '').trim() || null;
 
   const shortId = uuidv4().slice(0, 8);
   const hashedPassword = await hashPassword(password);
@@ -1093,6 +1190,10 @@ async function registerUser({ name, email, password, phone, role, address, speci
   if (role === 'provider') {
     user = {
       ...baseUser,
+      address: resolvedAddress,
+      addressLat: resolvedCoords.lat,
+      addressLng: resolvedCoords.lng,
+      addressPlaceId: resolvedPlaceId,
       specialties: cleanSpecialties,
       rating: null,
       reviewsCount: 0,
@@ -1107,7 +1208,10 @@ async function registerUser({ name, email, password, phone, role, address, speci
   } else {
     user = {
       ...baseUser,
-      address: (address || '').trim() || null,
+      address: resolvedAddress,
+      addressLat: resolvedCoords.lat,
+      addressLng: resolvedCoords.lng,
+      addressPlaceId: resolvedPlaceId,
       referralCode: generateReferralCode(name),
       ziloPoints: 0,
       creditsCLP: 0,
@@ -1121,6 +1225,15 @@ async function registerUser({ name, email, password, phone, role, address, speci
 
   USERS.push(user);
   try {
+    if (role === 'provider') {
+      attachProviderRegistrationDocuments(user, {
+        documents: providerDocuments,
+        companyRut,
+        companyLegalName,
+        repRut,
+        repName: name
+      });
+    }
     await repository.saveUser(user);
   } catch (err) {
     const idx = USERS.indexOf(user);

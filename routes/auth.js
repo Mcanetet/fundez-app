@@ -116,6 +116,89 @@ router.post('/login', rateLimitLogin(12), async (req, res) => {
   redirectAfterAuth(req, res, user);
 });
 
+const { searchAddressSuggestions } = require('../lib/geocode');
+const { PROVIDER_REGISTRATION_DOC_KEYS } = require('../lib/contracts');
+
+function wantsJson(req) {
+  return req.is('application/json') || (req.get('Accept') || '').includes('application/json');
+}
+
+function providerRegistrationDocsForView(t) {
+  return PROVIDER_REGISTRATION_DOC_KEYS.map((key) => ({
+    key,
+    label: t(`register.doc_${key}`),
+    hint: t(`register.doc_${key}_hint`)
+  }));
+}
+
+function registerRenderOptions(req, extra = {}) {
+  return {
+    services: store.getActiveServices(),
+    referralCode: req.session.pendingReferral || null,
+    useMap: true,
+    pageScript: '/js/register-address.js',
+    providerRegistrationDocs: providerRegistrationDocsForView(req.t.bind(req)),
+    ...extra
+  };
+}
+
+function resolveRegisterError(req, result) {
+  if (result.errorKey) return req.t(result.errorKey);
+  return result.error || req.t('register.error_generic');
+}
+
+function registerFormFromBody(body) {
+  const rawSpecialties = body.specialties || [];
+  return {
+    name: body.name,
+    email: body.email,
+    phone: body.phone,
+    role: body.role === 'provider' ? 'provider' : 'client',
+    address: body.address,
+    addressLat: body.address_lat || body.addressLat,
+    addressLng: body.address_lng || body.addressLng,
+    addressPlaceId: body.address_place_id || body.addressPlaceId,
+    specialties: (Array.isArray(rawSpecialties) ? rawSpecialties : [rawSpecialties]).filter(Boolean),
+    companyRut: body.company_rut || body.companyRut,
+    companyLegalName: body.company_legal_name || body.companyLegalName,
+    repRut: body.rep_rut || body.repRut
+  };
+}
+
+router.get('/registro/direcciones', async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (q.length < 3) return res.json({ suggestions: [] });
+  const suggestions = await searchAddressSuggestions(q);
+  res.json({ suggestions });
+});
+
+router.post('/registro/direcciones/validar', async (req, res) => {
+  const { geocodeAddress } = require('../lib/geocode');
+  const { formatCoverageMessage } = require('../lib/coverage');
+  const { address, lat, lng } = req.body || {};
+  const addr = (address || '').trim();
+  if (!addr) return res.status(400).json({ error: 'address_required' });
+
+  const geo = await geocodeAddress(addr, { strict: true });
+  const coverage = store.validateAddressCoverage({
+    address: addr,
+    displayName: geo.displayName || addr,
+    nominatimAddress: geo.address
+  });
+
+  res.json({
+    success: true,
+    coords: geo.found ? { lat: geo.lat, lng: geo.lng } : { lat: parseFloat(lat), lng: parseFloat(lng) },
+    coverage: {
+      covered: coverage.covered,
+      unknown: coverage.unknown,
+      communeName: coverage.communeName,
+      regionName: coverage.regionName,
+      message: coverage.covered ? null : req.t(coverage.messageKey || 'coverage.not_available')
+    }
+  });
+});
+
 router.get('/registro', (req, res) => {
   if (req.session.user) {
     const user = store.getUserById(req.session.user.id);
@@ -123,34 +206,37 @@ router.get('/registro', (req, res) => {
     return res.redirect(getDashboardPath(req.session.user.role));
   }
   const defaultRole = req.query.role === 'provider' || req.query.socio ? 'provider' : 'client';
-  res.render('registro', {
+  res.render('registro', registerRenderOptions(req, {
     title: 'Crear cuenta',
     error: null,
-    services: store.getActiveServices(),
-    form: { role: defaultRole, specialties: [] },
-    referralCode: req.session.pendingReferral || null
-  });
+    form: { role: defaultRole, specialties: [] }
+  }));
 });
 
 router.post('/registro', async (req, res) => {
-  const { name, email, password, phone, role, address } = req.body;
-  const rawSpecialties = req.body.specialties || [];
-  const specialties = Array.isArray(rawSpecialties) ? rawSpecialties : [rawSpecialties];
+  const form = registerFormFromBody(req.body);
+  const { name, email, password, phone, role, address, addressLat, addressLng, addressPlaceId, specialties,
+    companyRut, companyLegalName, repRut } = form;
+  const providerDocuments = req.body.provider_documents || req.body.providerDocuments;
 
   const consentCheck = validateRegistrationConsents(req.body);
-  if (consentCheck.error) {
-    return res.status(400).render('registro', {
+  if (!consentCheck.ok) {
+    const payload = registerRenderOptions(req, {
       title: 'Crear cuenta',
-      error: consentCheck.error,
-      services: store.getActiveServices(),
-      form: { name, email, phone, role: role === 'provider' ? 'provider' : 'client', address, specialties },
-      referralCode: req.session.pendingReferral || null
+      error: req.t(consentCheck.errorKey || 'register.error_consents'),
+      form
     });
+    if (wantsJson(req)) return res.status(400).json({ error: payload.error });
+    return res.status(400).render('registro', payload);
   }
 
-  const result = await store.registerUser({ name, email, password, phone, role, address, specialties });
+  const result = await store.registerUser({
+    name, email, password, phone, role, address,
+    addressLat, addressLng, addressPlaceId, specialties,
+    companyRut, companyLegalName, repRut, providerDocuments
+  });
 
-  if (result.error) {
+  if (!result.success) {
     if (result.code === 'email_exists') {
       const login = await store.authenticateUser(email, password, { allowedRoles: PUBLIC_ROLES });
       if (!login.error) {
@@ -175,13 +261,13 @@ router.post('/registro', async (req, res) => {
       });
     }
 
-    return res.status(400).render('registro', {
+    const errMsg = resolveRegisterError(req, result);
+    if (wantsJson(req)) return res.status(400).json({ error: errMsg });
+    return res.status(400).render('registro', registerRenderOptions(req, {
       title: 'Crear cuenta',
-      error: result.error,
-      services: store.getActiveServices(),
-      form: { name, email, phone, role: role === 'provider' ? 'provider' : 'client', address, specialties },
-      referralCode: req.session.pendingReferral || null
-    });
+      error: errMsg,
+      form
+    }));
   }
 
   const user = result.user;
@@ -197,6 +283,7 @@ router.post('/registro', async (req, res) => {
   }
 
   await store.issueEmailVerification(user.id, { locale: req.locale || 'es' });
+  if (wantsJson(req)) return res.json({ success: true, redirect: '/verificar-email' });
   res.redirect('/verificar-email');
 });
 

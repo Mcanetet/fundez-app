@@ -271,6 +271,10 @@ CREATE TABLE IF NOT EXISTS coverage_regions (
   INDEX idx_coverage_regions_enabled (enabled)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+ALTER TABLE users ADD COLUMN address_lat DECIMAL(10, 7) NULL;
+ALTER TABLE users ADD COLUMN address_lng DECIMAL(10, 7) NULL;
+ALTER TABLE users ADD COLUMN address_place_id VARCHAR(32) NULL;
+
 ALTER TABLE users ADD COLUMN email_verified_at DATETIME NULL;
 ALTER TABLE users ADD COLUMN email_verification_code_hash VARCHAR(128) NULL;
 ALTER TABLE users ADD COLUMN email_verification_expires_at DATETIME NULL;
