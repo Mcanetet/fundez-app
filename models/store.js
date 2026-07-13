@@ -44,8 +44,9 @@ const {
   getProfilesList,
   getPermissionGroups
 } = require('../lib/adminPermissions');
-const { checkAddressCoverage, groupCoverageForAdmin, formatCoverageMessage } = require('../lib/coverage');
-const { getCommuneKey } = require('../lib/chile-geo');
+const { checkAddressCoverage, groupCoverageForAdmin, formatCoverageMessage, buildCoverageResult } = require('../lib/coverage');
+const { getCommuneKey, getCommune } = require('../lib/chile-geo');
+const { geocodeAddress, haversineKm, withCommuneContext } = require('../lib/geocode');
 const {
   POLICY_VERSION,
   CONSENT_DEFINITIONS,
@@ -1102,7 +1103,7 @@ function attachProviderRegistrationDocuments(provider, {
 
 async function registerUser({
   name, email, password, phone, role, address, addressLat, addressLng, addressPlaceId, specialties,
-  addressUnit, companyRut, companyLegalName, repRut, providerDocuments,
+  addressUnit, addressCommune, companyRut, companyLegalName, repRut, providerDocuments,
   clientBillingType, clientRut, clientLegalName, clientGiro
 }) {
   name = (name || '').trim();
@@ -1159,24 +1160,24 @@ async function registerUser({
   }
   if (unit.length < 2) return { errorKey: 'register.error_address_unit_required' };
 
+  const communeMeta = addressCommune ? getCommune('region-metropolitana', addressCommune) : null;
+  if (!communeMeta) return { errorKey: 'register.error_commune_required' };
+
   const lat = parseFloat(addressLat);
   const lng = parseFloat(addressLng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
     return { errorKey: 'register.error_address_select' };
   }
 
-  const geo = await geocodeAddress(addr, { strict: true });
+  const fullAddr = withCommuneContext(addr, communeMeta.name);
+  const geo = await geocodeAddress(fullAddr, { strict: true, communeName: communeMeta.name });
   if (!geo.found || !geo.hasStreetNumber) return { errorKey: 'register.error_address_street_number' };
   if (geo.found) {
     const distKm = haversineKm(lat, lng, geo.lat, geo.lng);
     if (distKm > 0.35) return { errorKey: 'register.error_address_mismatch' };
   }
 
-  const coverage = validateAddressCoverage({
-    address: addr,
-    displayName: geo.displayName || addr,
-    nominatimAddress: geo.address
-  });
+  const coverage = buildCoverageResult(communeMeta, coverageMap);
   if (!coverage.covered) {
     return {
       errorKey: coverage.messageKey || 'coverage.not_available',
@@ -1185,7 +1186,7 @@ async function registerUser({
     };
   }
 
-  resolvedAddress = `${geo.label || addr}, ${unit}`;
+  resolvedAddress = `${geo.label || fullAddr}, ${unit}`;
   resolvedCoords = { lat, lng };
   resolvedPlaceId = (addressPlaceId || geo.placeId || '').trim() || null;
 
@@ -2532,6 +2533,7 @@ module.exports = {
   toggleModule,
   getCoverageCommunes,
   getCoverageRegions,
+  getCoverageMap,
   getCoverageForAdmin,
   getCoverageStats,
   toggleCoverageCommune,

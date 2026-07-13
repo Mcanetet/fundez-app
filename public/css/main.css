@@ -38,6 +38,54 @@
   color: var(--zilo-muted);
 }
 
+.zilo-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.zilo-choice-grid > label {
+  display: flex;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.zilo-choice-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 4.75rem;
+  padding: 0.75rem 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--zilo-border);
+  text-align: center;
+  transition: border-color 0.2s, background-color 0.2s, color 0.2s;
+}
+
+.zilo-choice-card .zilo-choice-title {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.zilo-choice-card .zilo-choice-desc {
+  display: block;
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  color: var(--zilo-muted);
+  margin-top: 0.125rem;
+}
+
+.zilo-choice-card.zilo-choice-card--compact .zilo-choice-title {
+  font-size: 0.8125rem;
+  line-height: 1.3;
+}
+
 .zilo-card-premium {
   background: var(--zilo-surface);
   border: 1px solid var(--zilo-border);
@@ -268,10 +316,71 @@
 
 .zilo-icon { display: block; }
 
-.leaflet-container { background: #EEF1F6 !important; border-radius: 1rem; }
-.leaflet-popup-content-wrapper { background: #FFFFFF; color: #111827; border-radius: 12px; box-shadow: 0 8px 24px rgba(16,24,40,0.15); }
-.leaflet-popup-tip { background: #FFFFFF; }
-.leaflet-control-zoom a { background: #FFFFFF !important; color: #111827 !important; border-color: rgba(16,24,40,0.1) !important; }
+.leaflet-container {
+  background: #F4F7FB !important;
+  border-radius: 1rem;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+.leaflet-tile {
+  filter: saturate(0.95) contrast(1.02);
+}
+.leaflet-popup-content-wrapper {
+  background: rgba(255, 255, 255, 0.96);
+  color: #111827;
+  border-radius: 16px;
+  border: 1px solid rgba(230, 233, 239, 0.9);
+  box-shadow: 0 18px 44px rgba(16,24,40,0.18);
+  backdrop-filter: blur(10px);
+}
+.leaflet-popup-content {
+  margin: 0.75rem 0.875rem;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+.leaflet-popup-tip {
+  background: rgba(255, 255, 255, 0.96);
+}
+.leaflet-control-zoom {
+  border: none !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(16,24,40,0.16);
+}
+.leaflet-control-zoom a {
+  width: 2.25rem !important;
+  height: 2.25rem !important;
+  line-height: 2.15rem !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  color: #111827 !important;
+  border-color: rgba(230, 233, 239, 0.9) !important;
+  font-weight: 700;
+}
+.leaflet-control-attribution {
+  border-top-left-radius: 10px;
+  background: rgba(255, 255, 255, 0.78) !important;
+  color: #6B7280 !important;
+  font-size: 0.625rem;
+}
+.fundez-map-marker {
+  position: relative;
+  border-radius: 9999px 9999px 9999px 0;
+  transform: rotate(-45deg);
+  border: 3px solid #FFFFFF;
+  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.28);
+}
+.fundez-map-marker span {
+  position: absolute;
+  inset: 7px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.95);
+}
+.fundez-map-marker--destination {
+  background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
+}
+.fundez-map-marker--provider {
+  background: linear-gradient(135deg, #7AA781 0%, #4F7A57 100%);
+  box-shadow: 0 14px 32px rgba(107,143,113,0.3);
+}
 
 .toggle-ios { position: relative; width: 56px; height: 32px; flex-shrink: 0; }
 .toggle-ios input { opacity: 0; width: 0; height: 0; }

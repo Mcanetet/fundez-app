@@ -114,6 +114,16 @@ router.post('/login', rateLimitLogin(12), async (req, res) => {
 
 const { buildPageMeta } = require('../lib/seo');
 const { PROVIDER_REGISTRATION_DOC_KEYS } = require('../lib/contracts');
+const { getCommune, getRegionCommunes } = require('../lib/chile-geo');
+const { buildCoverageResult } = require('../lib/coverage');
+const {
+  searchAddressSuggestions,
+  geocodeAddress,
+  geocodeCommuneCenter,
+  withCommuneContext
+} = require('../lib/geocode');
+
+const REGISTRATION_REGION = 'region-metropolitana';
 
 function wantsJson(req) {
   return req.is('application/json') || (req.get('Accept') || '').includes('application/json');
@@ -136,6 +146,7 @@ function registerRenderOptions(req, extra = {}) {
     useMap: true,
     pageScript: '/js/register-address.js',
     providerRegistrationDocs: providerRegistrationDocsForView(req.t.bind(req)),
+    registrationCommunes: getRegionCommunes(REGISTRATION_REGION),
     seo: buildPageMeta(pageId, req),
     ...extra
   };
@@ -158,6 +169,7 @@ function registerFormFromBody(body) {
     addressLat: body.address_lat || body.addressLat,
     addressLng: body.address_lng || body.addressLng,
     addressPlaceId: body.address_place_id || body.addressPlaceId,
+    addressCommune: body.address_commune || body.addressCommune,
     specialties: (Array.isArray(rawSpecialties) ? rawSpecialties : [rawSpecialties]).filter(Boolean),
     companyRut: body.company_rut || body.companyRut,
     companyLegalName: body.company_legal_name || body.companyLegalName,
@@ -169,21 +181,58 @@ function registerFormFromBody(body) {
   };
 }
 
+router.get('/registro/comunas/:communeCode', async (req, res) => {
+  const commune = getCommune(REGISTRATION_REGION, req.params.communeCode);
+  if (!commune) return res.status(404).json({ error: 'commune_not_found' });
+
+  const center = await geocodeCommuneCenter(commune.name, commune.regionName);
+  const coverage = buildCoverageResult(commune, store.getCoverageMap());
+
+  res.json({
+    code: commune.code,
+    name: commune.name,
+    lat: center.lat,
+    lng: center.lng,
+    coverage: {
+      covered: coverage.covered,
+      unknown: coverage.unknown,
+      communeName: coverage.communeName,
+      regionName: coverage.regionName,
+      message: coverage.covered ? null : req.t(coverage.messageKey || 'coverage.not_available')
+    }
+  });
+});
+
 router.get('/registro/direcciones', async (req, res) => {
   const q = (req.query.q || '').trim();
-  if (q.length < 3) return res.json({ suggestions: [] });
-  const suggestions = await searchAddressSuggestions(q);
+  const communeCode = (req.query.commune || '').trim();
+  if (q.length < 3 || !communeCode) return res.json({ suggestions: [] });
+
+  const commune = getCommune(REGISTRATION_REGION, communeCode);
+  if (!commune) return res.json({ suggestions: [] });
+
+  const suggestions = await searchAddressSuggestions(q, {
+    communeName: commune.name,
+    regionName: commune.regionName
+  });
   res.json({ suggestions });
 });
 
 router.post('/registro/direcciones/validar', async (req, res) => {
-  const { geocodeAddress } = require('../lib/geocode');
-  const { formatCoverageMessage } = require('../lib/coverage');
-  const { address, lat, lng } = req.body || {};
+  const { address, lat, lng, communeCode } = req.body || {};
   const addr = (address || '').trim();
   if (!addr) return res.status(400).json({ error: 'address_required' });
 
-  const geo = await geocodeAddress(addr, { strict: true });
+  const commune = communeCode ? getCommune(REGISTRATION_REGION, communeCode) : null;
+  if (!commune) {
+    return res.status(400).json({
+      success: false,
+      error: req.t('register.error_commune_required')
+    });
+  }
+
+  const fullAddress = withCommuneContext(addr, commune.name);
+  const geo = await geocodeAddress(fullAddress, { strict: true, communeName: commune.name });
   if (!geo.found || !geo.hasStreetNumber) {
     return res.status(400).json({
       success: false,
@@ -191,11 +240,7 @@ router.post('/registro/direcciones/validar', async (req, res) => {
     });
   }
 
-  const coverage = store.validateAddressCoverage({
-    address: addr,
-    displayName: geo.displayName || addr,
-    nominatimAddress: geo.address
-  });
+  const coverage = buildCoverageResult(commune, store.getCoverageMap());
 
   res.json({
     success: true,
@@ -226,7 +271,7 @@ router.get('/registro', (req, res) => {
 
 router.post('/registro', async (req, res) => {
   const form = registerFormFromBody(req.body);
-  const { name, email, password, phone, role, address, addressUnit, addressLat, addressLng, addressPlaceId, specialties,
+  const { name, email, password, phone, role, address, addressUnit, addressLat, addressLng, addressPlaceId, addressCommune, specialties,
     companyRut, companyLegalName, repRut, clientBillingType, clientRut, clientLegalName, clientGiro } = form;
   const providerDocuments = req.body.provider_documents || req.body.providerDocuments;
 
@@ -243,7 +288,7 @@ router.post('/registro', async (req, res) => {
 
   const result = await store.registerUser({
     name, email, password, phone, role, address,
-    addressUnit,     addressUnit, addressLat, addressLng, addressPlaceId, specialties,
+    addressUnit, addressLat, addressLng, addressPlaceId, addressCommune, specialties,
     companyRut, companyLegalName, repRut, providerDocuments,
     clientBillingType, clientRut, clientLegalName, clientGiro
   });

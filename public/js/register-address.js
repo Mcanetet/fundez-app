@@ -7,6 +7,7 @@
     return typeof FundezI18n !== 'undefined' ? FundezI18n.t(key, vars) : key;
   }
 
+  const communeSelect = document.getElementById('address_commune');
   const latInput = document.getElementById('address_lat');
   const lngInput = document.getElementById('address_lng');
   const placeInput = document.getElementById('address_place_id');
@@ -24,6 +25,7 @@
   let currentSuggestions = [];
   let addressConfirmed = false;
   let lastSelectedLabel = '';
+  let selectedCommune = null;
 
   function currentRole() {
     const role = document.querySelector('input[name="role"]:checked');
@@ -38,7 +40,7 @@
     if (addressLabel) {
       addressLabel.textContent = isProviderRole()
         ? t('register.address_company')
-        : t('register.address');
+        : t('register.address_street');
     }
     if (addressHint) {
       addressHint.textContent = isProviderRole()
@@ -47,17 +49,20 @@
     }
   }
 
-  function clearCoords() {
-    addressConfirmed = false;
-    lastSelectedLabel = '';
-    if (latInput) latInput.value = '';
-    if (lngInput) lngInput.value = '';
-    if (placeInput) placeInput.value = '';
-    if (coverageAlert) {
-      coverageAlert.classList.add('hidden');
-      coverageAlert.textContent = '';
+  function hideCoverage() {
+    if (!coverageAlert) return;
+    coverageAlert.classList.add('hidden');
+    coverageAlert.textContent = '';
+  }
+
+  function showCoverage(coverage) {
+    if (!coverageAlert) return;
+    if (!coverage || coverage.covered) {
+      hideCoverage();
+      return;
     }
-    resetMapToDefault();
+    coverageAlert.textContent = coverage.message || t('coverage.not_available');
+    coverageAlert.classList.remove('hidden');
   }
 
   function setMapStatus(text) {
@@ -86,6 +91,31 @@
     setMapStatus('');
   }
 
+  function resetMapToCommune() {
+    if (selectedCommune) {
+      showMapAt(selectedCommune.lat, selectedCommune.lng, selectedCommune.name, 13);
+      return;
+    }
+    resetMapToDefault();
+  }
+
+  function clearAddressSelection() {
+    addressConfirmed = false;
+    lastSelectedLabel = '';
+    if (latInput) latInput.value = '';
+    if (lngInput) lngInput.value = '';
+    if (placeInput) placeInput.value = '';
+    hideCoverage();
+    resetMapToCommune();
+  }
+
+  function setAddressFieldEnabled(enabled) {
+    addressInput.disabled = !enabled;
+    addressInput.placeholder = enabled
+      ? t('register.address_street_placeholder')
+      : t('register.address_commune_first');
+  }
+
   function hideSuggestions() {
     activeIndex = -1;
     currentSuggestions = [];
@@ -96,15 +126,45 @@
     addressInput.setAttribute('aria-expanded', 'false');
   }
 
-  function showCoverage(coverage) {
-    if (!coverageAlert) return;
-    if (!coverage || coverage.covered) {
-      coverageAlert.classList.add('hidden');
-      coverageAlert.textContent = '';
+  function getCommuneCode() {
+    return communeSelect ? communeSelect.value : '';
+  }
+
+  async function loadCommune(code) {
+    if (!code) {
+      selectedCommune = null;
+      setAddressFieldEnabled(false);
+      addressInput.value = '';
+      hideSuggestions();
+      hideCoverage();
+      resetMapToDefault();
       return;
     }
-    coverageAlert.textContent = coverage.message || t('coverage.not_available');
-    coverageAlert.classList.remove('hidden');
+
+    setMapStatus(t('register.commune_loading'));
+    try {
+      const res = await fetch(`/registro/comunas/${encodeURIComponent(code)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'commune_error');
+
+      selectedCommune = {
+        code: data.code,
+        name: data.name,
+        lat: data.lat,
+        lng: data.lng
+      };
+
+      setAddressFieldEnabled(true);
+      addressInput.value = '';
+      clearAddressSelection();
+      showMapAt(data.lat, data.lng, data.name, 13);
+      if (data.coverage) showCoverage(data.coverage);
+      setMapStatus(t('register.commune_selected', { name: data.name }));
+    } catch (_) {
+      selectedCommune = null;
+      setAddressFieldEnabled(false);
+      setMapStatus(t('register.address_search_fail'));
+    }
   }
 
   function selectSuggestion(item) {
@@ -125,7 +185,8 @@
         address: item.label,
         lat: item.lat,
         lng: item.lng,
-        placeId: item.placeId
+        placeId: item.placeId,
+        communeCode: getCommuneCode()
       })
     })
       .then(async (res) => {
@@ -139,7 +200,7 @@
         if (data.coverage) showCoverage(data.coverage);
       })
       .catch((err) => {
-        clearCoords();
+        clearAddressSelection();
         setMapStatus(err.message || t('register.error_address_street_number'));
       });
   }
@@ -184,8 +245,16 @@
   }
 
   async function fetchSuggestions(query) {
+    const communeCode = getCommuneCode();
+    if (!communeCode) {
+      setMapStatus(t('register.validation_commune_required'));
+      return;
+    }
+
     try {
-      const res = await fetch(`/registro/direcciones?q=${encodeURIComponent(query)}`);
+      const res = await fetch(
+        `/registro/direcciones?q=${encodeURIComponent(query)}&commune=${encodeURIComponent(communeCode)}`
+      );
       const data = await res.json();
       renderSuggestions(data.suggestions || []);
       if (!(data.suggestions || []).length && query.length >= 3) {
@@ -197,14 +266,26 @@
     }
   }
 
+  if (communeSelect) {
+    communeSelect.addEventListener('change', () => {
+      loadCommune(communeSelect.value);
+    });
+  }
+
   addressInput.addEventListener('input', () => {
+    if (addressInput.disabled) return;
+
     const value = addressInput.value.trim();
-    if (value !== lastSelectedLabel) clearCoords();
+    if (value !== lastSelectedLabel) clearAddressSelection();
 
     clearTimeout(suggestTimer);
     if (value.length < 3) {
       hideSuggestions();
-      setMapStatus('');
+      if (selectedCommune) {
+        setMapStatus(t('register.commune_selected', { name: selectedCommune.name }));
+      } else {
+        setMapStatus('');
+      }
       return;
     }
 
@@ -250,6 +331,14 @@
   roleInputs.forEach((r) => r.addEventListener('change', syncAddressCopy));
 
   form.addEventListener('submit', (e) => {
+    if (!getCommuneCode()) {
+      e.preventDefault();
+      if (communeSelect) {
+        communeSelect.setCustomValidity(t('register.validation_commune_required'));
+        communeSelect.reportValidity();
+      }
+      return;
+    }
     if (!addressConfirmed || !latInput.value || !lngInput.value) {
       e.preventDefault();
       addressInput.setCustomValidity(t('register.validation_address_select'));
@@ -262,12 +351,17 @@
       unitInput.reportValidity();
       return;
     }
+    if (communeSelect) communeSelect.setCustomValidity('');
     addressInput.setCustomValidity('');
     if (unitInput) unitInput.setCustomValidity('');
   });
 
   form.addEventListener('invalid', (event) => {
     const field = event.target;
+    if (field === communeSelect) {
+      field.setCustomValidity(t('register.validation_commune_required'));
+      return;
+    }
     if (field !== addressInput) return;
     field.setCustomValidity('');
     if (field.validity.valueMissing) {
@@ -278,6 +372,7 @@
   }, true);
 
   addressInput.addEventListener('input', () => addressInput.setCustomValidity(''));
+  if (communeSelect) communeSelect.addEventListener('change', () => communeSelect.setCustomValidity(''));
   if (unitInput) unitInput.addEventListener('input', () => unitInput.setCustomValidity(''));
 
   function onReady(fn) {
@@ -285,20 +380,28 @@
     else fn();
   }
 
-  onReady(() => {
+  onReady(async () => {
     syncAddressCopy();
 
-    const hasCoords = latInput && latInput.value && lngInput && lngInput.value;
-    if (hasCoords) {
-      showMapAt(
-        parseFloat(latInput.value),
-        parseFloat(lngInput.value),
-        addressInput.value,
-        16
-      );
-      addressConfirmed = true;
-      lastSelectedLabel = addressInput.value.trim();
+    const savedAddress = addressInput.value.trim();
+    const communeCode = getCommuneCode();
+    if (communeCode) {
+      await loadCommune(communeCode);
+      if (savedAddress) addressInput.value = savedAddress;
+
+      const hasCoords = latInput && latInput.value && lngInput && lngInput.value;
+      if (hasCoords) {
+        showMapAt(
+          parseFloat(latInput.value),
+          parseFloat(lngInput.value),
+          addressInput.value,
+          16
+        );
+        addressConfirmed = true;
+        lastSelectedLabel = addressInput.value.trim();
+      }
     } else {
+      setAddressFieldEnabled(false);
       resetMapToDefault();
     }
   });

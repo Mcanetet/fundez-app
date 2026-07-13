@@ -9,7 +9,7 @@
     <%- include('partials/lang-switcher') %>
   </div>
 
-  <div class="relative z-10 w-full max-w-lg zilo-card-premium rounded-3xl p-8 zilo-page-enter">
+  <div class="relative z-10 w-full max-w-lg zilo-card-premium rounded-3xl p-5 sm:p-8 zilo-page-enter">
     <a href="/" class="flex flex-col items-center mb-6">
       <%- include('partials/logo', { className: 'w-14 h-14 mb-3', logoId: 'registro' }) %>
       <span class="zilo-display text-2xl tracking-wide"><%= t('app.name') %></span>
@@ -32,19 +32,19 @@
     <form id="registrationForm" action="/registro" method="POST" class="space-y-4">
       <div>
         <span class="zilo-label block mb-1.5"><%= t('register.role_label') %></span>
-        <div class="grid grid-cols-2 gap-2" id="roleSelector">
-          <label class="role-option cursor-pointer">
+        <div class="zilo-choice-grid" id="roleSelector">
+          <label>
             <input type="radio" name="role" value="client" class="peer sr-only" <%= form.role !== 'provider' ? 'checked' : '' %>>
-            <div class="p-3 rounded-xl border border-zilo-border text-center transition peer-checked:border-zilo-accent peer-checked:bg-zilo-accent-soft peer-checked:text-zilo-accent-strong">
-              <span class="block text-sm font-semibold"><%= t('register.role_client') %></span>
-              <span class="block text-[11px] text-zilo-muted mt-0.5"><%= t('register.role_client_desc') %></span>
+            <div class="zilo-choice-card transition peer-checked:border-zilo-accent peer-checked:bg-zilo-accent-soft peer-checked:text-zilo-accent-strong">
+              <span class="zilo-choice-title"><%= t('register.role_client') %></span>
+              <span class="zilo-choice-desc"><%= t('register.role_client_desc') %></span>
             </div>
           </label>
-          <label class="role-option cursor-pointer">
+          <label>
             <input type="radio" name="role" value="provider" class="peer sr-only" <%= form.role === 'provider' ? 'checked' : '' %>>
-            <div class="p-3 rounded-xl border border-zilo-border text-center transition peer-checked:border-zilo-accent peer-checked:bg-zilo-accent-soft peer-checked:text-zilo-accent-strong">
-              <span class="block text-sm font-semibold"><%= t('register.role_provider') %></span>
-              <span class="block text-[11px] text-zilo-muted mt-0.5"><%= t('register.role_provider_desc') %></span>
+            <div class="zilo-choice-card transition peer-checked:border-zilo-accent peer-checked:bg-zilo-accent-soft peer-checked:text-zilo-accent-strong">
+              <span class="zilo-choice-title"><%= t('register.role_provider') %></span>
+              <span class="zilo-choice-desc"><%= t('register.role_provider_desc') %></span>
             </div>
           </label>
         </div>
@@ -77,17 +77,17 @@
           <p class="text-xs font-semibold text-zilo-text"><%= t('register.client_billing_title') %></p>
           <p class="text-[11px] text-zilo-muted mt-1"><%= t('register.client_billing_hint') %></p>
         </div>
-        <div class="grid grid-cols-2 gap-2">
-          <label class="cursor-pointer">
+        <div class="zilo-choice-grid">
+          <label>
             <input type="radio" name="client_billing_type" value="natural" class="peer sr-only" <%= (form.clientBillingType || 'natural') !== 'empresa' ? 'checked' : '' %>>
-            <div class="p-3 rounded-xl border border-zilo-border text-center text-sm transition peer-checked:border-zilo-accent peer-checked:bg-zilo-accent-soft peer-checked:text-zilo-accent-strong">
-              <%= t('register.client_type_natural') %>
+            <div class="zilo-choice-card zilo-choice-card--compact transition peer-checked:border-zilo-accent peer-checked:bg-zilo-accent-soft peer-checked:text-zilo-accent-strong">
+              <span class="zilo-choice-title"><%= t('register.client_type_natural') %></span>
             </div>
           </label>
-          <label class="cursor-pointer">
+          <label>
             <input type="radio" name="client_billing_type" value="empresa" class="peer sr-only" <%= form.clientBillingType === 'empresa' ? 'checked' : '' %>>
-            <div class="p-3 rounded-xl border border-zilo-border text-center text-sm transition peer-checked:border-zilo-accent peer-checked:bg-zilo-accent-soft peer-checked:text-zilo-accent-strong">
-              <%= t('register.client_type_company') %>
+            <div class="zilo-choice-card zilo-choice-card--compact transition peer-checked:border-zilo-accent peer-checked:bg-zilo-accent-soft peer-checked:text-zilo-accent-strong">
+              <span class="zilo-choice-title"><%= t('register.client_type_company') %></span>
             </div>
           </label>
         </div>
@@ -109,10 +109,22 @@
       </div>
 
       <div id="addressFields" class="space-y-3">
+        <div>
+          <label for="address_commune" class="zilo-label block mb-1.5"><%= t('register.commune') %></label>
+          <p class="text-[11px] text-zilo-muted mb-1.5"><%= t('register.commune_hint') %></p>
+          <select id="address_commune" name="address_commune" required class="zilo-input">
+            <option value=""><%= t('register.commune_placeholder') %></option>
+            <% (registrationCommunes || []).forEach(function(c) { %>
+              <option value="<%= c.code %>" <%= (form.addressCommune || '') === c.code ? 'selected' : '' %>><%= c.name %></option>
+            <% }); %>
+          </select>
+        </div>
         <div class="relative">
-          <label for="address" id="addressLabel" class="zilo-label block mb-1.5"><%= t('register.address') %></label>
+          <label for="address" id="addressLabel" class="zilo-label block mb-1.5"><%= t('register.address_street') %></label>
           <p id="addressHint" class="text-[11px] text-zilo-muted mb-1.5"><%= t('register.address_hint') %></p>
-          <input type="text" id="address" name="address" required autocomplete="off" placeholder="<%= t('register.address_placeholder') %>" class="zilo-input" value="<%= form.address || '' %>" aria-autocomplete="list" aria-controls="addressSuggestions" aria-expanded="false">
+          <input type="text" id="address" name="address" required autocomplete="off"
+            placeholder="<%= t('register.address_commune_first') %>" class="zilo-input" value="<%= form.address || '' %>"
+            aria-autocomplete="list" aria-controls="addressSuggestions" aria-expanded="false" disabled>
           <input type="hidden" id="address_lat" name="address_lat" value="<%= form.addressLat || '' %>">
           <input type="hidden" id="address_lng" name="address_lng" value="<%= form.addressLng || '' %>">
           <input type="hidden" id="address_place_id" name="address_place_id" value="<%= form.addressPlaceId || '' %>">
@@ -268,6 +280,12 @@
   'register.address_provider_hint': t('register.address_provider_hint'),
   'register.address': t('register.address'),
   'register.address_company': t('register.address_company'),
+  'register.address_street': t('register.address_street'),
+  'register.address_street_placeholder': t('register.address_street_placeholder'),
+  'register.address_commune_first': t('register.address_commune_first'),
+  'register.commune_loading': t('register.commune_loading'),
+  'register.commune_selected': t('register.commune_selected'),
+  'register.validation_commune_required': t('register.validation_commune_required'),
   'register.address_searching': t('register.address_searching'),
   'register.address_no_results': t('register.address_no_results'),
   'register.address_search_fail': t('register.address_search_fail'),

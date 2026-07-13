@@ -2,21 +2,30 @@ window.FundezMap = {
   maps: {},
   markers: {},
 
+  tileLayer: {
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    subdomains: 'abcd',
+    maxZoom: 20
+  },
+
   _destIcon() {
     return L.divIcon({
-      className: '',
-      html: '<div style="width:22px;height:22px;background:#2563EB;border:3px solid white;border-radius:50%;box-shadow:0 2px 12px rgba(37,99,235,0.5)"></div>',
-      iconSize: [22, 22],
-      iconAnchor: [11, 11]
+      className: 'fundez-map-marker fundez-map-marker--destination',
+      html: '<span></span>',
+      iconSize: [34, 42],
+      iconAnchor: [17, 40],
+      popupAnchor: [0, -36]
     });
   },
 
   _providerIcon() {
     return L.divIcon({
-      className: '',
-      html: '<div style="width:22px;height:22px;background:#6B8F71;border:3px solid white;border-radius:50%;box-shadow:0 2px 12px rgba(107,143,113,0.5)"></div>',
-      iconSize: [22, 22],
-      iconAnchor: [11, 11]
+      className: 'fundez-map-marker fundez-map-marker--provider',
+      html: '<span></span>',
+      iconSize: [34, 42],
+      iconAnchor: [17, 40],
+      popupAnchor: [0, -36]
     });
   },
 
@@ -42,9 +51,11 @@ window.FundezMap = {
       scrollWheelZoom: draggable
     }).setView([latitude, longitude], zoom);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap',
-      maxZoom: 19
+    L.tileLayer(this.tileLayer.url, {
+      attribution: this.tileLayer.attribution,
+      subdomains: this.tileLayer.subdomains,
+      maxZoom: this.tileLayer.maxZoom,
+      detectRetina: true
     }).addTo(map);
 
     const marker = L.marker([latitude, longitude], { icon: this._destIcon() }).addTo(map);
