@@ -316,10 +316,19 @@
 
 .zilo-icon { display: block; }
 
+.fundez-map-panel {
+  position: relative;
+  isolation: isolate;
+}
+
 .leaflet-container {
   background: #F4F7FB !important;
   border-radius: 1rem;
   font-family: 'Inter', system-ui, sans-serif;
+}
+
+.fundez-map-panel .leaflet-container {
+  border-radius: 1rem;
 }
 .leaflet-tile {
   filter: saturate(0.95) contrast(1.02);

@@ -1,15 +1,15 @@
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/js/i18n.js"></script>
+  <script src="<%= asset('/js/i18n.js') %>"></script>
   <% if (typeof clientI18n !== 'undefined') { %>
   <script>window.FundezI18n.strings = <%- JSON.stringify(clientI18n) %>;</script>
   <% } %>
-  <script src="/js/notify.js"></script>
-  <script src="/js/icons.js"></script>
+  <script src="<%= asset('/js/notify.js') %>"></script>
+  <script src="<%= asset('/js/icons.js') %>"></script>
   <% if (typeof extraScripts !== 'undefined') { extraScripts.forEach(function(src) { %>
-    <script src="<%= src %>"></script>
+    <script src="<%= asset(src) %>"></script>
   <% }); } %>
   <% if (typeof pageScript !== 'undefined') { %>
-    <script src="<%= pageScript %>"></script>
+    <script src="<%= asset(pageScript) %>"></script>
   <% } %>
   <%- include('legal-footer') %>
 </body>

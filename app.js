@@ -8,7 +8,7 @@ const path = require('path');
 
 const store = require('./models/store');
 const company = require('./config/company');
-const { getAppVersionInfo } = require('./lib/version');
+const { getAppVersionInfo, getAssetVersion } = require('./lib/version');
 const { dispatchPendingToProvider, dispatchPendingToTechnician } = require('./lib/dispatch');
 const { securityHeaders, rateLimitSimple } = require('./middleware/security');
 const backup = require('./lib/backup');
@@ -74,7 +74,13 @@ app.get('/health', async (req, res) => {
 
 app.use(securityHeaders);
 app.use(rateLimitSimple(150));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res, filePath) {
+    if (/\.(js|css)$/.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+    }
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 app.use(express.json({ limit: '25mb' }));
 
@@ -95,11 +101,17 @@ app.use(i18nMiddleware);
 
 app.use(seoRoutes);
 
+const assetVersion = getAssetVersion();
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.currentPath = req.path;
   res.locals.currentQuery = req.url.includes('?') ? req.url.split('?')[1] : '';
   res.locals.company = company;
+  res.locals.assetVersion = assetVersion;
+  res.locals.asset = (url) => {
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}v=${assetVersion}`;
+  };
   res.locals.mod = (id) => (store.isReady() ? store.isModuleEnabled(id) : true);
   next();
 });
