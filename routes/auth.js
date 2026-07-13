@@ -163,6 +163,7 @@ function registerFormFromBody(body) {
   return {
     name: body.name,
     email: body.email,
+    password: body.password,
     phone: body.phone,
     role: body.role === 'provider' ? 'provider' : 'client',
     address: body.address,
