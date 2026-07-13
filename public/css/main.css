@@ -370,25 +370,14 @@
   color: #6B7280 !important;
   font-size: 0.625rem;
 }
-.fundez-map-marker {
-  position: relative;
-  border-radius: 9999px 9999px 9999px 0;
-  transform: rotate(-45deg);
-  border: 3px solid #FFFFFF;
-  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.28);
+.fundez-map-pin {
+  background: transparent !important;
+  border: none !important;
 }
-.fundez-map-marker span {
-  position: absolute;
-  inset: 7px;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.95);
-}
-.fundez-map-marker--destination {
-  background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
-}
-.fundez-map-marker--provider {
-  background: linear-gradient(135deg, #7AA781 0%, #4F7A57 100%);
-  box-shadow: 0 14px 32px rgba(107,143,113,0.3);
+
+.fundez-map-pin svg {
+  display: block;
+  filter: drop-shadow(0 10px 18px rgba(37, 99, 235, 0.32));
 }
 
 .toggle-ios { position: relative; width: 56px; height: 32px; flex-shrink: 0; }

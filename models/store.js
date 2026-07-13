@@ -46,7 +46,7 @@ const {
 } = require('../lib/adminPermissions');
 const { checkAddressCoverage, groupCoverageForAdmin, formatCoverageMessage, buildCoverageResult } = require('../lib/coverage');
 const { getCommuneKey, getCommune } = require('../lib/chile-geo');
-const { geocodeAddress, haversineKm, withCommuneContext } = require('../lib/geocode');
+const { geocodeAddress, haversineKm, withCommuneContext, coordsMatchAddress } = require('../lib/geocode');
 const {
   POLICY_VERSION,
   CONSENT_DEFINITIONS,
@@ -1172,10 +1172,14 @@ async function registerUser({
   const fullAddr = withCommuneContext(addr, communeMeta.name);
   const geo = await geocodeAddress(fullAddr, { strict: true, communeName: communeMeta.name });
   if (!geo.found || !geo.hasStreetNumber) return { errorKey: 'register.error_address_street_number' };
-  if (geo.found) {
-    const distKm = haversineKm(lat, lng, geo.lat, geo.lng);
-    if (distKm > 0.35) return { errorKey: 'register.error_address_mismatch' };
-  }
+
+  const coordCheck = await coordsMatchAddress({
+    lat,
+    lng,
+    geo,
+    communeName: communeMeta.name
+  });
+  if (!coordCheck.ok) return { errorKey: 'register.error_address_mismatch' };
 
   const coverage = buildCoverageResult(communeMeta, coverageMap);
   if (!coverage.covered) {

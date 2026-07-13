@@ -69,7 +69,13 @@
     if (mapStatus) mapStatus.textContent = text || '';
   }
 
-  function showMapAt(lat, lng, label, zoom) {
+  function onPinDrag(lat, lng) {
+    if (latInput) latInput.value = Number(lat).toFixed(6);
+    if (lngInput) lngInput.value = Number(lng).toFixed(6);
+    setMapStatus(t('register.address_pin_adjusted'));
+  }
+
+  function showMapAt(lat, lng, label, zoom, { draggable = false } = {}) {
     if (typeof FundezMap === 'undefined' || typeof L === 'undefined') return;
     const mapEl = document.getElementById('registerAddressMap');
     if (!mapEl) return;
@@ -79,10 +85,24 @@
     if (isNaN(latitude) || isNaN(longitude)) return;
 
     const mapZoom = zoom || 16;
+    const markerOptions = {
+      zoom: mapZoom,
+      markerDraggable: draggable,
+      onMarkerDrag: draggable ? onPinDrag : null
+    };
+
     if (!FundezMap.maps.registerAddressMap) {
-      FundezMap.init(mapEl, { lat: latitude, lng: longitude, label: label || '', zoom: mapZoom });
+      FundezMap.init(mapEl, {
+        lat: latitude,
+        lng: longitude,
+        label: label || '',
+        zoom: mapZoom,
+        interactive: true,
+        markerDraggable: draggable,
+        onMarkerDrag: draggable ? onPinDrag : null
+      });
     } else {
-      FundezMap.update('registerAddressMap', latitude, longitude, label || '');
+      FundezMap.update('registerAddressMap', latitude, longitude, label || '', markerOptions);
     }
   }
 
@@ -175,8 +195,8 @@
     if (lngInput) lngInput.value = item.lng;
     if (placeInput) placeInput.value = item.placeId || '';
     hideSuggestions();
-    setMapStatus(item.displayName || item.label);
-    showMapAt(item.lat, item.lng, item.label, 16);
+    setMapStatus(t('register.address_pin_drag_hint'));
+    showMapAt(item.lat, item.lng, item.label, 17, { draggable: true });
 
     fetch('/registro/direcciones/validar', {
       method: 'POST',
@@ -207,6 +227,11 @@
 
   function renderSuggestions(items) {
     if (!suggestionsEl) return;
+    if (items.length === 1) {
+      selectSuggestion(items[0]);
+      return;
+    }
+
     currentSuggestions = items;
     activeIndex = -1;
     if (!items.length) {
@@ -395,7 +420,8 @@
           parseFloat(latInput.value),
           parseFloat(lngInput.value),
           addressInput.value,
-          16
+          17,
+          { draggable: true }
         );
         addressConfirmed = true;
         lastSelectedLabel = addressInput.value.trim();

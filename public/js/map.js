@@ -9,27 +9,51 @@ window.FundezMap = {
     maxZoom: 20
   },
 
+  _pinHtml(color) {
+    return `<svg width="32" height="42" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M16 1C9.1 1 4 6.45 4 13.4c0 8.55 11.2 20.95 11.55 21.35a1.2 1.2 0 0 0 1.7 0C17.6 34.35 28 22.15 28 13.4 28 6.45 22.9 1 16 1Z" fill="${color}" stroke="#FFFFFF" stroke-width="2.5"/>
+      <circle cx="16" cy="13.5" r="5" fill="#FFFFFF"/>
+    </svg>`;
+  },
+
   _destIcon() {
     return L.divIcon({
-      className: 'fundez-map-marker fundez-map-marker--destination',
-      html: '<span></span>',
-      iconSize: [34, 42],
-      iconAnchor: [17, 40],
-      popupAnchor: [0, -36]
+      className: 'fundez-map-pin',
+      html: this._pinHtml('#2563EB'),
+      iconSize: [32, 42],
+      iconAnchor: [16, 42],
+      popupAnchor: [0, -38]
     });
   },
 
   _providerIcon() {
     return L.divIcon({
-      className: 'fundez-map-marker fundez-map-marker--provider',
-      html: '<span></span>',
-      iconSize: [34, 42],
-      iconAnchor: [17, 40],
-      popupAnchor: [0, -36]
+      className: 'fundez-map-pin',
+      html: this._pinHtml('#6B8F71'),
+      iconSize: [32, 42],
+      iconAnchor: [16, 42],
+      popupAnchor: [0, -38]
     });
   },
 
-  init(container, { lat, lng, label, zoom = 14, draggable = false }) {
+  _bindMarkerDrag(marker, mapId, onMarkerDrag) {
+    marker.off('dragend');
+    if (!onMarkerDrag) return;
+    marker.on('dragend', () => {
+      const pos = marker.getLatLng();
+      onMarkerDrag(pos.lat, pos.lng, mapId);
+    });
+  },
+
+  init(container, {
+    lat,
+    lng,
+    label,
+    zoom = 14,
+    interactive = true,
+    markerDraggable = false,
+    onMarkerDrag
+  } = {}) {
     if (!container || typeof L === 'undefined') return null;
 
     const latitude = parseFloat(lat);
@@ -47,8 +71,10 @@ window.FundezMap = {
     const map = L.map(container, {
       zoomControl: true,
       attributionControl: true,
-      dragging: draggable,
-      scrollWheelZoom: draggable
+      dragging: interactive,
+      scrollWheelZoom: interactive,
+      touchZoom: interactive,
+      doubleClickZoom: interactive
     }).setView([latitude, longitude], zoom);
 
     L.tileLayer(this.tileLayer.url, {
@@ -58,13 +84,17 @@ window.FundezMap = {
       detectRetina: true
     }).addTo(map);
 
-    const marker = L.marker([latitude, longitude], { icon: this._destIcon() }).addTo(map);
-    if (label) marker.bindPopup(label).openPopup();
+    const marker = L.marker([latitude, longitude], {
+      icon: this._destIcon(),
+      draggable: markerDraggable
+    }).addTo(map);
+    if (label) marker.bindPopup(label);
+    this._bindMarkerDrag(marker, mapId, onMarkerDrag);
 
     setTimeout(() => map.invalidateSize(), 300);
     setTimeout(() => map.invalidateSize(), 800);
     this.maps[mapId] = map;
-    this.markers[mapId] = { destination: marker };
+    this.markers[mapId] = { destination: marker, onMarkerDrag };
     return map;
   },
 
@@ -84,19 +114,38 @@ window.FundezMap = {
     return this.maps[mapId];
   },
 
-  update(containerId, lat, lng, label) {
+  update(containerId, lat, lng, label, {
+    zoom = 17,
+    markerDraggable = false,
+    onMarkerDrag
+  } = {}) {
     const map = this.maps[containerId];
     if (!map) return;
     const latitude = parseFloat(lat);
     const longitude = parseFloat(lng);
-    map.setView([latitude, longitude], 15);
-    map.eachLayer(layer => {
+    map.setView([latitude, longitude], zoom);
+    map.eachLayer((layer) => {
       if (layer instanceof L.Marker) map.removeLayer(layer);
     });
-    const marker = L.marker([latitude, longitude], { icon: this._destIcon() }).addTo(map);
+    const marker = L.marker([latitude, longitude], {
+      icon: this._destIcon(),
+      draggable: markerDraggable
+    }).addTo(map);
     if (label) marker.bindPopup(label).openPopup();
-    this.markers[containerId] = { destination: marker };
+    this._bindMarkerDrag(marker, containerId, onMarkerDrag);
+    const store = this.markers[containerId] || {};
+    store.destination = marker;
+    store.onMarkerDrag = onMarkerDrag;
+    this.markers[containerId] = store;
     setTimeout(() => map.invalidateSize(), 100);
+  },
+
+  setMarkerDraggable(containerId, draggable, onMarkerDrag) {
+    const store = this.markers[containerId];
+    if (!store?.destination) return;
+    store.destination.dragging[draggable ? 'enable' : 'disable']();
+    store.onMarkerDrag = onMarkerDrag || store.onMarkerDrag;
+    this._bindMarkerDrag(store.destination, containerId, store.onMarkerDrag);
   },
 
   updateProviderLocation(containerId, lat, lng, destLat, destLng) {

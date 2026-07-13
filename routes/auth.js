@@ -120,7 +120,8 @@ const {
   searchAddressSuggestions,
   geocodeAddress,
   geocodeCommuneCenter,
-  withCommuneContext
+  withCommuneContext,
+  coordsMatchAddress
 } = require('../lib/geocode');
 
 const REGISTRATION_REGION = 'region-metropolitana';
@@ -240,11 +241,29 @@ router.post('/registro/direcciones/validar', async (req, res) => {
     });
   }
 
+  const submittedLat = parseFloat(lat);
+  const submittedLng = parseFloat(lng);
+  const coordCheck = await coordsMatchAddress({
+    lat: submittedLat,
+    lng: submittedLng,
+    geo,
+    communeName: commune.name
+  });
+  if (!coordCheck.ok) {
+    return res.status(400).json({
+      success: false,
+      error: req.t('register.error_address_mismatch')
+    });
+  }
+
   const coverage = buildCoverageResult(commune, store.getCoverageMap());
 
   res.json({
     success: true,
-    coords: geo.found ? { lat: geo.lat, lng: geo.lng } : { lat: parseFloat(lat), lng: parseFloat(lng) },
+    coords: {
+      lat: Number.isFinite(submittedLat) ? submittedLat : geo.lat,
+      lng: Number.isFinite(submittedLng) ? submittedLng : geo.lng
+    },
     coverage: {
       covered: coverage.covered,
       unknown: coverage.unknown,
