@@ -356,8 +356,21 @@ router.post('/registro', async (req, res) => {
     delete req.session.pendingReferral;
   }
 
-  await store.issueEmailVerification(user.id, { locale: req.locale || 'es' });
-  if (wantsJson(req)) return res.json({ success: true, redirect: '/verificar-email' });
+  const issue = await store.issueEmailVerification(user.id, { locale: req.locale || 'es' });
+  if (wantsJson(req)) {
+    return res.json({
+      success: true,
+      redirect: '/verificar-email',
+      mailDemo: Boolean(issue.demo),
+      mailError: issue.error || null
+    });
+  }
+  if (issue.error && !issue.demo) {
+    return res.redirect('/verificar-email?mail=error');
+  }
+  if (issue.demo) {
+    return res.redirect('/verificar-email?mail=demo');
+  }
   res.redirect('/verificar-email');
 });
 
@@ -369,12 +382,20 @@ router.get('/verificar-email', (req, res) => {
     return res.redirect(getDashboardPath(user.role));
   }
 
+  let success = null;
+  let error = null;
+  if (req.query.mail === 'error') {
+    error = 'No pudimos enviar el correo de verificación. Revisa spam o pulsa Reenviar. Si persiste, configura SMTP en el servidor.';
+  } else if (req.query.mail === 'demo') {
+    success = 'Modo demo: el código aparece en los logs del servidor ([verify:demo]).';
+  }
+
   res.render('verificar-email', {
     title: 'Verificar correo — Fundez',
     email: user.email,
     company,
-    error: null,
-    success: null,
+    error,
+    success,
     cooldown: emailVerification.resendCooldownSeconds(user),
     demoHint: !require('../lib/mailer').isConfigured()
   });
@@ -413,7 +434,8 @@ router.post('/verificar-email/reenviar', async (req, res) => {
 
   const result = await store.resendEmailVerification(user.id, { locale: req.locale || 'es' });
   if (result.error) {
-    return res.status(429).json({ success: false, error: result.error, cooldown: result.cooldown || 0 });
+    const status = result.cooldown ? 429 : 502;
+    return res.status(status).json({ success: false, error: result.error, cooldown: result.cooldown || 0 });
   }
   res.json({ success: true, demo: result.demo || false });
 });

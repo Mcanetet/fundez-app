@@ -96,7 +96,8 @@ SMTP_HOST=smtp.hostinger.com
 SMTP_PORT=587
 SMTP_USER=soporte@fundez.cl
 SMTP_PASS=clave-del-buzon-hostinger
-SMTP_FROM=Fundez <soporte@fundez.cl>
+SMTP_FROM=soporte@fundez.cl
+# Preferir solo el email. Si usas "Fundez <soporte@...>", también funciona.
 ```
 
 (O usa `DATABASE_URL=mysql://usuario:clave@127.0.0.1:3306/u482073296_fundezapp_bd`)

@@ -2095,6 +2095,15 @@ async function issueEmailVerification(userId, { locale = 'es' } = {}) {
     console.error('Error guardando código de verificación:', err.message);
     return { error: 'No se pudo enviar el código. Intenta más tarde.' };
   }
+
+  if (sent.mailResult?.error) {
+    return {
+      error: 'No pudimos enviar el correo. Revisa que SMTP esté configurado o intenta reenviar en un momento.',
+      sentAt: sent.sentAt,
+      mailError: sent.mailResult.error
+    };
+  }
+
   return { success: true, sentAt: sent.sentAt, demo: sent.mailResult?.demo };
 }
 
