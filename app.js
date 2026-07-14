@@ -138,9 +138,10 @@ app.get('/', (req, res) => {
     const dashboards = { client: '/cliente', provider: '/proveedor', tecnico: '/tecnico', admin: '/admin' };
     return res.redirect(dashboards[req.session.user.role] || '/login');
   }
+  const seo = buildPageMeta('home', req);
   res.render('landing', {
-    title: req.t('app.name') + ' — ' + (req.locale === 'en' ? 'Premium home services' : 'Servicios premium a domicilio'),
-    seo: buildPageMeta('home', req),
+    title: seo.title,
+    seo,
     services: localizeServices(store.getLandingServices(), req.t),
     referralBanner: req.session.pendingReferral || null
   });
