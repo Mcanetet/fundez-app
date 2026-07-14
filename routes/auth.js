@@ -89,21 +89,6 @@ router.post('/login', rateLimitLogin(12), async (req, res) => {
   setSessionUser(req, user);
   store.logSecurityEvent('login_ok', email, req);
 
-  if (req.body.consent_terminos && req.body.consent_privacidad) {
-    store.recordRegistrationConsents(req, user.id, req.body);
-    req.session.consentGranted = true;
-  } else if (req.body.consent) {
-    store.recordConsent({
-      userId: user.id,
-      ip: req.ip,
-      type: 'privacidad',
-      granted: true,
-      userAgent: req.get('user-agent'),
-      source: 'login'
-    });
-    req.session.consentGranted = true;
-  }
-
   if (user.role === 'client' && req.session.pendingReferral) {
     const referral = store.applyReferralCode(user.id, req.session.pendingReferral);
     if (referral.success) req.session.referralBonus = referral.bonus;
