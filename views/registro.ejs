@@ -26,7 +26,15 @@
     <% } %>
 
     <% if (error) { %>
-      <div class="mb-4 p-3 rounded-xl bg-zilo-danger/10 border border-zilo-danger/30 text-zilo-danger text-sm text-center"><%= error %></div>
+      <div class="mb-4 p-3 rounded-xl bg-zilo-danger/10 border border-zilo-danger/30 text-zilo-danger text-sm text-center">
+        <p><%= error %></p>
+        <% if (typeof emailExists !== 'undefined' && emailExists) { %>
+          <p class="mt-2 text-zilo-text text-xs">
+            <%= t('register.error_email_exists_hint') %>
+            <a href="/login" class="text-zilo-accent font-semibold hover:underline"><%= t('auth.login_link') %></a>
+          </p>
+        <% } %>
+      </div>
     <% } %>
 
     <form id="registrationForm" action="/registro" method="POST" class="space-y-4">

@@ -166,11 +166,18 @@
         body: JSON.stringify(payload)
       });
       const data = await res.json().catch(() => ({}));
-      if (res.ok && data.redirect) {
+      if (data.redirect && (res.ok || res.status === 409)) {
         window.location.href = data.redirect;
         return;
       }
       showFormError(data.error || t('register.error_generic'));
+      if (data.emailExists) {
+        const loginHint = document.createElement('p');
+        loginHint.className = 'mt-2 text-xs text-zilo-text';
+        loginHint.innerHTML = `<a href="/login" class="text-zilo-accent font-semibold hover:underline">${t('auth.login_link')}</a>`;
+        const box = document.getElementById('registerFormError');
+        if (box && !box.querySelector('a[href="/login"]')) box.appendChild(loginHint);
+      }
     } catch (_) {
       showFormError(t('register.error_generic'));
     } finally {

@@ -33,8 +33,9 @@ function getDashboardPath(role) {
   return paths[role] || '/';
 }
 
-function redirectAfterAuth(req, res, user) {
+async function redirectAfterAuth(req, res, user) {
   if (!store.isEmailVerified(user)) {
+    await store.issueEmailVerification(user.id, { locale: req.locale || 'es' }).catch(() => {});
     return res.redirect('/verificar-email');
   }
   return res.redirect(getDashboardPath(user.role));
@@ -109,7 +110,7 @@ router.post('/login', rateLimitLogin(12), async (req, res) => {
     delete req.session.pendingReferral;
   }
 
-  redirectAfterAuth(req, res, user);
+  await redirectAfterAuth(req, res, user);
 });
 
 const { buildPageMeta } = require('../lib/seo');
@@ -327,12 +328,37 @@ router.post('/registro', async (req, res) => {
           delete req.session.pendingReferral;
         }
 
-        return redirectAfterAuth(req, res, existingUser);
+        if (!store.isEmailVerified(existingUser)) {
+          const issue = await store.issueEmailVerification(existingUser.id, { locale: req.locale || 'es' });
+          if (wantsJson(req)) {
+            return res.status(409).json({
+              error: req.t('register.error_email_exists_unverified'),
+              redirect: '/verificar-email?exists=1',
+              needsVerification: true,
+              mailError: issue.error || null
+            });
+          }
+          const q = issue.error && !issue.demo ? 'exists=1&mail=error' : 'exists=1';
+          return res.redirect(`/verificar-email?${q}`);
+        }
+
+        if (wantsJson(req)) {
+          return res.status(409).json({
+            error: req.t('register.error_email_exists'),
+            redirect: getDashboardPath(existingUser.role)
+          });
+        }
+        return await redirectAfterAuth(req, res, existingUser);
       }
 
-      return res.status(409).render('login', loginRenderOptions(req, {
-        error: 'Ya existe una cuenta con ese correo. Ingresa con tu contraseña o usa otro correo para crear una cuenta nueva.'
-      }));
+      const existsPayload = registerRenderOptions(req, {
+        title: 'Crear cuenta',
+        error: req.t('register.error_email_exists_login'),
+        form,
+        emailExists: true
+      });
+      if (wantsJson(req)) return res.status(409).json({ error: existsPayload.error, emailExists: true });
+      return res.status(409).render('registro', existsPayload);
     }
 
     const errMsg = resolveRegisterError(req, result);
@@ -384,6 +410,9 @@ router.get('/verificar-email', (req, res) => {
 
   let success = null;
   let error = null;
+  if (req.query.exists === '1') {
+    success = req.t('verify.exists_resent');
+  }
   if (req.query.mail === 'error') {
     error = 'No pudimos enviar el correo de verificación. Revisa spam o pulsa Reenviar. Si el problema continúa, el SMTP de Hostinger puede estar rechazando el envío (revisa /health?smtp=1).';
   } else if (req.query.mail === 'demo') {
@@ -424,7 +453,7 @@ router.post('/verificar-email', async (req, res) => {
   }
 
   store.logSecurityEvent('email_verificado', user.email, req);
-  redirectAfterAuth(req, res, store.getUserById(user.id));
+  await redirectAfterAuth(req, res, store.getUserById(user.id));
 });
 
 router.post('/verificar-email/reenviar', async (req, res) => {
