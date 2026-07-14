@@ -20,6 +20,8 @@ async function main() {
   const sizes = [
     ['favicon-16.png', 16],
     ['favicon-32.png', 32],
+    ['favicon-48.png', 48],
+    ['favicon-96.png', 96],
     ['apple-touch-icon.png', 180],
     ['icon-192.png', 192],
     ['icon-512.png', 512]
@@ -32,8 +34,9 @@ async function main() {
 
   const ico16 = await sharp(svg).resize(16, 16).png().toBuffer();
   const ico32 = await sharp(svg).resize(32, 32).png().toBuffer();
+  const ico48 = await sharp(svg).resize(48, 48).png().toBuffer();
   const toIco = require('to-ico');
-  const ico = await toIco([ico16, ico32]);
+  const ico = await toIco([ico16, ico32, ico48]);
   fs.writeFileSync(path.join(publicDir, 'favicon.ico'), ico);
   console.log('✓ favicon.ico');
 }

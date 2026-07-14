@@ -27,7 +27,7 @@ const langRoutes = require('./routes/lang');
 const alandRoutes = require('./routes/aland');
 const aland = require('./lib/aland');
 const { localizeServices } = require('./lib/i18n-admin');
-const { buildPageMeta } = require('./lib/seo');
+const { buildPageMeta, getSiteUrl } = require('./lib/seo');
 const seoRoutes = require('./routes/seo');
 
 const app = express();
@@ -120,6 +120,7 @@ app.use((req, res, next) => {
   res.locals.currentPath = req.path;
   res.locals.currentQuery = req.url.includes('?') ? req.url.split('?')[1] : '';
   res.locals.company = company;
+  res.locals.siteUrl = getSiteUrl();
   res.locals.assetVersion = assetVersion;
   res.locals.asset = (url) => {
     const sep = url.includes('?') ? '&' : '?';
