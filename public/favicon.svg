@@ -1,22 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-label="Fundez">
-  <defs>
-    <linearGradient id="fundezBg" x1="4" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#3B82F6"/>
-      <stop offset="1" stop-color="#1D4ED8"/>
-    </linearGradient>
-    <linearGradient id="fundezSheen" x1="24" y1="4" x2="24" y2="44" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFFFFF" stop-opacity="0.22"/>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
-    </linearGradient>
-  </defs>
-  <rect width="48" height="48" rx="14" fill="url(#fundezBg)"/>
-  <rect width="48" height="48" rx="14" fill="url(#fundezSheen)"/>
-  <path d="M24 11.5L35.5 21v13.5c0 1.1-.9 2-2 2H14.5c-1.1 0-2-.9-2-2V21L24 11.5z" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round" fill="none"/>
-  <path d="M21 36.5V27.5c0-1.1.9-2 2-2h2c1.1 0 2 .9 2 2v9" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round"/>
-  <rect x="27.5" y="24" width="4.5" height="4.5" rx="0.75" stroke="#FFFFFF" stroke-width="1.35" fill="none"/>
-  <g transform="translate(11, 13) rotate(-35 6 6)">
-    <path d="M3.5 8.5c0-1.93 1.57-3.5 3.5-3.5s3.5 1.57 3.5 3.5c0 .86-.31 1.64-.83 2.25L11 14.5l-1.2 1.2-2.75-2.75A3.47 3.47 0 017 8.5z" stroke="#FFFFFF" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.95"/>
-    <circle cx="7" cy="8.5" r="1.1" fill="#FFFFFF"/>
-  </g>
-  <circle cx="33.5" cy="14" r="1.15" fill="#FFFFFF" opacity="0.85"/>
+  <!-- Icono sólido y legible a 16–48px para Google Search -->
+  <rect width="48" height="48" rx="12" fill="#2563EB"/>
+  <path fill="#FFFFFF" d="M24 9.5L39 22.2V38a2.5 2.5 0 0 1-2.5 2.5h-9.2V28.8c0-1.5-1.2-2.7-2.7-2.7h-2.2c-1.5 0-2.7 1.2-2.7 2.7V40.5H11.5A2.5 2.5 0 0 1 9 38V22.2L24 9.5z"/>
+  <path fill="#2563EB" d="M21.4 40.5V28.8c0-.55.45-1 1-1h3.2c.55 0 1 .45 1 1v11.7h-5.2z"/>
 </svg>

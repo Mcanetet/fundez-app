@@ -22,6 +22,7 @@ async function main() {
     ['favicon-32.png', 32],
     ['favicon-48.png', 48],
     ['favicon-96.png', 96],
+    ['favicon.png', 96],
     ['apple-touch-icon.png', 180],
     ['icon-192.png', 192],
     ['icon-512.png', 512]
