@@ -100,6 +100,14 @@ SMTP_FROM=soporte@fundez.cl
 # Preferir solo el email. Si usas "Fundez <soporte@...>", también funciona.
 ```
 
+> **Para que no caiga en spam (muy importante):**
+> 1. En Hostinger → Emails → dominio `fundez.cl` → activa **SPF, DKIM y DMARC** (Connect Domain / Increase deliverability).
+> 2. SPF típico: `v=spf1 include:_spf.mail.hostinger.com ~all` (solo un SPF por dominio).
+> 3. DMARC inicial: TXT en `_dmarc` → `v=DMARC1; p=none; rua=mailto:soporte@fundez.cl`
+> 4. Espera 24–48 h de propagación DNS.
+> 5. Verifica en https://mxtoolbox.com/spf.aspx y https://www.mail-tester.com (envía un correo de prueba).
+> 6. Hotmail/Outlook: marca el correo como “No es spam” la primera vez ayuda a la reputación del dominio.
+
 > **Importante SMTP en Hostinger Node.js:**
 > - Las variables deben estar en la app **Node.js** (no solo en el hosting web).
 > - Tras guardar SMTP, **Reinicia** la aplicación Node.
