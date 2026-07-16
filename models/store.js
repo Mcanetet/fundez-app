@@ -20,7 +20,13 @@ const {
   calculatePaymentSurcharge,
   computeRequestFinancials,
   getProviderVisibleFinancials,
-  sanitizeRequestForWorker
+  sanitizeRequestForWorker,
+  getPricingServiceCatalog,
+  getPricingCatalogRows,
+  getActivitiesForAppService,
+  quoteActivityForRequest,
+  findCatalogActivity,
+  MIN_WORK_BASE_CLP
 } = require('../lib/pricing');
 const {
   defaultProviderContract,
@@ -134,12 +140,68 @@ function ensureReady() {
   }
 }
 
-async function createRequest({ clientId, serviceId, address, notes, coords: inputCoords, gift, clientPhotoUrl, urgencyTier }) {
+async function createRequest({
+  clientId,
+  serviceId,
+  address,
+  notes,
+  coords: inputCoords,
+  gift,
+  clientPhotoUrl,
+  urgencyTier,
+  activityId,
+  customName
+}) {
   const service = getServiceById(serviceId);
   const client = getUserById(clientId);
   const fullAddress = address || client.address;
   const pricing = getPricingConfig();
-  const visitCalc = calculateVisitPricing(pricing, urgencyTier);
+
+  notes = (notes || '').trim();
+  if (!notes) return Promise.reject(new Error('Describe el problema para que el técnico sepa qué esperar.'));
+  if (!clientPhotoUrl) {
+    return Promise.reject(new Error('Sube una foto del problema. Es obligatoria para cotizar y enviar al socio.'));
+  }
+
+  const activities = getActivitiesForAppService(pricing, serviceId);
+  if (!activities.length) {
+    return Promise.reject(new Error('Este servicio aún no tiene subservicios configurados.'));
+  }
+  if (!activityId) {
+    return Promise.reject(new Error('Selecciona el tipo de trabajo (subservicio).'));
+  }
+
+  const isManualOther = activityId === 'otro' || activityId === '__other__';
+  let activityMatch;
+
+  if (isManualOther) {
+    const name = String(customName || '').trim();
+    if (name.length < 4) {
+      return Promise.reject(new Error('En "Otro", indica qué servicio necesitas (mín. 4 caracteres).'));
+    }
+    activityMatch = {
+      id: `otro-${Date.now()}`,
+      name: `Otro: ${name}`,
+      kind: 'correctiva',
+      basePrice: MIN_WORK_BASE_CLP,
+      manual: true
+    };
+  } else {
+    activityMatch = activities.find((a) => a.id === activityId);
+    if (!activityMatch) {
+      return Promise.reject(new Error('El subservicio seleccionado no corresponde a esta especialidad.'));
+    }
+  }
+
+  const visitCalc = isManualOther
+    ? calculateVisitPricing(pricing, urgencyTier, {
+      horaSolicitud: new Date(),
+      valorBase: activityMatch.basePrice
+    })
+    : (quoteActivityForRequest(pricing, activityId, {
+      horaSolicitud: new Date(),
+      tierId: urgencyTier
+    }) || calculateVisitPricing(pricing, urgencyTier, { valorBase: activityMatch.basePrice }));
   if (!visitCalc) return Promise.reject(new Error('Opción de urgencia no válida'));
 
   let coords;
@@ -176,8 +238,13 @@ async function createRequest({ clientId, serviceId, address, notes, coords: inpu
     giftMessage: isGift ? (gift.message || '') : null,
     serviceId,
     serviceName: service.name,
+    activityId: activityMatch.id,
+    activityName: activityMatch.name,
+    activityKind: activityMatch.kind,
+    activityBasePrice: activityMatch.basePrice,
+    activityManual: Boolean(activityMatch.manual),
     address: fullAddress,
-    notes: notes || '',
+    notes,
     status: 'pending_payment',
     paymentStatus: 'pending',
     paymentId: null,
@@ -709,11 +776,20 @@ function updatePricingConfig(updates) {
     ...current,
     ...updates,
     urgencyTiers: updates.urgencyTiers || current.urgencyTiers,
-    paymentGateways: updates.paymentGateways || current.paymentGateways
+    paymentGateways: updates.paymentGateways || current.paymentGateways,
+    catalogPrices: updates.catalogPrices != null ? updates.catalogPrices : current.catalogPrices
   });
   PRICING_CONFIG = merged;
   repository.persist(() => repository.savePricingConfig(merged), 'pricing');
   return merged;
+}
+
+function getServiceCatalog() {
+  return getPricingServiceCatalog(getPricingConfig());
+}
+
+function getCatalogPriceRows() {
+  return getPricingCatalogRows(getPricingConfig());
 }
 
 function getUrgencyTiersForClient() {
@@ -1774,6 +1850,142 @@ function respondSiteBudget(requestId, clientId, approved) {
   return { success: true, request, approved };
 }
 
+/**
+ * El técnico/socio ve otra cosa en terreno: propone otro subservicio con foto,
+ * o "Otro" con nombre y precio manual. El cliente debe aprobar.
+ */
+function proposeActivityChange(requestId, technicianId, {
+  activityId,
+  photoUrl,
+  notes,
+  customName,
+  customBasePrice
+}) {
+  const request = getRequestForTechnician(requestId, technicianId);
+  if (!request) return { error: 'Solicitud no encontrada.' };
+  if (!['diagnostico', 'reparando', 'comprando', 'presupuesto_pendiente', 'presupuesto_aprobado', 'en_sitio'].includes(request.techStatus)) {
+    return { error: 'Solo puedes cambiar el subservicio cuando estás en terreno.' };
+  }
+  if (!photoUrl) return { error: 'Sube una foto que respalde el cambio de servicio.' };
+  notes = (notes || '').trim();
+  if (!notes) return { error: 'Explica por qué el trabajo es distinto al solicitado.' };
+
+  const pricing = getPricingConfig();
+  const isManualOther = activityId === 'otro' || activityId === '__other__';
+
+  let toActivityId;
+  let toActivityName;
+  let toActivityKind;
+  let toBasePrice;
+  let quote;
+
+  if (isManualOther) {
+    toActivityName = String(customName || '').trim();
+    if (toActivityName.length < 4) {
+      return { error: 'En "Otro", escribe el nombre del servicio (mín. 4 caracteres).' };
+    }
+    const parsedBase = parseInt(customBasePrice, 10);
+    if (!parsedBase || parsedBase < 100000) {
+      return { error: 'En "Otro", indica el precio base del trabajo (mín. $100.000).' };
+    }
+    toActivityId = `otro-${Date.now()}`;
+    toActivityKind = 'correctiva';
+    toBasePrice = parsedBase;
+    quote = calculateVisitPricing(pricing, request.urgencyTier, {
+      horaSolicitud: request.createdAt || new Date(),
+      valorBase: toBasePrice
+    });
+  } else {
+    const activities = getActivitiesForAppService(pricing, request.serviceId);
+    const next = activities.find((a) => a.id === activityId);
+    if (!next) return { error: 'Subservicio no válido para esta especialidad.' };
+    if (next.id === request.activityId) return { error: 'Elige un subservicio distinto al actual.' };
+    toActivityId = next.id;
+    toActivityName = next.name;
+    toActivityKind = next.kind;
+    toBasePrice = next.basePrice;
+    quote = quoteActivityForRequest(pricing, next.id, {
+      horaSolicitud: request.createdAt || new Date(),
+      tierId: request.urgencyTier
+    });
+  }
+
+  if (!quote) return { error: 'No se pudo recalcular el precio.' };
+
+  const sr = ensureSiteReport(request);
+  if (sr.activityChange?.status === 'pending') {
+    return { error: 'Ya hay un cambio de servicio pendiente de aprobación del cliente.' };
+  }
+
+  sr.activityChange = {
+    status: 'pending',
+    manual: isManualOther,
+    fromActivityId: request.activityId || null,
+    fromActivityName: request.activityName || null,
+    toActivityId,
+    toActivityName,
+    toActivityKind,
+    toBasePrice,
+    proposedTotal: quote.visitTotal,
+    previousTotal: request.visitPricePaid || request.visitTotal || request.amountDue || 0,
+    photoUrl,
+    notes,
+    createdAt: new Date().toISOString(),
+    respondedAt: null
+  };
+
+  repository.persist(() => repository.saveRequest(request), `cambio actividad ${requestId}`);
+  afterEvent((ev) => ev.onActivityChangeProposed?.(request, sr.activityChange));
+  return { success: true, request, activityChange: sr.activityChange };
+}
+
+function respondActivityChange(requestId, clientId, approved) {
+  const request = requests.find((r) => r.id === requestId && r.clientId === clientId);
+  if (!request) return { error: 'Solicitud no encontrada.' };
+  const sr = ensureSiteReport(request);
+  const change = sr.activityChange;
+  if (!change || change.status !== 'pending') {
+    return { error: 'No hay un cambio de servicio pendiente.' };
+  }
+
+  change.status = approved ? 'approved' : 'rejected';
+  change.respondedAt = new Date().toISOString();
+
+  if (approved) {
+    request.activityId = change.toActivityId;
+    request.activityName = change.toActivityName;
+    request.activityKind = change.toActivityKind;
+    request.activityBasePrice = change.toBasePrice;
+    request.activityManual = Boolean(change.manual);
+    request.visitBasePrice = change.toBasePrice;
+    request.servicePriceBase = change.toBasePrice;
+    request.visitTotal = change.proposedTotal;
+    request.estimatedVisit = change.proposedTotal;
+    request.basePrice = change.proposedTotal;
+
+    const paid = request.visitPricePaid || 0;
+    if (request.paymentStatus === 'approved' && paid > 0) {
+      const delta = Math.max(0, change.proposedTotal - paid);
+      request.approvedServicePrice = delta;
+      if (delta > 0) {
+        sr.budgetAmount = delta;
+        sr.budgetDescription = `Ajuste por cambio de servicio a: ${change.toActivityName}`;
+        sr.budgetStatus = 'approved';
+        sr.budgetRespondedAt = change.respondedAt;
+      }
+    } else {
+      request.amountDue = change.proposedTotal;
+    }
+
+    if (['diagnostico', 'presupuesto_pendiente'].includes(request.techStatus)) {
+      request.techStatus = 'reparando';
+    }
+  }
+
+  repository.persist(() => repository.saveRequest(request), `respuesta cambio ${requestId}`);
+  return { success: true, request, approved, activityChange: change };
+}
+
 function addSiteMaterial(requestId, technicianId, { description, amount, receiptUrl }) {
   const request = getRequestForTechnician(requestId, technicianId);
   if (!request) return { error: 'Solicitud no encontrada.' };
@@ -2565,6 +2777,11 @@ module.exports = {
   validateAddressCoverage,
   getPricingConfig,
   updatePricingConfig,
+  getServiceCatalog,
+  getCatalogPriceRows,
+  getActivitiesForService: (serviceId) => getActivitiesForAppService(getPricingConfig(), serviceId),
+  proposeActivityChange,
+  respondActivityChange,
   getUrgencyTiersForClient,
   previewVisitPrice,
   getUserByEmail,

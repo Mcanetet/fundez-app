@@ -138,21 +138,40 @@
         <div id="coverageAlert" class="hidden mt-2 p-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 text-xs leading-relaxed" role="alert"></div>
       </div>
 
+      <% if (typeof activities !== 'undefined' && activities.length) { %>
       <div>
-        <label for="notes" class="zilo-label block mb-1.5"><%= t('client.service.detail') %></label>
-        <textarea id="notes" rows="3" placeholder="<%= t('client.service.detail_ph') %>" class="zilo-input resize-none"></textarea>
+        <label for="activityId" class="zilo-label block mb-1.5"><%= t('client.service.subservice') %> *</label>
+        <select id="activityId" name="activityId" required class="zilo-input">
+          <option value=""><%= t('client.service.subservice_ph') %></option>
+          <% activities.forEach(function(act) { %>
+            <option value="<%= act.id %>" data-base="<%= act.basePrice %>">
+              <%= act.name %> — <%= formatCLP(act.basePrice) %>
+            </option>
+          <% }); %>
+          <option value="otro" data-base="100000">Otro — describir (desde $100.000)</option>
+        </select>
+        <p class="text-[11px] text-zilo-muted mt-1"><%= t('client.service.subservice_hint') %></p>
+        <div id="customActivityFields" class="hidden mt-3 space-y-2 p-3 rounded-xl border border-zilo-border bg-zilo-surface/40">
+          <label for="customActivityName" class="zilo-label block">Describe el servicio *</label>
+          <input type="text" id="customActivityName" maxlength="120" class="zilo-input w-full" placeholder="Ej: Instalar grifería de duchas + sellado">
+          <p class="text-[11px] text-zilo-muted">El socio puede ajustar el detalle y precio en terreno; tú lo validas.</p>
+        </div>
+      </div>
+      <% } %>
+
+      <div>
+        <label for="notes" class="zilo-label block mb-1.5"><%= t('client.service.detail') %> *</label>
+        <textarea id="notes" rows="3" required placeholder="<%= t('client.service.detail_ph') %>" class="zilo-input resize-none"></textarea>
       </div>
 
-      <% if (mod('client_foto')) { %>
       <div>
-        <label class="zilo-label block mb-1.5"><%= t('client.service.photo') %> <span class="text-zilo-muted normal-case font-normal"><%= t('client.service.photo_opt') %></span></label>
-        <p class="text-[11px] text-zilo-muted mb-2"><%= t('client.service.photo_hint') %></p>
-        <input type="file" id="clientPhoto" accept="image/*" class="block w-full text-xs text-zilo-muted file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-zilo-accent/10 file:text-zilo-accent file:text-xs file:font-medium">
+        <label class="zilo-label block mb-1.5"><%= t('client.service.photo') %> *</label>
+        <p class="text-[11px] text-zilo-muted mb-2"><%= t('client.service.photo_required_hint') %></p>
+        <input type="file" id="clientPhoto" accept="image/*" capture="environment" required class="block w-full text-xs text-zilo-muted file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-zilo-accent/10 file:text-zilo-accent file:text-xs file:font-medium">
         <div id="clientPhotoPreview" class="hidden mt-2">
           <img src="" alt="<%= t('client.service.preview_alt') %>" class="w-full max-h-40 object-cover rounded-xl border border-zilo-border">
         </div>
       </div>
-      <% } %>
 
       <button type="button" id="btnRequest" class="zilo-btn-primary"><%= t('client.service.continue') %></button>
       <p class="text-center text-[10px] text-zilo-muted"><%= t('client.service.secure_pay') %></p>
@@ -204,6 +223,15 @@
         <div class="flex gap-2">
           <button type="button" id="btnApproveBudget" class="flex-1 py-2 rounded-xl zilo-btn-primary !text-sm"><%= t('client.service.approve') %></button>
           <button type="button" id="btnRejectBudget" class="flex-1 py-2 rounded-xl zilo-btn-ghost !text-sm"><%= t('client.service.reject') %></button>
+        </div>
+      </div>
+      <div id="activityChangeBanner" class="hidden p-4 rounded-2xl border border-zilo-accent/30 bg-zilo-accent/5">
+        <p class="text-sm font-semibold text-zilo-accent mb-1"><%= t('client.js.activity_change_title') %></p>
+        <p id="activityChangeText" class="text-xs text-zilo-muted mb-2"></p>
+        <img id="activityChangePhoto" src="" alt="" class="hidden w-full max-h-36 object-cover rounded-xl border border-zilo-border mb-3">
+        <div class="flex gap-2">
+          <button type="button" id="btnApproveActivityChange" class="flex-1 py-2 rounded-xl zilo-btn-primary !text-sm"><%= t('client.js.activity_change_approve') %></button>
+          <button type="button" id="btnRejectActivityChange" class="flex-1 py-2 rounded-xl zilo-btn-ghost !text-sm"><%= t('client.js.activity_change_reject') %></button>
         </div>
       </div>
       <div class="p-4 rounded-2xl zilo-card-premium">

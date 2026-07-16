@@ -84,6 +84,15 @@
     });
   });
 
+  const activitySelect = document.getElementById('activityId');
+  const customActivityFields = document.getElementById('customActivityFields');
+  function toggleClientOtherFields() {
+    if (!activitySelect || !customActivityFields) return;
+    customActivityFields.classList.toggle('hidden', activitySelect.value !== 'otro');
+  }
+  activitySelect?.addEventListener('change', toggleClientOtherFields);
+  toggleClientOtherFields();
+
   async function updatePricePreview() {
     const visitEl = document.getElementById('displayVisitPrice');
     if (!visitEl) return;
@@ -307,6 +316,27 @@
     banner.classList.remove('hidden');
   }
 
+  function showActivityChangeBanner(request) {
+    const banner = document.getElementById('activityChangeBanner');
+    if (!banner) return;
+    const change = request?.siteReport?.activityChange;
+    if (!change || change.status !== 'pending') {
+      banner.classList.add('hidden');
+      return;
+    }
+    const label = change.manual ? 'Servicio propuesto por el socio' : 'Cambio de subservicio';
+    document.getElementById('activityChangeText').textContent =
+      `${label}: ${change.fromActivityName || '—'} → ${change.toActivityName || '—'} · ${fmtCLP(change.proposedTotal)}\n${change.notes || ''}`;
+    const photo = document.getElementById('activityChangePhoto');
+    if (change.photoUrl && photo) {
+      photo.src = change.photoUrl;
+      photo.classList.remove('hidden');
+    } else if (photo) {
+      photo.classList.add('hidden');
+    }
+    banner.classList.remove('hidden');
+  }
+
   async function respondBudget(approved) {
     if (!currentRequestId) return;
     const res = await fetch(`/cliente/presupuesto/${currentRequestId}/responder`, {
@@ -326,8 +356,29 @@
     document.getElementById('budgetBanner')?.classList.add('hidden');
   }
 
+  async function respondActivityChange(approved) {
+    if (!currentRequestId) return;
+    const res = await fetch(`/cliente/cambio-servicio/${currentRequestId}/responder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ approved })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      FundezNotify.show(data.error || t('client.js.respond_error'), 'error');
+      return;
+    }
+    FundezNotify.show(
+      approved ? t('client.js.activity_change_ok') : t('client.js.activity_change_no'),
+      approved ? 'success' : 'info'
+    );
+    document.getElementById('activityChangeBanner')?.classList.add('hidden');
+  }
+
   document.getElementById('btnApproveBudget')?.addEventListener('click', () => respondBudget(true));
   document.getElementById('btnRejectBudget')?.addEventListener('click', () => respondBudget(false));
+  document.getElementById('btnApproveActivityChange')?.addEventListener('click', () => respondActivityChange(true));
+  document.getElementById('btnRejectActivityChange')?.addEventListener('click', () => respondActivityChange(false));
 
   function showProvider(provider, request) {
     if (request?.id) currentRequestId = request.id;
@@ -348,7 +399,10 @@
     }
     renderVerificationBadges(provider);
     document.getElementById('tripProviderLabel').textContent = `${provider.name} · ${provider.rating}★`;
-    if (request) showBudgetBanner(request);
+    if (request) {
+      showBudgetBanner(request);
+      showActivityChangeBanner(request);
+    }
     const waNum = page.dataset.whatsapp || '56912345678';
     const waMsg = encodeURIComponent(t('client.js.wa_help', { name: provider.name }));
     document.getElementById('whatsappSupport').href = `https://wa.me/${waNum.replace(/\D/g, '')}?text=${waMsg}`;
@@ -417,6 +471,7 @@
         showProvider(payload.provider, payload.request);
       } else if (payload.request) {
         showBudgetBanner(payload.request);
+        showActivityChangeBanner(payload.request);
         syncTripFromRequest(payload.request);
       }
     });
@@ -475,7 +530,27 @@
         return;
       }
 
+      const activityId = document.getElementById('activityId')?.value || '';
+      const customName = document.getElementById('customActivityName')?.value.trim() || '';
+      const notes = document.getElementById('notes')?.value.trim() || '';
+      if (document.getElementById('activityId') && !activityId) {
+        FundezNotify.show(t('client.js.need_subservice'), 'warning');
+        return;
+      }
+      if (activityId === 'otro' && customName.length < 4) {
+        FundezNotify.show('En Otro, describe el servicio que necesitas', 'warning');
+        document.getElementById('customActivityName')?.focus();
+        return;
+      }
+      if (!notes) {
+        FundezNotify.show(t('client.js.need_notes'), 'warning');
+        return;
+      }
       const clientPhoto = clientPhotoInput ? await fileInputToBase64(clientPhotoInput) : null;
+      if (!clientPhoto) {
+        FundezNotify.show(t('client.js.need_photo'), 'warning');
+        return;
+      }
 
       const res = await fetch('/cliente/solicitar', {
         method: 'POST',
@@ -483,12 +558,14 @@
         body: JSON.stringify({
           serviceId,
           address,
-          notes: document.getElementById('notes').value,
+          notes,
           lat: latInput.value,
           lng: lngInput.value,
           gift,
           clientPhoto,
-          urgencyTier: selectedUrgencyTier
+          urgencyTier: selectedUrgencyTier,
+          activityId,
+          customName: activityId === 'otro' ? customName : undefined
         })
       });
 

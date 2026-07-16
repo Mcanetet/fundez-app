@@ -173,6 +173,70 @@
         </div>
       </section>
 
+      <section class="zilo-card-premium rounded-2xl p-5 border border-gray-200">
+        <div class="flex justify-between items-center mb-2 gap-2">
+          <h2 class="text-sm font-semibold">Catálogo de precios base por tipo de servicio</h2>
+          <span class="text-[10px] text-gray-500"><%= (typeof catalogRows !== 'undefined' ? catalogRows.length : 0) %> actividades</span>
+        </div>
+        <p class="text-xs text-gray-500 mb-4">
+          Precio base en horario normal (CLP). El total al cliente aplica después recargo por horario × urgencia.
+          Mínimo <strong>$100.000</strong> por actividad.
+        </p>
+
+        <% if (typeof serviceCatalog !== 'undefined' && serviceCatalog.length) { %>
+          <div class="space-y-5">
+            <% serviceCatalog.forEach(function(specialty) { %>
+              <div class="rounded-xl border border-gray-200 overflow-hidden">
+                <div class="px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                  <strong class="text-sm"><%= specialty.name %></strong>
+                  <span class="text-[10px] font-mono text-gray-400"><%= specialty.id %></span>
+                </div>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-sm min-w-[520px]">
+                    <thead>
+                      <tr class="text-[10px] uppercase tracking-wide text-gray-500 border-b border-gray-100">
+                        <th class="px-3 py-2 font-medium">Actividad</th>
+                        <th class="px-3 py-2 font-medium w-24">Tipo</th>
+                        <th class="px-3 py-2 font-medium w-40">Precio base (CLP)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <% specialty.activities.forEach(function(activity) { %>
+                        <tr class="border-b border-gray-50 last:border-0">
+                          <td class="px-3 py-2.5">
+                            <input type="hidden" name="catalogActivityId" value="<%= activity.id %>">
+                            <p class="font-medium text-gray-800"><%= activity.name %></p>
+                            <p class="text-[10px] font-mono text-gray-400"><%= activity.id %></p>
+                          </td>
+                          <td class="px-3 py-2.5">
+                            <span class="text-[10px] px-2 py-0.5 rounded-full <%= activity.kind === 'correctiva' ? 'bg-orange-50 text-orange-700' : 'bg-emerald-50 text-emerald-700' %>">
+                              <%= activity.kind === 'correctiva' ? 'Correctiva' : 'Preventiva' %>
+                            </span>
+                          </td>
+                          <td class="px-3 py-2.5">
+                            <input
+                              type="number"
+                              name="catalogBasePrice"
+                              value="<%= activity.basePrice %>"
+                              min="100000"
+                              step="1000"
+                              class="zilo-input !py-2 text-sm w-full"
+                              required
+                            >
+                          </td>
+                        </tr>
+                      <% }); %>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            <% }); %>
+          </div>
+        <% } else { %>
+          <p class="text-xs text-red-600">No hay catálogo cargado.</p>
+        <% } %>
+      </section>
+
       <button type="submit" class="w-full py-3 rounded-xl zilo-btn-primary">Guardar configuración</button>
     </form>
 

@@ -29,6 +29,8 @@ function serializeJob(request) {
     id: request.id,
     serviceId: request.serviceId,
     serviceName: request.serviceName || (service ? service.name : request.serviceId),
+    activityId: request.activityId || null,
+    activityName: request.activityName || null,
     clientName: request.clientName || '—',
     address: request.address || '',
     notes: request.notes || '',
@@ -152,6 +154,44 @@ router.post('/trabajo/:requestId/presupuesto', requireRole('tecnico'), (req, res
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   req.app.get('io').emit(`request_update_${result.request.id}`, { request: result.request });
   res.json({ success: true, request: serializeJob(result.request) });
+});
+
+router.get('/trabajo/:requestId/subservicios', requireRole('tecnico'), (req, res) => {
+  const job = store.getRequestForTechnician(req.params.requestId, req.session.user.id);
+  if (!job) return res.status(404).json({ success: false, error: 'Solicitud no encontrada' });
+  const activities = store.getActivitiesForService(job.serviceId);
+  res.json({
+    success: true,
+    currentActivityId: job.activityId || null,
+    activities: activities.map((a) => ({
+      id: a.id,
+      name: a.name,
+      kind: a.kind,
+      basePrice: a.basePrice,
+      basePriceLabel: store.formatCLP(a.basePrice)
+    }))
+  });
+});
+
+router.post('/trabajo/:requestId/cambio-servicio', requireRole('tecnico'), (req, res) => {
+  let photoUrl = null;
+  if (req.body.photo) {
+    try {
+      photoUrl = saveRequestFile(req.params.requestId, 'cambio', req.body.photo);
+    } catch (err) {
+      return res.status(400).json({ success: false, error: 'No se pudo guardar la foto del cambio' });
+    }
+  }
+  const result = store.proposeActivityChange(req.params.requestId, req.session.user.id, {
+    activityId: req.body.activityId,
+    photoUrl,
+    notes: req.body.notes,
+    customName: req.body.customName,
+    customBasePrice: req.body.customBasePrice
+  });
+  if (result.error) return res.status(400).json({ success: false, error: result.error });
+  req.app.get('io').emit(`request_update_${result.request.id}`, { request: result.request });
+  res.json({ success: true, request: serializeJob(result.request), activityChange: result.activityChange });
 });
 
 router.post('/trabajo/:requestId/material', requireRole('tecnico'), (req, res) => {

@@ -675,6 +675,8 @@ router.get('/precios', requireRole('admin'), requireAdminPermission('precios.vie
     title: 'Configuración de precios — Fundez Admin',
     user: req.session.user,
     pricing,
+    serviceCatalog: store.getServiceCatalog(),
+    catalogRows: store.getCatalogPriceRows(),
     gatewayStatus: gateways.getGatewayStatus(pricing),
     query: req.query,
     formatCLP: store.formatCLP
@@ -717,6 +719,19 @@ router.post('/precios', requireRole('admin'), requireAdminPermission('precios.ma
     };
   }
 
+  const catalogPrices = {};
+  const catalogIds = Array.isArray(body.catalogActivityId)
+    ? body.catalogActivityId
+    : (body.catalogActivityId ? [body.catalogActivityId] : []);
+  const catalogBasePrices = Array.isArray(body.catalogBasePrice)
+    ? body.catalogBasePrice
+    : (body.catalogBasePrice ? [body.catalogBasePrice] : []);
+  for (let i = 0; i < catalogIds.length; i++) {
+    const id = catalogIds[i];
+    const price = parseInt(catalogBasePrices[i], 10);
+    if (id && Number.isFinite(price) && price > 0) catalogPrices[id] = price;
+  }
+
   const updated = store.updatePricingConfig({
     visitPrice: parseInt(body.visitPrice, 10),
     servicePrice: parseInt(body.servicePrice, 10),
@@ -737,7 +752,8 @@ router.post('/precios', requireRole('admin'), requireAdminPermission('precios.ma
       email: body.bankEmail || ''
     },
     paymentGateways: Object.keys(paymentGateways).length ? paymentGateways : undefined,
-    urgencyTiers: tiers.length ? tiers : undefined
+    urgencyTiers: tiers.length ? tiers : undefined,
+    catalogPrices
   });
 
   store.logSecurityEvent('pricing_update', 'config', req);

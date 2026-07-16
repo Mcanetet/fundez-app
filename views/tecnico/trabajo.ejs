@@ -60,6 +60,49 @@
       </div>
     </section>
 
+    <!-- Cambio de subservicio si en terreno es otra cosa -->
+    <section id="stepCambioServicio" class="zilo-card-premium rounded-2xl p-5 <%= ['diagnostico','reparando','comprando','presupuesto_pendiente','presupuesto_aprobado','en_sitio'].includes(request.techStatus) ? '' : 'hidden' %>">
+      <p class="zilo-label mb-1">¿El trabajo es distinto?</p>
+      <h2 class="text-sm font-semibold mb-1">Proponer cambio de subservicio</h2>
+      <p class="text-xs text-zilo-muted mb-3">
+        Solicitado: <strong><%= request.activityName || '—' %></strong>.
+        Si es otra cosa, elige el subservicio correcto o <strong>Otro</strong> (nombre y precio manual), sube foto y explica. El cliente debe aprobar.
+      </p>
+      <% if (request.siteReport && request.siteReport.activityChange && request.siteReport.activityChange.status === 'pending') { %>
+        <p class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">Cambio pendiente de aprobación del cliente: <%= request.siteReport.activityChange.toActivityName %></p>
+      <% } else { %>
+        <div class="space-y-3">
+          <div>
+            <label class="text-xs text-zilo-muted">Nuevo subservicio *</label>
+            <select id="changeActivityId" class="zilo-input w-full mt-1">
+              <option value="">Cargando…</option>
+            </select>
+          </div>
+          <div id="changeOtherFields" class="hidden space-y-3 p-3 rounded-xl border border-zilo-border bg-zilo-surface/40">
+            <p class="text-xs text-zilo-muted">Describe el servicio real. El cliente debe validarlo.</p>
+            <div>
+              <label class="text-xs text-zilo-muted">Nombre del servicio *</label>
+              <input type="text" id="changeCustomName" class="zilo-input w-full mt-1" maxlength="120" placeholder="Ej: Instalación de flapper + ajuste de estanque">
+            </div>
+            <div>
+              <label class="text-xs text-zilo-muted">Precio base del trabajo (CLP) *</label>
+              <input type="number" id="changeCustomBasePrice" class="zilo-input w-full mt-1" min="100000" step="1000" placeholder="100000">
+              <p class="text-[11px] text-zilo-muted mt-1">Mín. $100.000. Luego se aplican horario y urgencia.</p>
+            </div>
+          </div>
+          <div>
+            <label class="text-xs text-zilo-muted">Explicación *</label>
+            <textarea id="changeNotes" rows="2" class="zilo-input w-full mt-1 resize-none" placeholder="Ej: Era cambio de sanitario, no solo la llave"></textarea>
+          </div>
+          <div>
+            <label class="text-xs text-zilo-muted">Foto que respalda el cambio *</label>
+            <input type="file" id="changePhoto" accept="image/*" capture="environment" class="block w-full text-xs mt-1">
+          </div>
+          <button type="button" id="btnProposeChange" class="w-full py-3 rounded-xl zilo-btn-ghost">Enviar cambio al cliente</button>
+        </div>
+      <% } %>
+    </section>
+
     <!-- Paso 2: Acción -->
     <section id="stepAccion" class="zilo-card-premium rounded-2xl p-5 <%= request.techStatus === 'diagnostico' ? '' : 'hidden' %>">
       <p class="zilo-label mb-1">Paso 2 · Decisión</p>

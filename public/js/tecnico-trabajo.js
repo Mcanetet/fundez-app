@@ -75,6 +75,74 @@
     });
   });
 
+  function toggleOtherFields() {
+    const select = document.getElementById('changeActivityId');
+    const box = document.getElementById('changeOtherFields');
+    if (!select || !box) return;
+    box.classList.toggle('hidden', select.value !== 'otro');
+  }
+
+  async function loadChangeActivities() {
+    const select = document.getElementById('changeActivityId');
+    if (!select) return;
+    try {
+      const res = await fetch(`/tecnico/trabajo/${requestId}/subservicios`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Error');
+      select.innerHTML = '<option value="">Elige el subservicio correcto…</option>';
+      (data.activities || []).forEach((a) => {
+        if (a.id === data.currentActivityId) return;
+        const opt = document.createElement('option');
+        opt.value = a.id;
+        opt.textContent = `${a.name} — ${a.basePriceLabel}`;
+        select.appendChild(opt);
+      });
+      const other = document.createElement('option');
+      other.value = 'otro';
+      other.textContent = 'Otro — describir manualmente';
+      select.appendChild(other);
+      select.addEventListener('change', toggleOtherFields);
+      toggleOtherFields();
+    } catch (_) {
+      select.innerHTML = '<option value="">No se pudieron cargar subservicios</option>';
+    }
+  }
+  loadChangeActivities();
+
+  document.getElementById('btnProposeChange')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btnProposeChange');
+    const activityId = document.getElementById('changeActivityId')?.value;
+    const notes = document.getElementById('changeNotes')?.value.trim();
+    const customName = document.getElementById('changeCustomName')?.value.trim();
+    const customBasePrice = document.getElementById('changeCustomBasePrice')?.value;
+    if (!activityId) return notify('Elige el nuevo subservicio', 'warning');
+    if (!notes) return notify('Explica el cambio', 'warning');
+    if (activityId === 'otro') {
+      if (!customName || customName.length < 4) {
+        return notify('En Otro, escribe el nombre del servicio', 'warning');
+      }
+      if (!customBasePrice || Number(customBasePrice) < 100000) {
+        return notify('En Otro, indica el precio base (mín. $100.000)', 'warning');
+      }
+    }
+    btn.disabled = true;
+    try {
+      const photo = await fileToBase64(document.getElementById('changePhoto'));
+      const res = await fetch(`/tecnico/trabajo/${requestId}/cambio-servicio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ activityId, notes, photo, customName, customBasePrice })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Error');
+      notify('Cambio enviado al cliente para aprobación', 'success');
+      location.reload();
+    } catch (err) {
+      btn.disabled = false;
+      notify(err.message || 'No se pudo proponer el cambio', 'error');
+    }
+  });
+
   document.getElementById('btnPresupuesto')?.addEventListener('click', async () => {
     const btn = document.getElementById('btnPresupuesto');
     btn.disabled = true;

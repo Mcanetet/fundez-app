@@ -129,6 +129,7 @@ router.get('/servicio/:id', requireRole('client'), requireModule('client_solicit
   const profile = store.getUserById(req.session.user.id);
   const pricing = store.getPricingConfig();
   const urgencyTiers = store.getUrgencyTiersForClient();
+  const activities = store.getActivitiesForService(serviceRaw.id);
   res.render('client/service', {
     title: `${service.name} — Fundez`,
     user: req.session.user,
@@ -136,6 +137,7 @@ router.get('/servicio/:id', requireRole('client'), requireModule('client_solicit
     service,
     pricing,
     urgencyTiers,
+    activities,
     trustStats: store.getClientTrustStats(),
     formatCLP: store.formatCLP,
     tracking: req.query.tracking || null
@@ -161,8 +163,28 @@ router.get('/precio-preview', requireRole('client'), (req, res) => {
   });
 });
 
+router.get('/subservicios/:serviceId', requireRole('client'), (req, res) => {
+  const service = store.getServiceById(req.params.serviceId);
+  if (!service || !service.enabled) {
+    return res.status(404).json({ error: 'Servicio no disponible' });
+  }
+  const activities = store.getActivitiesForService(service.id);
+  res.json({
+    success: true,
+    serviceId: service.id,
+    serviceName: service.name,
+    activities: activities.map((a) => ({
+      id: a.id,
+      name: a.name,
+      kind: a.kind,
+      basePrice: a.basePrice,
+      basePriceLabel: store.formatCLP(a.basePrice)
+    }))
+  });
+});
+
 router.post('/solicitar', requireRole('client'), requireModule('client_solicitar'), async (req, res) => {
-  const { serviceId, address, notes, lat, lng, gift, clientPhoto, urgencyTier } = req.body;
+  const { serviceId, address, notes, lat, lng, gift, clientPhoto, urgencyTier, activityId, customName } = req.body;
   const service = store.getServiceById(serviceId);
   if (!service || !service.enabled) {
     return res.status(400).json({ error: 'Servicio no disponible' });
@@ -170,16 +192,17 @@ router.post('/solicitar', requireRole('client'), requireModule('client_solicitar
   if (gift?.name && !store.isModuleEnabled('client_regalo')) {
     return res.status(403).json({ error: 'El módulo de regalos no está habilitado' });
   }
+  if (!clientPhoto) {
+    return res.status(400).json({ error: 'La foto del problema es obligatoria.' });
+  }
 
   let clientPhotoUrl = null;
-  if (clientPhoto && store.isModuleEnabled('client_foto')) {
-    try {
-      const tempId = `tmp-${Date.now()}`;
-      clientPhotoUrl = saveRequestFile(tempId, 'cliente', clientPhoto);
-    } catch (err) {
-      console.error('Error guardando foto cliente:', err.message);
-      return res.status(400).json({ error: 'No se pudo guardar la foto. Intenta con otra imagen.' });
-    }
+  try {
+    const tempId = `tmp-${Date.now()}`;
+    clientPhotoUrl = saveRequestFile(tempId, 'cliente', clientPhoto);
+  } catch (err) {
+    console.error('Error guardando foto cliente:', err.message);
+    return res.status(400).json({ error: 'No se pudo guardar la foto. Intenta con otra imagen.' });
   }
 
   try {
@@ -191,7 +214,9 @@ router.post('/solicitar', requireRole('client'), requireModule('client_solicitar
       coords: lat && lng ? { lat, lng } : null,
       gift: gift?.name ? gift : null,
       clientPhotoUrl,
-      urgencyTier: urgencyTier || 'tomorrow'
+      urgencyTier: urgencyTier || 'scheduled',
+      activityId,
+      customName
     });
 
     if (clientPhotoUrl && clientPhotoUrl.includes('/tmp-')) {
@@ -273,6 +298,29 @@ router.post('/presupuesto/:id/responder', requireRole('client'), (req, res) => {
       id: result.request.id,
       techStatus: result.request.techStatus,
       status: result.request.status,
+      siteReport: result.request.siteReport
+    }
+  });
+});
+
+router.post('/cambio-servicio/:id/responder', requireRole('client'), (req, res) => {
+  const approved = req.body.approved === true || req.body.approved === 'true';
+  const result = store.respondActivityChange(req.params.id, req.session.user.id, approved);
+  if (result.error) return res.status(400).json({ success: false, error: result.error });
+
+  const io = req.app.get('io');
+  io.emit(`request_update_${result.request.id}`, { request: result.request });
+
+  res.json({
+    success: true,
+    approved: result.approved,
+    request: {
+      id: result.request.id,
+      activityId: result.request.activityId,
+      activityName: result.request.activityName,
+      visitTotal: result.request.visitTotal,
+      amountDue: result.request.amountDue,
+      approvedServicePrice: result.request.approvedServicePrice,
       siteReport: result.request.siteReport
     }
   });
