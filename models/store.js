@@ -26,6 +26,7 @@ const {
   getActivitiesForAppService,
   quoteActivityForRequest,
   findCatalogActivity,
+  getServiceAveragePrice,
   MIN_WORK_BASE_CLP
 } = require('../lib/pricing');
 const {
@@ -646,15 +647,24 @@ function getServiceById(id) {
   return SERVICES.find(s => s.id === id);
 }
 
+function decorateServiceForClient(service) {
+  if (!service) return service;
+  const averagePrice = getServiceAveragePrice(getPricingConfig(), service.id);
+  return {
+    ...service,
+    averagePrice
+  };
+}
+
 function getActiveServices() {
-  return SERVICES.filter(s => s.enabled);
+  return SERVICES.filter(s => s.enabled).map(decorateServiceForClient);
 }
 
 function getLandingServices() {
   const active = getActiveServices();
   if (active.length) return active;
   const { SEED_SERVICES } = require('./repository');
-  return SEED_SERVICES.filter(s => s.enabled);
+  return SEED_SERVICES.filter(s => s.enabled).map(decorateServiceForClient);
 }
 
 function toggleService(serviceId, enabled) {

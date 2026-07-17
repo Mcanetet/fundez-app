@@ -11,12 +11,14 @@ const { flattenCatalog, flattenRegionsCatalog } = require('../lib/chile-geo');
 const SCHEMA_PATH = path.join(__dirname, '../db/schema.sql');
 
 const SEED_SERVICES = [
-  { id: 'electrico', name: 'Eléctrico', icon: 'electrico', color: '#F59E0B', visitPrice: 25000, basicMin: 40000, basicMax: 60000, description: 'Instalaciones, cortocircuitos, tableros y emergencias eléctricas.', enabled: true },
-  { id: 'gasfiter', name: 'Gásfiter', icon: 'gasfiter', color: '#3B82F6', visitPrice: 25000, basicMin: 45000, basicMax: 70000, description: 'Fugas, cañerías, grifería y destapes en baño y cocina.', enabled: true },
-  { id: 'cerrajero', name: 'Cerrajero', icon: 'cerrajero', color: '#8B5CF6', visitPrice: 30000, basicMin: 50000, basicMax: 90000, description: 'Apertura de puertas, cambio de cerraduras y copias de llaves.', enabled: true },
-  { id: 'termos', name: 'Reparación de Termos', icon: 'termos', color: '#EF4444', visitPrice: 28000, basicMin: 55000, basicMax: 120000, description: 'Mantención, cambio de resistencia y reparación de termos eléctricos.', enabled: true },
-  { id: 'lavavajillas', name: 'Lavavajillas', icon: 'lavavajillas', color: '#06B6D4', visitPrice: 25000, basicMin: 45000, basicMax: 85000, description: 'Reparación de bombas, fugas y programas de lavado.', enabled: true },
-  { id: 'lavadora', name: 'Lavadora', icon: 'lavadora', color: '#10B981', visitPrice: 25000, basicMin: 40000, basicMax: 80000, description: 'Centrifugado, drenaje, tambor y tarjetas electrónicas.', enabled: true }
+  { id: 'electrico', name: 'Eléctrico', icon: 'electrico', color: '#F59E0B', visitPrice: 100000, basicMin: 100000, basicMax: 150000, description: 'Instalaciones, cortocircuitos, tableros y emergencias eléctricas.', enabled: true },
+  { id: 'gasfiter', name: 'Gásfiter', icon: 'gasfiter', color: '#3B82F6', visitPrice: 105000, basicMin: 105000, basicMax: 160000, description: 'Fugas, cañerías, grifería y destapes en baño y cocina.', enabled: true },
+  { id: 'cerrajero', name: 'Cerrajero', icon: 'cerrajero', color: '#8B5CF6', visitPrice: 100000, basicMin: 100000, basicMax: 180000, description: 'Apertura de puertas, cambio de cerraduras y copias de llaves.', enabled: true },
+  { id: 'termos', name: 'Reparación de Termos', icon: 'termos', color: '#EF4444', visitPrice: 100000, basicMin: 100000, basicMax: 160000, description: 'Mantención, cambio de resistencia y reparación de termos eléctricos.', enabled: true },
+  { id: 'lavavajillas', name: 'Lavavajillas', icon: 'lavavajillas', color: '#06B6D4', visitPrice: 100000, basicMin: 100000, basicMax: 145000, description: 'Reparación de bombas, fugas y programas de lavado.', enabled: true },
+  { id: 'lavadora', name: 'Lavadora', icon: 'lavadora', color: '#10B981', visitPrice: 100000, basicMin: 100000, basicMax: 150000, description: 'Centrifugado, drenaje, tambor y tarjetas electrónicas.', enabled: true },
+  { id: 'calderas', name: 'Calderas de Edificios', icon: 'calderas', color: '#F97316', visitPrice: 180000, basicMin: 180000, basicMax: 310000, description: 'Mantención, calibración, bombas, quemadores y seguridad de calderas centrales.', enabled: true },
+  { id: 'generadores', name: 'Mantenimiento de Generadores', icon: 'generadores', color: '#6366F1', visitPrice: 140000, basicMin: 140000, basicMax: 250000, description: 'Mantención preventiva, pruebas de carga, transferencia y reparación de grupos electrógenos.', enabled: true }
 ];
 
 const SEED_MODULES = [

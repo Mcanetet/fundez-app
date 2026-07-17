@@ -226,7 +226,7 @@
 
   "client.welcome_label": "Bienvenida",
   "client.services": "Servicios",
-  "client.from_price": "desde",
+  "client.from_price": "precio promedio",
   "client.in_progress": "En curso",
   "client.requests_paused": "Solicitudes pausadas",
   "client.requests_paused_desc": "La solicitud de servicios no está disponible en este momento.",
@@ -414,6 +414,10 @@
   "services.lavavajillas.desc": "Reparación de bombas, fugas y programas de lavado.",
   "services.lavadora.name": "Lavadora",
   "services.lavadora.desc": "Centrifugado, drenaje, tambor y tarjetas electrónicas.",
+  "services.calderas.name": "Calderas de Edificios",
+  "services.calderas.desc": "Mantención, calibración, bombas, quemadores y seguridad de calderas centrales.",
+  "services.generadores.name": "Mantenimiento de Generadores",
+  "services.generadores.desc": "Mantención preventiva, pruebas de carga, transferencia y reparación de grupos electrógenos.",
 
   "js.verification_missing": "Completa tu verificación: {{items}}",
   "js.cannot_go_online": "No se pudo activar el modo en línea",

@@ -226,7 +226,7 @@
 
   "client.welcome_label": "Welcome",
   "client.services": "Services",
-  "client.from_price": "from",
+  "client.from_price": "average price",
   "client.in_progress": "In progress",
   "client.requests_paused": "Requests paused",
   "client.requests_paused_desc": "Service requests are not available at this time.",
@@ -414,6 +414,10 @@
   "services.lavavajillas.desc": "Pump repair, leaks and wash cycle issues.",
   "services.lavadora.name": "Washing machine",
   "services.lavadora.desc": "Spin, drain, drum and electronic board repair.",
+  "services.calderas.name": "Building boilers",
+  "services.calderas.desc": "Maintenance, calibration, pumps, burners and central boiler safety.",
+  "services.generadores.name": "Generator maintenance",
+  "services.generadores.desc": "Preventive maintenance, load tests, transfer systems and generator set repairs.",
 
   "js.verification_missing": "Complete your verification: {{items}}",
   "js.cannot_go_online": "Could not enable online mode",

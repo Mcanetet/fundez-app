@@ -448,7 +448,7 @@ router.post('/toggle-service', requireRole('admin'), requireAdminPermission('ser
   if (!service) return res.status(404).json({ error: 'Servicio no encontrado' });
 
   store.logSecurityEvent('service_toggle', `${serviceId}=${enabled}`, req);
-  req.app.get('io').emit('services_updated', { services: store.SERVICES });
+  req.app.get('io').emit('services_updated', { services: store.getActiveServices() });
   res.json({ success: true, service });
 });
 

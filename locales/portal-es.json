@@ -244,7 +244,7 @@
   "client.guide.extra_gift_body": "Al pagar un regalo puedes avisar al beneficiario por WhatsApp con un mensaje y enlace de seguimiento listos.",
   "client.js.referral_bonus": "¡${{amount}} de crédito por invitación!",
   "client.js.no_services": "No hay servicios disponibles.",
-  "client.js.from_price": "desde",
+  "client.js.from_price": "precio promedio",
   "client.js.loader_step1_text": "Buscando proveedor cercano...",
   "client.js.loader_step1_sub": "Usando tu ubicación en Santiago",
   "client.js.enroute_home": "En camino a tu domicilio",

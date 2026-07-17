@@ -113,7 +113,7 @@
           class="service-item group flex flex-col items-center gap-3 p-5 rounded-2xl zilo-card-premium hover:border-zilo-accent/25 hover:-translate-y-0.5 transition-all duration-300">
           <%- include('../partials/service-icon', { icon: service.icon, size: 'lg' }) %>
           <span class="font-medium text-sm text-center leading-tight"><%= service.name %></span>
-          <span class="text-xs text-zilo-muted"><%= t('client.from_price') %> <%= formatCLP(service.visitPrice) %></span>
+          <span class="text-xs text-zilo-muted"><%= t('client.from_price') %> <%= formatCLP(service.averagePrice) %></span>
         </a>
       <% }); %>
     </div>
@@ -191,7 +191,7 @@
     const active = services.filter(s => s.enabled);
     const locale = document.documentElement.lang === 'en' ? 'en-US' : 'es-CL';
     const fmt = n => new Intl.NumberFormat(locale, { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n);
-    const fromLabel = (typeof FundezI18n !== 'undefined') ? FundezI18n.t('client.js.from_price') : 'desde';
+    const averageLabel = (typeof FundezI18n !== 'undefined') ? FundezI18n.t('client.js.from_price') : 'promedio';
     const noServices = (typeof FundezI18n !== 'undefined') ? FundezI18n.t('client.js.no_services') : 'No hay servicios disponibles.';
     if (active.length === 0) {
       grid.innerHTML = `<div class="col-span-2 text-center py-16 text-zilo-muted"><p class="text-sm">${noServices}</p></div>`;
@@ -201,7 +201,7 @@
       <a href="/cliente/servicio/${s.id}" class="group flex flex-col items-center gap-3 p-5 rounded-2xl zilo-card-premium hover:border-zilo-accent/25 transition-all">
         ${FundezIcons.wrap(s.icon, null, 'w-14 h-14', 28)}
         <span class="font-medium text-sm text-center">${s.name}</span>
-        <span class="text-xs text-zilo-muted">${fromLabel} ${fmt(s.visitPrice)}</span>
+        <span class="text-xs text-zilo-muted">${averageLabel} ${fmt(s.averagePrice)}</span>
       </a>
     `).join('');
   });
