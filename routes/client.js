@@ -99,12 +99,14 @@ router.get('/invitar', requireRole('client'), requireModule('client_referidos'),
   const profile = store.getUserById(req.session.user.id);
   const referral = store.getReferralStats(req.session.user.id);
   const shareUrl = `${company.appUrl}/?ref=${referral.code}`;
+  const giftService = store.getActiveServices()[0] || null;
   res.render('client/invitar', {
     title: 'Invitar amigos — Fundez',
     user: req.session.user,
     profile,
     referral,
     shareUrl,
+    giftServiceId: giftService?.id || null,
     formatCLP: store.formatCLP,
     navActive: 'invitar'
   });
@@ -240,8 +242,11 @@ router.post('/solicitar', requireRole('client'), requireModule('client_solicitar
   } catch (err) {
     console.error('Error creando solicitud:', err.message);
     const isCoverage = /operamos|comuna|trabajando/i.test(err.message || '');
-    res.status(isCoverage ? 400 : 500).json({
-      error: err.message || 'Error al crear la solicitud',
+    const isUserError = /Describe|foto|subservicio|urgencia|dirección|cobertura|Opción|Selecciona|mínimo/i.test(err.message || '');
+    res.status(isCoverage || isUserError ? 400 : 500).json({
+      error: (isCoverage || isUserError)
+        ? (err.message || 'No se pudo crear la solicitud')
+        : 'No se pudo crear la solicitud. Intenta nuevamente.',
       coverageBlocked: isCoverage
     });
   }

@@ -45,7 +45,7 @@ const SEED_MODULES = [
 ];
 
 const SEED_PROMOS = [
-  { id: 'first', title: '20% en tu 1er servicio', desc: 'Código BIENVENIDO al pagar', code: 'BIENVENIDO', color: '#B8956B', sortOrder: 1, enabled: true },
+  { id: 'first', title: '10% en tu 1er servicio', desc: 'Código BIENVENIDO al pagar · una vez por correo y teléfono', code: 'BIENVENIDO', color: '#B8956B', sortOrder: 1, enabled: true },
   { id: 'refer', title: 'Invita y gana $5.000', desc: 'Tú y tu amigo reciben crédito', code: null, color: '#8B7355', sortOrder: 2, enabled: true },
   { id: 'gift', title: 'Regala un servicio', desc: 'Modo Guardián para tu familia', code: null, color: '#A67C52', sortOrder: 3, enabled: true }
 ];

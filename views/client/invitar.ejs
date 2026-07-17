@@ -36,13 +36,15 @@
 
     <section class="space-y-3 zilo-page-enter-delay-3">
       <p class="zilo-label">Más beneficios</p>
-      <a href="/cliente/servicio/gasfiter?gift=1" class="block p-4 rounded-xl zilo-gift-card">
+      <% if (mod('client_regalo') && giftServiceId) { %>
+      <a href="/cliente/servicio/<%= giftServiceId %>?gift=1" class="block p-4 rounded-xl zilo-gift-card">
         <strong class="text-sm block mb-1">Regala un servicio</strong>
         <p class="text-xs text-zilo-muted">Modo Guardián incluido para tu familia</p>
       </a>
+      <% } %>
       <div class="p-4 rounded-xl zilo-card-premium">
-        <strong class="text-sm block mb-1">20% primer servicio</strong>
-        <p class="text-xs text-zilo-muted">Código <span class="font-mono text-zilo-accent">BIENVENIDO</span> en checkout</p>
+        <strong class="text-sm block mb-1">10% primer servicio</strong>
+        <p class="text-xs text-zilo-muted">Código <span class="font-mono text-zilo-accent">BIENVENIDO</span> · una vez por correo y teléfono</p>
       </div>
     </section>
   </main>

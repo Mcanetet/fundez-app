@@ -96,6 +96,7 @@
       </div>
     </a>
 
+    <% if (mod('client_pasaporte')) { %>
     <a href="/cliente/hogar" class="block p-4 rounded-2xl zilo-card-premium border border-zilo-accent/15 zilo-page-enter-delay-3">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-zilo-accent/10 flex items-center justify-center">
@@ -107,7 +108,9 @@
         </div>
       </div>
     </a>
+    <% } %>
 
+    <% if (mod('client_referidos')) { %>
     <a href="/cliente/invitar" class="block p-4 rounded-2xl zilo-invite-hero zilo-page-enter-delay-3">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-zilo-accent/15 flex items-center justify-center">
@@ -119,6 +122,7 @@
         </div>
       </div>
     </a>
+    <% } %>
   </main>
 
   <%- include('../partials/nav-client', { navActive: 'perfil' }) %>

@@ -1,5 +1,9 @@
 const { v4: uuidv4 } = require('uuid');
-const { normalizeBilling } = require('../lib/billing');
+const {
+  normalizeBilling,
+  validateBilling,
+  createBillingSnapshot
+} = require('../lib/billing');
 const { validateRut, formatRut } = require('../lib/rut');
 const db = require('../lib/db');
 const repository = require('./repository');
@@ -98,7 +102,80 @@ const technicianSockets = new Map();
 
 const POINTS_VALUE_CLP = 100;
 const WELCOME_PROMO = 'BIENVENIDO';
-const WELCOME_DISCOUNT = 0.2;
+const WELCOME_DISCOUNT = 0.1;
+
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+function normalizePhone(phone) {
+  let digits = String(phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('56') && digits.length >= 11) return digits.slice(0, 11);
+  if (digits.startsWith('9') && digits.length === 9) return `56${digits}`;
+  if (digits.length === 8) return `569${digits}`;
+  return digits;
+}
+
+function welcomePromoIdentityUsed(email, phone, excludeUserId = null) {
+  const emailKey = normalizeEmail(email);
+  const phoneKey = normalizePhone(phone);
+  if (!emailKey && !phoneKey) return false;
+
+  const userMatch = USERS.some((user) => {
+    if (!user || user.role !== 'client') return false;
+    if (excludeUserId && user.id === excludeUserId) return false;
+    if (!user.usedWelcomePromo) return false;
+    const sameEmail = emailKey && normalizeEmail(user.email) === emailKey;
+    const samePhone = phoneKey && normalizePhone(user.phone) === phoneKey;
+    return sameEmail || samePhone;
+  });
+  if (userMatch) return true;
+
+  return requests.some((request) => {
+    if (request.promoCode !== WELCOME_PROMO) return false;
+    if (request.paymentStatus !== 'approved' && !request.discountsCommitted) return false;
+    if (excludeUserId && request.clientId === excludeUserId) return false;
+    const owner = getUserById(request.clientId);
+    const sameEmail = emailKey && normalizeEmail(request.clientEmail || owner?.email) === emailKey;
+    const samePhone = phoneKey && normalizePhone(request.clientPhone || owner?.phone) === phoneKey;
+    return sameEmail || samePhone;
+  });
+}
+
+function canUseWelcomePromo(user) {
+  if (!user || user.role !== 'client') return false;
+  const email = normalizeEmail(user.email);
+  const phone = normalizePhone(user.phone);
+  if (!email || !phone) return false;
+  if (user.usedWelcomePromo) return false;
+  const paidCount = requests.filter((r) => r.clientId === user.id && r.paymentStatus === 'approved').length;
+  if (paidCount > 0) return false;
+  return !welcomePromoIdentityUsed(email, phone, user.id);
+}
+
+function markWelcomePromoUsed(user) {
+  if (!user) return;
+  const emailKey = normalizeEmail(user.email);
+  const phoneKey = normalizePhone(user.phone);
+  const touched = new Set();
+  for (const candidate of USERS) {
+    if (!candidate || candidate.role !== 'client') continue;
+    const sameEmail = emailKey && normalizeEmail(candidate.email) === emailKey;
+    const samePhone = phoneKey && normalizePhone(candidate.phone) === phoneKey;
+    if (candidate.id === user.id || sameEmail || samePhone) {
+      candidate.usedWelcomePromo = true;
+      candidate.welcomePromoEmail = emailKey || candidate.welcomePromoEmail || null;
+      candidate.welcomePromoPhone = phoneKey || candidate.welcomePromoPhone || null;
+      candidate.welcomePromoUsedAt = new Date().toISOString();
+      touched.add(candidate.id);
+    }
+  }
+  for (const userId of touched) {
+    const account = getUserById(userId);
+    if (account) repository.persist(() => repository.saveUser(account), `usuario ${userId}`);
+  }
+}
 
 async function init() {
   if (initialized) return;
@@ -234,6 +311,7 @@ async function createRequest({
     id: uuidv4(),
     clientId,
     clientName: client.name,
+    clientEmail: client.email || null,
     clientPhone: client.phone,
     beneficiaryName,
     beneficiaryPhone,
@@ -386,8 +464,6 @@ function getCheckoutSummary(userId, requestId) {
   const pricing = getPricingConfig();
   const visitSubtotal = request.visitTotal ?? request.visitBasePrice ?? request.basePrice;
   const basePrice = request.basePrice ?? visitSubtotal;
-  const paidCount = requests.filter(r => r.clientId === userId && r.paymentStatus === 'approved').length;
-
   return {
     visitSubtotal,
     basePrice,
@@ -413,7 +489,8 @@ function getCheckoutSummary(userId, requestId) {
     pointsUsed: request.pointsUsed || 0,
     amountDue: request.amountDue ?? basePrice,
     promoCode: request.promoCode,
-    canUseWelcome: !user.usedWelcomePromo && paidCount === 0
+    canUseWelcome: canUseWelcomePromo(user),
+    welcomeDiscountPercent: Math.round(WELCOME_DISCOUNT * 100)
   };
 }
 
@@ -443,17 +520,19 @@ function applyCheckoutDiscounts(userId, requestId, { useCredits, usePoints, prom
   let pointsUsed = 0;
   let appliedPromo = null;
 
-  const paidCount = requests.filter(r => r.clientId === userId && r.paymentStatus === 'approved').length;
   const code = promoCode?.trim().toUpperCase();
 
-  if (code === WELCOME_PROMO && !user.usedWelcomePromo && paidCount === 0) {
+  if (code === WELCOME_PROMO && canUseWelcomePromo(user)) {
     discountPromo = Math.round(remaining * WELCOME_DISCOUNT);
     remaining -= discountPromo;
     appliedPromo = WELCOME_PROMO;
   } else if (code && code !== WELCOME_PROMO) {
     return { error: 'Código promocional no válido' };
-  } else if (code === WELCOME_PROMO && (user.usedWelcomePromo || paidCount > 0)) {
-    return { error: 'El código BIENVENIDO solo aplica en tu primer servicio' };
+  } else if (code === WELCOME_PROMO) {
+    if (!normalizePhone(user.phone)) {
+      return { error: 'Para usar BIENVENIDO debes tener un teléfono registrado en tu perfil' };
+    }
+    return { error: 'El código BIENVENIDO solo aplica una vez por correo y teléfono, en tu primer servicio' };
   }
 
   if (useCredits && (user.creditsCLP || 0) > 0 && remaining > 0) {
@@ -515,7 +594,7 @@ function commitCheckoutDiscounts(userId, requestId) {
     user.ziloPoints = Math.max(0, (user.ziloPoints || 0) - request.pointsUsed);
   }
   if (request.promoCode === WELCOME_PROMO) {
-    user.usedWelcomePromo = true;
+    markWelcomePromoUsed(user);
   }
   user.servicesCount = (user.servicesCount || 0) + 1;
   user.ziloPoints = (user.ziloPoints || 0) + 50;

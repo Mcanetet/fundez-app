@@ -77,9 +77,10 @@
     <% } %>
 
     <% if (mod('client_promos')) { %>
+    <% const giftServiceId = (typeof services !== 'undefined' && services[0]) ? services[0].id : null; %>
     <div data-tour="promos" class="flex gap-3 overflow-x-auto scrollbar-hide mb-5 -mx-1 px-1 pb-1">
       <% promos.forEach(p => { %>
-        <a href="<%= p.id === 'refer' ? (mod('client_referidos') ? '/cliente/invitar' : '/cliente') : p.id === 'gift' ? (mod('client_regalo') ? '/cliente/servicio/gasfiter?gift=1' : '/cliente') : '/cliente' %>"
+        <a href="<%= p.id === 'refer' ? (mod('client_referidos') ? '/cliente/invitar' : '/cliente') : p.id === 'gift' ? (mod('client_regalo') && giftServiceId ? '/cliente/servicio/' + giftServiceId + '?gift=1' : '/cliente') : '/cliente' %>"
           class="flex-shrink-0 w-56 p-4 rounded-2xl zilo-card-premium relative overflow-hidden hover:border-zilo-accent/25 transition">
           <strong class="text-sm block mb-1"><%= p.title %></strong>
           <p class="text-xs text-zilo-muted"><%= p.desc %></p>

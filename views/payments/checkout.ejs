@@ -101,7 +101,7 @@
       <label class="flex items-center justify-between gap-3 cursor-pointer">
         <div>
           <strong class="text-sm block">Código BIENVENIDO</strong>
-          <span class="text-xs text-zilo-muted">20% en tu primer servicio</span>
+          <span class="text-xs text-zilo-muted"><%= summary.welcomeDiscountPercent || 10 %>% en tu primer servicio · una vez por correo y teléfono</span>
         </div>
         <input type="checkbox" id="usePromo" class="w-5 h-5 rounded accent-[#2563EB]">
       </label>

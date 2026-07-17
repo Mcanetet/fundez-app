@@ -24,10 +24,11 @@
     <p class="text-xs text-zilo-muted mb-4">Asigna cada solicitud a un técnico aprobado de tu equipo y sigue su avance en terreno.</p>
 
     <% if (technicians.length === 0) { %>
-      <a href="/proveedor/equipo" class="block mb-4 p-4 rounded-2xl border border-zilo-warning/30 bg-zilo-warning/10">
+      <div class="mb-4 p-4 rounded-2xl border border-zilo-warning/30 bg-zilo-warning/10">
         <p class="text-sm font-semibold text-zilo-warning mb-1">Aún no tienes técnicos aprobados</p>
-        <p class="text-xs text-zilo-muted">Incorpora técnicos y completa sus expedientes para poder asignar solicitudes.</p>
-      </a>
+        <p class="text-xs text-zilo-muted mb-3">Incorpora técnicos y completa sus expedientes para poder asignar solicitudes.</p>
+        <a href="/proveedor/equipo" class="inline-flex zilo-btn-primary !py-2 !px-4 !text-xs">Ir a mi equipo</a>
+      </div>
     <% } %>
 
     <% if (requests.length === 0) { %>
@@ -78,6 +79,8 @@
                   </select>
                   <button type="button" class="zilo-btn-primary !py-2 !px-4 !text-sm" data-role="assign-btn" data-id="<%= r.id %>">Asignar</button>
                 </div>
+              <% } else { %>
+                <a href="/proveedor/equipo" class="block text-center zilo-btn-ghost !py-2 !text-xs">Agregar técnico para asignar</a>
               <% } %>
             </div>
           </div>

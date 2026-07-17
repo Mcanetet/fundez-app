@@ -268,7 +268,9 @@
     activeRequestId = requestId;
     startLocationWatch();
     FundezNotify.show(t('provider.js.job_taken_exclaim'), 'success');
-    if (document.querySelector('#activeJobsList') || window.location.pathname.includes('/proveedor/mando')) {
+    const canOpenMando = Boolean(document.querySelector('[href="/proveedor/mando"]'))
+      || window.location.pathname.includes('/proveedor/mando');
+    if (canOpenMando || document.querySelector('#activeJobsList')) {
       setTimeout(() => {
         window.location.href = '/proveedor/mando';
       }, 600);
