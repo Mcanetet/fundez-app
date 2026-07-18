@@ -167,9 +167,10 @@
       <div class="space-y-4">
         <div>
           <label class="zilo-label block mb-1.5"><%= t('client.service.photo') %> *</label>
-          <p class="text-[11px] text-zilo-muted mb-1"><%= t('client.service.photo_required_hint') %></p>
-          <button type="button" id="btnPhotoHelp" class="text-[11px] text-zilo-accent font-medium hover:underline mb-2">
-            <%= t('client.service.photo_help_link') %>
+          <p class="text-[11px] text-zilo-muted mb-2"><%= t('client.service.photo_required_hint') %></p>
+          <button type="button" id="btnPhotoHelp" class="w-full mb-3 py-2.5 px-3 rounded-xl border border-zilo-accent/30 bg-zilo-accent/10 text-zilo-accent text-xs font-semibold text-left flex items-center gap-2">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <span><%= t('client.service.photo_help_link') %></span>
           </button>
           <input type="file" id="clientPhoto" accept="image/*" capture="environment" required class="block w-full text-xs text-zilo-muted file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-zilo-accent/10 file:text-zilo-accent file:text-xs file:font-medium">
           <div id="clientPhotoPreview" class="hidden mt-2">
@@ -334,7 +335,18 @@
   </main>
 </div>
 
-<% if (typeof photoTips !== 'undefined' && photoTips) { %>
+<%
+  const _photoTips = (typeof photoTips !== 'undefined' && photoTips) ? photoTips : {
+    title: t('client.service.photo_help_eyebrow'),
+    steps: [
+      t('client.service.photo_required_hint'),
+      t('client.service.photo_brand_hint'),
+      t('client.service.brand_not_visible_hint')
+    ],
+    notes: null,
+    imageUrl: null
+  };
+%>
 <div id="photoHelpModal" class="hidden fixed inset-0 z-[400]" aria-hidden="true" role="dialog" aria-labelledby="photoHelpTitle">
   <div id="photoHelpBackdrop" class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
   <div class="absolute inset-x-0 bottom-0 sm:inset-0 sm:flex sm:items-center sm:justify-center sm:p-5 pointer-events-none">
@@ -343,29 +355,29 @@
       <div class="flex items-center justify-between px-5 py-4 border-b border-zilo-border shrink-0">
         <div>
           <p class="zilo-label !text-[9px]"><%= t('client.service.photo_help_eyebrow') %></p>
-          <h2 id="photoHelpTitle" class="text-base font-semibold leading-snug"><%= photoTips.title %></h2>
+          <h2 id="photoHelpTitle" class="text-base font-semibold leading-snug"><%= _photoTips.title %></h2>
         </div>
         <button type="button" id="photoHelpClose" class="zilo-icon-btn" aria-label="<%= t('client.service.photo_help_close') %>">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
       <div class="flex-1 overflow-y-auto px-5 py-5 space-y-4">
-        <% if (photoTips.imageUrl) { %>
+        <% if (_photoTips.imageUrl) { %>
           <figure class="rounded-xl overflow-hidden border border-zilo-border bg-zilo-bg">
-            <img src="<%= photoTips.imageUrl %>" alt="<%= photoTips.imageAlt || photoTips.title %>" class="w-full max-h-48 object-cover" loading="lazy">
+            <img src="<%= _photoTips.imageUrl %>" alt="<%= _photoTips.imageAlt || _photoTips.title %>" class="w-full max-h-48 object-cover" loading="lazy">
             <figcaption class="px-3 py-2 text-[10px] text-zilo-muted"><%= t('client.service.photo_help_example') %></figcaption>
           </figure>
         <% } %>
-        <% (photoTips.steps || []).forEach((step, i) => { %>
+        <% (_photoTips.steps || []).forEach((step, i) => { %>
           <article class="flex gap-3">
             <span class="w-7 h-7 rounded-lg bg-zilo-accent/15 text-zilo-accent text-xs font-bold flex items-center justify-center shrink-0"><%= i + 1 %></span>
             <p class="text-sm text-zilo-muted leading-relaxed pt-1"><%= step %></p>
           </article>
         <% }); %>
-        <% if (photoTips.notes) { %>
+        <% if (_photoTips.notes) { %>
           <div class="p-3 rounded-xl bg-zilo-bg/80 border border-zilo-border">
             <strong class="text-xs block text-zilo-accent mb-1"><%= t('client.service.photo_help_notes_label') %></strong>
-            <p class="text-xs text-zilo-muted leading-relaxed"><%= photoTips.notes %></p>
+            <p class="text-xs text-zilo-muted leading-relaxed"><%= _photoTips.notes %></p>
           </div>
         <% } %>
       </div>
@@ -375,7 +387,6 @@
     </div>
   </div>
 </div>
-<% } %>
 
 <%- include('../partials/footer', { pageScript: '/js/client.js' }) %>
 <% if (typeof mod === 'function' && mod('client_aland')) { %>
