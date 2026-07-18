@@ -114,7 +114,10 @@
           class="service-item group flex flex-col items-center gap-3 p-5 rounded-2xl zilo-card-premium hover:border-zilo-accent/25 hover:-translate-y-0.5 transition-all duration-300">
           <%- include('../partials/service-icon', { icon: service.icon, size: 'lg' }) %>
           <span class="font-medium text-sm text-center leading-tight"><%= service.name %></span>
-          <span class="text-xs text-zilo-muted"><%= t('client.from_price') %> <%= formatCLP(service.averagePrice) %></span>
+          <span class="w-full text-center leading-tight">
+            <span class="block text-[10px] text-zilo-muted"><%= t('client.from_price') %></span>
+            <span class="block text-xs font-medium text-zilo-muted tabular-nums"><%= formatCLP(service.averagePrice) %></span>
+          </span>
         </a>
       <% }); %>
     </div>
@@ -202,7 +205,10 @@
       <a href="/cliente/servicio/${s.id}" class="group flex flex-col items-center gap-3 p-5 rounded-2xl zilo-card-premium hover:border-zilo-accent/25 transition-all">
         ${FundezIcons.wrap(s.icon, null, 'w-14 h-14', 28)}
         <span class="font-medium text-sm text-center">${s.name}</span>
-        <span class="text-xs text-zilo-muted">${averageLabel} ${fmt(s.averagePrice)}</span>
+        <span class="w-full text-center leading-tight">
+          <span class="block text-[10px] text-zilo-muted">${averageLabel}</span>
+          <span class="block text-xs font-medium text-zilo-muted tabular-nums">${fmt(s.averagePrice)}</span>
+        </span>
       </a>
     `).join('');
   });
