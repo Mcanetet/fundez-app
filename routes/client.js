@@ -48,15 +48,39 @@ router.post('/onboarding/complete', requireRole('client'), (req, res) => {
 
 router.get('/perfil', requireRole('client'), (req, res) => {
   const profile = store.getUserById(req.session.user.id);
-  const referral = store.getReferralStats(req.session.user.id);
+  const referral = store.getReferralStats(req.session.user.id) || {
+    code: profile?.referralCode || '',
+    points: profile?.ziloPoints || 0,
+    creditsCLP: profile?.creditsCLP || 0,
+    referralsCount: profile?.referralsCount || 0,
+    servicesCount: profile?.servicesCount || 0
+  };
   res.render('client/profile', {
     title: 'Mi perfil — Fundez',
     user: req.session.user,
     profile,
     referral,
+    canSwitchToProvider: req.session.user.primaryRole === 'provider' || profile?.role === 'provider',
     formatCLP: store.formatCLP,
     navActive: 'perfil'
   });
+});
+
+router.post('/modo-socio', requireRole('client'), (req, res) => {
+  const user = store.getUserById(req.session.user.id);
+  if (!user || user.role !== 'provider') {
+    return res.status(403).json({ error: 'Esta cuenta no es de socio' });
+  }
+  req.session.user = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: 'provider',
+    primaryRole: 'provider',
+    clientEnabled: Boolean(user.clientEnabled)
+  };
+  store.logSecurityEvent('client_switch_provider', user.email, req);
+  res.json({ success: true, redirect: '/proveedor' });
 });
 
 router.post('/perfil', requireRole('client'), (req, res) => {

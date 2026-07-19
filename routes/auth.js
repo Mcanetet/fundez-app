@@ -11,12 +11,22 @@ const ADMIN_SESSION_MS = 4 * 60 * 60 * 1000;
 const DEFAULT_SESSION_MS = 24 * 60 * 60 * 1000;
 const REMEMBER_SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 
-function setSessionUser(req, user, { admin = false, remember = false } = {}) {
+function setSessionUser(req, user, { admin = false, remember = false, activeRole = null } = {}) {
+  const primaryRole = user.role;
+  let role = activeRole || user.role;
+  if (role === 'client' && primaryRole === 'provider' && !user.clientEnabled) {
+    role = 'provider';
+  }
+  if (role === 'provider' && primaryRole !== 'provider') {
+    role = primaryRole;
+  }
   req.session.user = {
     id: user.id,
     email: user.email,
     name: user.name,
-    role: user.role
+    role,
+    primaryRole,
+    clientEnabled: Boolean(user.clientEnabled)
   };
   req.session.isAdminSession = admin;
   if (req.session.cookie) {

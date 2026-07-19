@@ -103,6 +103,16 @@ const POINTS_VALUE_CLP = 100;
 const WELCOME_PROMO = 'BIENVENIDO';
 const WELCOME_DISCOUNT = 0.1;
 
+function canActAsClient(user) {
+  if (!user) return false;
+  if (user.role === 'client') return true;
+  return user.role === 'provider' && Boolean(user.clientEnabled);
+}
+
+function isProviderAccount(user) {
+  return Boolean(user && user.role === 'provider');
+}
+
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
@@ -122,7 +132,7 @@ function welcomePromoIdentityUsed(email, phone, excludeUserId = null) {
   if (!emailKey && !phoneKey) return false;
 
   const userMatch = USERS.some((user) => {
-    if (!user || user.role !== 'client') return false;
+    if (!user || !canActAsClient(user)) return false;
     if (excludeUserId && user.id === excludeUserId) return false;
     if (!user.usedWelcomePromo) return false;
     const sameEmail = emailKey && normalizeEmail(user.email) === emailKey;
@@ -143,7 +153,7 @@ function welcomePromoIdentityUsed(email, phone, excludeUserId = null) {
 }
 
 function canUseWelcomePromo(user) {
-  if (!user || user.role !== 'client') return false;
+  if (!canActAsClient(user)) return false;
   const email = normalizeEmail(user.email);
   const phone = normalizePhone(user.phone);
   if (!email || !phone) return false;
@@ -159,7 +169,7 @@ function markWelcomePromoUsed(user) {
   const phoneKey = normalizePhone(user.phone);
   const touched = new Set();
   for (const candidate of USERS) {
-    if (!candidate || candidate.role !== 'client') continue;
+    if (!candidate || !canActAsClient(candidate)) continue;
     const sameEmail = emailKey && normalizeEmail(candidate.email) === emailKey;
     const samePhone = phoneKey && normalizePhone(candidate.phone) === phoneKey;
     if (candidate.id === user.id || sameEmail || samePhone) {
@@ -392,7 +402,7 @@ function updateUserProfile(userId, data) {
   const user = getUserById(userId);
   if (!user) return null;
   const allowed = user.role === 'provider'
-    ? ['name', 'phone', 'bio', 'email']
+    ? ['name', 'phone', 'bio', 'email', ...(user.clientEnabled ? ['address'] : [])]
     : ['name', 'phone', 'address'];
   allowed.forEach(key => {
     if (data[key] !== undefined && String(data[key]).trim()) {
@@ -407,13 +417,13 @@ function updateUserProfile(userId, data) {
 }
 
 function isBillingComplete(user) {
-  if (!user || user.role !== 'client') return false;
+  if (!canActAsClient(user)) return false;
   return validateBilling(user.billing || {}).ok;
 }
 
 function updateUserBilling(userId, data) {
   const user = getUserById(userId);
-  if (!user || user.role !== 'client') return { error: 'Usuario no encontrado' };
+  if (!canActAsClient(user)) return { error: 'Usuario no encontrado' };
   const result = validateBilling(data);
   if (!result.ok) return { error: result.errors[0] };
   user.billing = result.billing;
@@ -444,7 +454,7 @@ function applyPaymentMethodToRequest(request, paymentMethod) {
 
 function getReferralStats(userId) {
   const user = getUserById(userId);
-  if (!user || user.role !== 'client') return null;
+  if (!canActAsClient(user)) return null;
   return {
     code: user.referralCode,
     points: user.ziloPoints || 0,
@@ -456,11 +466,11 @@ function getReferralStats(userId) {
 
 function applyReferralCode(userId, code) {
   const user = getUserById(userId);
-  if (!user || user.role !== 'client') return { error: 'Usuario inválido' };
+  if (!canActAsClient(user)) return { error: 'Usuario inválido' };
   if (!code) return { error: 'Código requerido' };
   if (user.usedReferral) return { error: 'Ya usaste un código de referido' };
   if (user.referralCode === code) return { error: 'No puedes usar tu propio código' };
-  const referrer = USERS.find(u => u.referralCode === code && u.role === 'client');
+  const referrer = USERS.find(u => u.referralCode === code && canActAsClient(u));
   if (!referrer) return { error: 'Código no válido' };
   user.usedReferral = true;
   user.creditsCLP = (user.creditsCLP || 0) + 5000;
@@ -740,7 +750,7 @@ function getRequestByGuardianToken(token) {
 
 function getHomePassport(clientId) {
   const user = getUserById(clientId);
-  if (!user || user.role !== 'client') return null;
+  if (!canActAsClient(user)) return null;
 
   const address = user.address || 'Sin dirección registrada';
   const entries = [
@@ -1995,7 +2005,12 @@ function getWorkWallItems(userId) {
   if (!user || !['provider', 'tecnico'].includes(user.role)) return [];
   const specs = user.specialties || [];
   return requests
-    .filter(r => r.status === 'searching' && specs.includes(r.serviceId))
+    .filter((r) => {
+      if (r.status !== 'searching' || !specs.includes(r.serviceId)) return false;
+      if (r.clientId === userId) return false;
+      if (user.role === 'tecnico' && user.parentId && r.clientId === user.parentId) return false;
+      return true;
+    })
     .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
 }
 
@@ -2007,6 +2022,13 @@ function tryAcceptRequest(requestId, userId) {
 
   const user = getUserById(userId);
   if (!user) return { error: 'Usuario no encontrado' };
+
+  if (request.clientId === userId) {
+    return { error: 'No puedes tomar tu propia solicitud' };
+  }
+  if (user.role === 'tecnico' && user.parentId && request.clientId === user.parentId) {
+    return { error: 'No puedes tomar una solicitud de tu propio socio' };
+  }
 
   if (user.role === 'provider') {
     if (!user.specialties.includes(request.serviceId)) {
@@ -2507,6 +2529,33 @@ function computeEtaMinutes(fromLat, fromLng, toLat, toLng, avgKmh = 30) {
   const distanceKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const minutes = Math.round((distanceKm / avgKmh) * 60);
   return { distanceKm: Math.round(distanceKm * 10) / 10, etaMinutes: Math.max(1, minutes) };
+}
+
+function enableClientPortal(userId) {
+  const user = getUserById(userId);
+  if (!isProviderAccount(user)) return { error: 'Solo los socios pueden activar el modo cliente' };
+  user.clientEnabled = true;
+  if (!user.referralCode) user.referralCode = generateReferralCode(user.name);
+  if (user.ziloPoints == null) user.ziloPoints = 0;
+  if (user.creditsCLP == null) user.creditsCLP = 0;
+  if (user.referralsCount == null) user.referralsCount = 0;
+  if (user.servicesCount == null) user.servicesCount = 0;
+  if (user.usedWelcomePromo == null) user.usedWelcomePromo = false;
+  if (user.usedReferral == null) user.usedReferral = false;
+  if (!user.billing) {
+    const entity = user.providerContract?.legalEntity;
+    const hasCompany = Boolean(entity?.rut && entity?.legalName);
+    user.billing = normalizeBilling({
+      type: hasCompany ? 'empresa' : 'natural',
+      rut: entity?.rut || '',
+      legalName: entity?.legalName || user.name,
+      giro: '',
+      fiscalAddress: user.address || entity?.fiscalAddress || '',
+      invoiceEmail: user.email
+    });
+  }
+  repository.persist(() => repository.saveUser(user), `usuario ${user.id}`);
+  return { success: true, user };
 }
 
 function setProviderOnline(providerId, online) {
@@ -3357,6 +3406,9 @@ module.exports = {
   approveTransferPayment,
   getReferralStats,
   applyReferralCode,
+  enableClientPortal,
+  canActAsClient,
+  isProviderAccount,
   getActivePromos,
   getAllPromos,
   getPromosForClient,

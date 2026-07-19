@@ -4,6 +4,14 @@
   <%- include('../partials/back-header', { backUrl: '/cliente', label: t('client.profile.account'), title: t('client.profile.title') }) %>
 
   <main class="flex-1 px-5 py-5 space-y-5">
+    <% if (typeof canSwitchToProvider !== 'undefined' && canSwitchToProvider) { %>
+    <section class="p-4 rounded-2xl border border-zilo-accent/25 bg-zilo-accent/5">
+      <p class="text-sm font-semibold mb-1">Cuenta de socio</p>
+      <p class="text-xs text-zilo-muted mb-3">Estás en modo cliente. Puedes volver a tu panel de socio cuando quieras.</p>
+      <button type="button" id="btnSwitchProvider" class="zilo-btn-primary !py-2.5">Volver al panel socio</button>
+    </section>
+    <% } %>
+
     <div class="text-center py-6 zilo-page-enter-delay-1">
       <div class="w-24 h-24 mx-auto rounded-2xl zilo-card-premium flex items-center justify-center text-2xl font-semibold text-zilo-accent border border-zilo-accent/25 mb-4">
         <%= profile.name.split(' ').map(n=>n[0]).join('').slice(0,2) %>
@@ -179,6 +187,16 @@
     const data = await res.json();
     if (data.success) FundezNotify.show('Datos de facturación guardados', 'success');
     else FundezNotify.show(data.error || 'Error', 'error');
+  });
+
+  document.getElementById('btnSwitchProvider')?.addEventListener('click', async () => {
+    const res = await fetch('/cliente/modo-socio', { method: 'POST', headers: { Accept: 'application/json' } });
+    const data = await res.json().catch(() => ({}));
+    if (data.success && data.redirect) {
+      window.location.href = data.redirect;
+      return;
+    }
+    FundezNotify.show(data.error || 'No se pudo volver al panel socio', 'error');
   });
 </script>
 

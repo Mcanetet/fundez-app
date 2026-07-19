@@ -174,6 +174,23 @@ router.post('/perfil', requireRole('provider'), requireModule('provider_perfil')
   });
 });
 
+router.post('/modo-cliente', requireRole('provider'), (req, res) => {
+  const enabled = store.enableClientPortal(req.session.user.id);
+  if (enabled.error) return res.status(400).json({ error: enabled.error });
+  const user = enabled.user;
+  if (user.online) store.setProviderOnline(user.id, false);
+  req.session.user = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: 'client',
+    primaryRole: 'provider',
+    clientEnabled: true
+  };
+  store.logSecurityEvent('provider_switch_client', user.email, req);
+  res.json({ success: true, redirect: '/cliente' });
+});
+
 router.post('/verificacion/documento', requireRole('provider'), requireModule('provider_verificacion'), (req, res) => {
   const { type, data, label, consent_kyc } = req.body;
   const valid = ['idFront', 'idBack', 'certificate'];

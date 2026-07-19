@@ -58,6 +58,17 @@
       <button type="submit" class="zilo-btn-primary !py-3">Guardar datos</button>
     </form>
 
+    <section class="p-5 rounded-2xl zilo-card-premium space-y-3">
+      <p class="zilo-label mb-1">También soy cliente</p>
+      <p class="text-xs text-zilo-muted">Puedes pedir servicios Fundez con la misma cuenta, además de ofrecerlos como socio.</p>
+      <% if (provider.clientEnabled) { %>
+        <button type="button" id="btnSwitchClient" class="zilo-btn-primary !py-3">Ir al portal cliente</button>
+      <% } else { %>
+        <button type="button" id="btnEnableClient" class="zilo-btn-primary !py-3">Activar modo cliente</button>
+        <p class="text-[10px] text-zilo-muted">Al activarlo podrás solicitar servicios. La documentación de socio se sigue gestionando aquí.</p>
+      <% } %>
+    </section>
+
     <!-- Verificación -->
     <section id="verificacion" class="p-5 rounded-2xl zilo-card-premium space-y-4">
       <div>
@@ -215,6 +226,18 @@
       FundezNotify.show('Datos actualizados', 'success');
     } else FundezNotify.show('Error al guardar', 'error');
   });
+
+  async function switchToClientMode() {
+    const res = await fetch('/proveedor/modo-cliente', { method: 'POST', headers: { Accept: 'application/json' } });
+    const data = await res.json().catch(() => ({}));
+    if (data.success && data.redirect) {
+      window.location.href = data.redirect;
+      return;
+    }
+    FundezNotify.show(data.error || 'No se pudo cambiar al modo cliente', 'error');
+  }
+  document.getElementById('btnSwitchClient')?.addEventListener('click', switchToClientMode);
+  document.getElementById('btnEnableClient')?.addEventListener('click', switchToClientMode);
 </script>
 
 <%- include('../partials/footer', { pageScript: '/js/provider-verify.js' }) %>
