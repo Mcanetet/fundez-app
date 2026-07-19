@@ -38,6 +38,37 @@
     return currentRole() === 'provider';
   }
 
+  function hideCoverage() {
+    if (!coverageAlert) return;
+    coverageAlert.classList.add('hidden');
+    coverageAlert.textContent = '';
+  }
+
+  let lastCoverage = null;
+
+  function coverageMessageKey(messageKey, forProvider) {
+    const key = messageKey || 'coverage.not_available';
+    if (!forProvider) return key;
+    if (key === 'coverage.region_disabled') return 'coverage.provider_region_disabled';
+    if (key === 'coverage.unknown_commune') return 'coverage.provider_unknown_commune';
+    return 'coverage.provider_not_available';
+  }
+
+  function showCoverage(coverage) {
+    if (!coverageAlert) return;
+    lastCoverage = coverage || null;
+    if (!coverage || coverage.covered) {
+      hideCoverage();
+      return;
+    }
+    const forProvider = isProviderRole();
+    const key = coverageMessageKey(coverage.messageKey, forProvider);
+    coverageAlert.textContent = forProvider
+      ? (t(key) || 'Revisa las comunas habilitadas para servicio.')
+      : (coverage.message || t(key) || t('coverage.not_available'));
+    coverageAlert.classList.remove('hidden');
+  }
+
   function syncAddressCopy() {
     if (addressLabel) {
       addressLabel.textContent = isProviderRole()
@@ -49,22 +80,7 @@
         ? t('register.address_provider_hint')
         : t('register.address_hint');
     }
-  }
-
-  function hideCoverage() {
-    if (!coverageAlert) return;
-    coverageAlert.classList.add('hidden');
-    coverageAlert.textContent = '';
-  }
-
-  function showCoverage(coverage) {
-    if (!coverageAlert) return;
-    if (!coverage || coverage.covered) {
-      hideCoverage();
-      return;
-    }
-    coverageAlert.textContent = coverage.message || t('coverage.not_available');
-    coverageAlert.classList.remove('hidden');
+    if (lastCoverage && !lastCoverage.covered) showCoverage(lastCoverage);
   }
 
   function setMapStatus(text) {

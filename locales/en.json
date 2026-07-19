@@ -340,6 +340,9 @@
   "coverage.not_available": "We are working to reach your commune.",
   "coverage.region_disabled": "We do not operate in this region yet.",
   "coverage.unknown_commune": "We could not confirm your commune.",
+  "coverage.provider_not_available": "Check the communes enabled for service.",
+  "coverage.provider_region_disabled": "Check the communes enabled for service.",
+  "coverage.provider_unknown_commune": "Check the communes enabled for service.",
 
   "admin.servicios.title": "Service control",
   "admin.servicios.active_count": "{{active}}/{{total}} active",

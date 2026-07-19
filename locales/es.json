@@ -340,6 +340,9 @@
   "coverage.not_available": "Estamos trabajando para llegar a tu comuna.",
   "coverage.region_disabled": "Aún no operamos en esta región.",
   "coverage.unknown_commune": "No pudimos confirmar tu comuna.",
+  "coverage.provider_not_available": "Revisa las comunas habilitadas para servicio.",
+  "coverage.provider_region_disabled": "Revisa las comunas habilitadas para servicio.",
+  "coverage.provider_unknown_commune": "Revisa las comunas habilitadas para servicio.",
 
   "admin.servicios.title": "Control de servicios",
   "admin.servicios.active_count": "{{active}}/{{total}} activos",

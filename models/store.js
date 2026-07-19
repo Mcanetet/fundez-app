@@ -1585,8 +1585,12 @@ async function registerUser({
 
   const coverage = buildCoverageResult(communeMeta, coverageMap);
   if (!coverage.covered) {
+    const providerBlocked = role === 'provider';
+    const errorKey = providerBlocked
+      ? 'coverage.provider_not_available'
+      : (coverage.messageKey || 'coverage.not_available');
     return {
-      errorKey: coverage.messageKey || 'coverage.not_available',
+      errorKey,
       code: 'coverage',
       coverage
     };

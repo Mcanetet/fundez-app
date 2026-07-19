@@ -190,6 +190,7 @@ router.get('/registro/comunas/:communeCode', async (req, res) => {
       unknown: coverage.unknown,
       communeName: coverage.communeName,
       regionName: coverage.regionName,
+      messageKey: coverage.messageKey || 'coverage.not_available',
       message: coverage.covered ? null : req.t(coverage.messageKey || 'coverage.not_available')
     }
   });
@@ -260,6 +261,7 @@ router.post('/registro/direcciones/validar', async (req, res) => {
       unknown: coverage.unknown,
       communeName: coverage.communeName,
       regionName: coverage.regionName,
+      messageKey: coverage.messageKey || 'coverage.not_available',
       message: coverage.covered ? null : req.t(coverage.messageKey || 'coverage.not_available')
     }
   });
