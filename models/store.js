@@ -2402,6 +2402,11 @@ const DEMO_ACCOUNT_IDS = ['client-1', 'provider-pedro'];
 const DEMO_ACCOUNT_LABELS = { 'client-1': 'Cliente', 'provider-pedro': 'Socio' };
 const DEMO_ACCOUNT_PASSWORDS = { 'client-1': 'cliente123', 'provider-pedro': 'proveedor123' };
 
+function isDemoAccount(userOrId) {
+  const id = typeof userOrId === 'string' ? userOrId : userOrId?.id;
+  return Boolean(id && DEMO_ACCOUNT_IDS.includes(id));
+}
+
 function getDemoAccounts() {
   const appMode = require('../lib/appMode');
   if (appMode.isProductionMode()) return [];
@@ -3379,12 +3384,15 @@ function getPendingRequestsForProvider(providerId) {
 function isEmailVerified(user) {
   if (!user) return false;
   if (user.role === 'admin') return true;
+  // Cuentas demo de prueba: sin validación de correo
+  if (isDemoAccount(user)) return true;
   return Boolean(user.emailVerifiedAt);
 }
 
 async function issueEmailVerification(userId, { locale = 'es' } = {}) {
   const user = getUserById(userId);
   if (!user || isEmailVerified(user)) return { skipped: true };
+  if (isDemoAccount(user)) return { skipped: true, demo: true };
 
   const sent = await emailVerification.sendVerificationEmail(user, { locale });
   user.emailVerificationCodeHash = sent.codeHash;
@@ -3926,6 +3934,7 @@ module.exports = {
   verifyMfaCode,
   getAdminMfaStatus,
   getDemoAccounts,
+  isDemoAccount,
   getUserById,
   getOnlineProviders,
   createRequest,

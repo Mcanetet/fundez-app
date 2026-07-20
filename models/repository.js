@@ -734,12 +734,25 @@ async function ensureDemoUsers() {
     console.log('✓ Seed de usuarios demo omitido (modo producción)');
     return;
   }
+  const DEMO_IDS = new Set(['client-1', 'provider-pedro']);
   for (const user of SEED_USERS) {
     if (user.role === 'admin') continue;
-    const exists = await db.query('SELECT id FROM users WHERE id = ? LIMIT 1', [user.id]);
-    if (exists.rows.length) continue;
+    const exists = await db.query('SELECT id, email_verified_at FROM users WHERE id = ? LIMIT 1', [user.id]);
+    if (exists.rows.length) {
+      // Cuentas demo de login: sin validación de correo
+      if (DEMO_IDS.has(user.id) && !exists.rows[0].email_verified_at) {
+        await db.query('UPDATE users SET email_verified_at = ? WHERE id = ?', [
+          new Date().toISOString().slice(0, 19).replace('T', ' '),
+          user.id
+        ]);
+      }
+      continue;
+    }
     const hashed = await hashPassword(user.password);
-    await saveUser({ ...user, password: hashed });
+    const toSave = DEMO_IDS.has(user.id)
+      ? { ...user, password: hashed, emailVerifiedAt: new Date().toISOString() }
+      : { ...user, password: hashed };
+    await saveUser(toSave);
   }
 }
 
