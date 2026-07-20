@@ -1439,6 +1439,68 @@ function hasPerm(key) {
 
       <div id="alandConfigStatus" class="p-3 rounded-xl bg-zilo-bg border border-gray-200 text-xs text-gray-600 mb-4">Cargando configuración…</div>
 
+      <% if (hasPerm('aland.view')) { %>
+      <!-- Monitor en vivo: conversaciones, tokens, prompt injection -->
+      <div id="alandMonitor" class="p-4 rounded-2xl bg-zilo-card border border-gray-200 mb-4 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p class="text-sm font-semibold">Monitor en vivo</p>
+            <p class="text-[11px] text-gray-500">Conversaciones de todos los usuarios, tokens y alertas de prompt injection.</p>
+          </div>
+          <span id="alandMonitorLive" class="text-[10px] font-semibold uppercase tracking-wide text-emerald-600">● En vivo</span>
+        </div>
+        <div id="alandMonitorStats" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-center">
+          <div class="p-2 rounded-xl bg-zilo-bg border border-gray-100">
+            <p class="text-[10px] text-gray-500 uppercase">Activas</p>
+            <p class="text-lg font-semibold" data-stat="active">—</p>
+          </div>
+          <div class="p-2 rounded-xl bg-zilo-bg border border-gray-100">
+            <p class="text-[10px] text-gray-500 uppercase">Total chats</p>
+            <p class="text-lg font-semibold" data-stat="conversations">—</p>
+          </div>
+          <div class="p-2 rounded-xl bg-zilo-bg border border-gray-100">
+            <p class="text-[10px] text-gray-500 uppercase">Tokens hoy</p>
+            <p class="text-lg font-semibold" data-stat="tokensToday">—</p>
+          </div>
+          <div class="p-2 rounded-xl bg-zilo-bg border border-gray-100">
+            <p class="text-[10px] text-gray-500 uppercase">Tokens total</p>
+            <p class="text-lg font-semibold" data-stat="tokensTotal">—</p>
+          </div>
+          <div class="p-2 rounded-xl bg-zilo-bg border border-gray-100">
+            <p class="text-[10px] text-gray-500 uppercase">Injections</p>
+            <p class="text-lg font-semibold text-amber-700" data-stat="injections">—</p>
+          </div>
+          <div class="p-2 rounded-xl bg-zilo-bg border border-gray-100">
+            <p class="text-[10px] text-gray-500 uppercase">Inj. hoy</p>
+            <p class="text-lg font-semibold text-red-600" data-stat="injectionsToday">—</p>
+          </div>
+        </div>
+        <div class="grid lg:grid-cols-2 gap-4">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-xs font-semibold text-gray-600">Conversaciones</p>
+              <select id="alandMonitorFilter" class="text-[11px] px-2 py-1 rounded-lg bg-zilo-bg border border-gray-200">
+                <option value="">Todas (abiertas + recientes)</option>
+                <option value="ai_active">Solo Aland IA</option>
+                <option value="awaiting_provider">Esperando socio</option>
+                <option value="awaiting_admin">Admin</option>
+                <option value="closed">Cerradas</option>
+              </select>
+            </div>
+            <div id="alandMonitorList" class="space-y-2 max-h-80 overflow-y-auto text-xs"></div>
+          </div>
+          <div class="flex flex-col min-h-[16rem]">
+            <p id="alandMonitorChatTitle" class="text-xs font-semibold text-gray-500 mb-2">Selecciona una conversación</p>
+            <div id="alandMonitorThread" class="flex-1 overflow-y-auto space-y-2 text-xs p-3 rounded-xl bg-zilo-bg border border-gray-100 max-h-80 mb-3"></div>
+            <div>
+              <p class="text-xs font-semibold text-amber-800 mb-1">Alertas prompt injection</p>
+              <div id="alandMonitorAlerts" class="space-y-1.5 max-h-40 overflow-y-auto text-[11px]"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <% } %>
+
       <% if (hasPerm('aland.manage')) { %>
       <form id="alandConfigForm" class="p-4 rounded-2xl bg-zilo-card border border-gray-200 space-y-3 mb-4">
         <label class="flex items-center justify-between text-sm">

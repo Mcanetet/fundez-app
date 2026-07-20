@@ -241,7 +241,48 @@ router.get('/admin/conversations', requireRole('admin'), requireAdminPermission(
   res.json({ success: true, conversations });
 });
 
+router.get('/admin/monitor/stats', requireRole('admin'), requireAdminPermission('aland.view'), async (req, res) => {
+  try {
+    const stats = await aland.getMonitorStats();
+    res.json({ success: true, stats });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.get('/admin/monitor/conversations', requireRole('admin'), requireAdminPermission('aland.view'), async (req, res) => {
+  try {
+    const status = req.query.status;
+    const conversations = await aland.listConversations({
+      status: status ? String(status).split(',').map((s) => s.trim()).filter(Boolean) : undefined,
+      limit: Math.min(parseInt(req.query.limit, 10) || 100, 300)
+    });
+    res.json({ success: true, conversations });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.get('/admin/monitor/alerts', requireRole('admin'), requireAdminPermission('aland.view'), async (req, res) => {
+  try {
+    const alerts = await aland.listInjectionAlerts({
+      limit: Math.min(parseInt(req.query.limit, 10) || 50, 200)
+    });
+    res.json({ success: true, alerts });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 router.get('/admin/conversations/:id/messages', requireRole('admin'), requireAdminPermission('mensajes.view'), async (req, res) => {
+  const conversation = await aland.getConversationById(req.params.id);
+  if (!conversation) return res.status(404).json({ error: 'No encontrada' });
+  const messages = await aland.listMessages(conversation.id);
+  res.json({ success: true, conversation, messages });
+});
+
+// Monitor: mismo hilo, permiso aland.view (ver todas las conversaciones)
+router.get('/admin/monitor/conversations/:id/messages', requireRole('admin'), requireAdminPermission('aland.view'), async (req, res) => {
   const conversation = await aland.getConversationById(req.params.id);
   if (!conversation) return res.status(404).json({ error: 'No encontrada' });
   const messages = await aland.listMessages(conversation.id);

@@ -1474,19 +1474,29 @@
   }
 
   async function loadAlandAdmin() {
-    if (!alandForm && !alandStatus) return;
+    if (!alandForm && !alandStatus && !alandKbList) return;
     try {
-      const res = await fetch('/aland/admin/config', { headers: { Accept: 'application/json' } });
-      const data = await res.json();
-      if (alandStatus) {
-        alandStatus.innerHTML = data.openaiConfigured
-          ? '<strong class="text-emerald-600">OpenAI conectado</strong> · Agente: Aland IA'
-          : '<strong class="text-red-600">Falta OPENAI_API_KEY</strong> en variables de entorno Hostinger';
+      if (alandForm || alandStatus) {
+        const res = await fetch('/aland/admin/config', { headers: { Accept: 'application/json' } });
+        if (res.ok) {
+          const data = await res.json();
+          if (alandStatus) {
+            alandStatus.innerHTML = data.openaiConfigured
+              ? '<strong class="text-emerald-600">OpenAI conectado</strong> · Agente: Aland IA'
+              : '<strong class="text-red-600">Falta OPENAI_API_KEY</strong> en variables de entorno Hostinger';
+          }
+          if (data.config) setAlandFormValues(data.config);
+        } else if (alandStatus) {
+          alandStatus.textContent = 'Configuración solo visible con permiso aland.manage';
+        }
       }
-      if (data.config) setAlandFormValues(data.config);
-      const kbRes = await fetch('/aland/admin/knowledge', { headers: { Accept: 'application/json' } });
-      const kbData = await kbRes.json();
-      renderAlandKb(kbData.knowledge);
+      if (alandKbList) {
+        const kbRes = await fetch('/aland/admin/knowledge', { headers: { Accept: 'application/json' } });
+        if (kbRes.ok) {
+          const kbData = await kbRes.json();
+          renderAlandKb(kbData.knowledge);
+        }
+      }
     } catch (_) {
       if (alandStatus) alandStatus.textContent = ADMIN_JS.alandError || 'Error cargando Aland IA';
     }
@@ -1596,6 +1606,231 @@
     document.getElementById('btnAlandKbCancel')?.classList.add('hidden');
   });
 
+  /* ——— Aland Monitor (tiempo real) ——— */
+  const alandMonitor = document.getElementById('alandMonitor');
+  const alandMonitorList = document.getElementById('alandMonitorList');
+  const alandMonitorThread = document.getElementById('alandMonitorThread');
+  const alandMonitorTitle = document.getElementById('alandMonitorChatTitle');
+  const alandMonitorAlerts = document.getElementById('alandMonitorAlerts');
+  const alandMonitorFilter = document.getElementById('alandMonitorFilter');
+  let alandMonitorActiveId = null;
+  let alandMonitorConvCache = [];
+
+  function formatTokens(n) {
+    const v = Number(n) || 0;
+    if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
+    if (v >= 1000) return `${(v / 1000).toFixed(1)}k`;
+    return String(v);
+  }
+
+  function alandStatusLabel(s) {
+    return {
+      ai_active: 'Aland IA',
+      awaiting_provider: 'Socio',
+      awaiting_admin: 'Admin',
+      closed: 'Cerrada'
+    }[s] || s;
+  }
+
+  function renderMonitorMsg(msg) {
+    const type = msg.senderType || '';
+    const isAlert = Boolean(msg.meta?.securityAlert || msg.meta?.risk === 'injection' || msg.meta?.type === 'prompt_injection');
+    const align = type === 'client' ? 'text-left' : 'text-right';
+    let bg = 'bg-white border border-gray-200';
+    if (type === 'aland') bg = 'bg-violet-50 border border-violet-100';
+    if (type === 'admin' || type === 'provider') bg = 'bg-zilo-accent text-white border-transparent';
+    if (type === 'system' || isAlert) bg = 'bg-amber-50 border border-amber-200 text-amber-900';
+    const usage = msg.meta?.usage?.total_tokens
+      ? `<span class="opacity-60"> · ${formatTokens(msg.meta.usage.total_tokens)} tok</span>`
+      : '';
+    const body = escapeHtml(msg.body || '');
+    return `<div class="${align}"><div class="inline-block max-w-[95%] px-2 py-1.5 rounded-lg ${bg}"><span class="block text-[9px] opacity-70">${escapeHtml(msg.senderName || type)}${usage}</span>${body}</div></div>`;
+  }
+
+  function renderMonitorStats(stats) {
+    const root = document.getElementById('alandMonitorStats');
+    if (!root || !stats) return;
+    const map = {
+      active: stats.active,
+      conversations: stats.conversations,
+      tokensToday: formatTokens(stats.tokensToday),
+      tokensTotal: formatTokens(stats.tokensTotal),
+      injections: stats.injections,
+      injectionsToday: stats.injectionsToday
+    };
+    Object.entries(map).forEach(([key, val]) => {
+      const el = root.querySelector(`[data-stat="${key}"]`);
+      if (el) el.textContent = val;
+    });
+  }
+
+  function renderMonitorList(items) {
+    if (!alandMonitorList) return;
+    alandMonitorConvCache = items || [];
+    if (!items?.length) {
+      alandMonitorList.innerHTML = '<p class="text-gray-500 p-2">Sin conversaciones.</p>';
+      return;
+    }
+    alandMonitorList.innerHTML = items.map((c) => {
+      const inj = Number(c.injectionCount) || 0;
+      const active = c.id === alandMonitorActiveId ? 'border-violet-400 ring-1 ring-violet-200' : 'border-gray-200';
+      return `<button type="button" class="w-full text-left p-2.5 rounded-xl bg-zilo-bg border ${active} hover:border-violet-300 aland-mon-item" data-id="${escapeHtml(c.id)}">
+        <div class="flex justify-between gap-2">
+          <strong class="truncate">${escapeHtml(c.clientName || 'Cliente')}</strong>
+          <span class="text-[10px] text-violet-600 shrink-0">${alandStatusLabel(c.status)}</span>
+        </div>
+        <p class="text-gray-500 mt-0.5 truncate">${escapeHtml(c.serviceName || '')}</p>
+        <div class="flex flex-wrap gap-2 mt-1 text-[10px] text-gray-500">
+          <span>${formatTokens(c.tokensTotal)} tok</span>
+          ${inj ? `<span class="text-red-600 font-semibold">${inj} injection${inj > 1 ? 's' : ''}</span>` : ''}
+        </div>
+      </button>`;
+    }).join('');
+    alandMonitorList.querySelectorAll('.aland-mon-item').forEach((btn) => {
+      btn.addEventListener('click', () => openAlandMonitorChat(btn.dataset.id));
+    });
+  }
+
+  function renderMonitorAlerts(alerts) {
+    if (!alandMonitorAlerts) return;
+    if (!alerts?.length) {
+      alandMonitorAlerts.innerHTML = '<p class="text-gray-500">Sin alertas recientes.</p>';
+      return;
+    }
+    alandMonitorAlerts.innerHTML = alerts.map((a) => {
+      const when = a.createdAt ? new Date(a.createdAt).toLocaleString('es-CL') : '';
+      const preview = escapeHtml((a.meta?.preview || a.body || '').slice(0, 100));
+      return `<button type="button" class="w-full text-left p-2 rounded-lg bg-amber-50 border border-amber-200 hover:border-amber-400 aland-mon-alert" data-id="${escapeHtml(a.conversationId)}">
+        <div class="flex justify-between gap-2"><strong>${escapeHtml(a.clientName || 'Cliente')}</strong><span class="text-gray-500">${escapeHtml(when)}</span></div>
+        <p class="text-amber-900 mt-0.5">${preview}</p>
+      </button>`;
+    }).join('');
+    alandMonitorAlerts.querySelectorAll('.aland-mon-alert').forEach((btn) => {
+      btn.addEventListener('click', () => openAlandMonitorChat(btn.dataset.id));
+    });
+  }
+
+  async function loadAlandMonitorStats() {
+    if (!alandMonitor) return;
+    try {
+      const res = await fetch('/aland/admin/monitor/stats', { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+      const data = await res.json();
+      if (data.success) renderMonitorStats(data.stats);
+    } catch (_) { /* ignore */ }
+  }
+
+  async function loadAlandMonitorList() {
+    if (!alandMonitorList) return;
+    try {
+      const filter = alandMonitorFilter?.value || '';
+      const qs = filter ? `?status=${encodeURIComponent(filter)}` : '';
+      const res = await fetch(`/aland/admin/monitor/conversations${qs}`, {
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin'
+      });
+      const data = await res.json();
+      let items = data.conversations || [];
+      if (!filter) {
+        items = items.filter((c) => c.status !== 'closed').concat(
+          items.filter((c) => c.status === 'closed').slice(0, 10)
+        );
+      }
+      renderMonitorList(items);
+    } catch (_) {
+      alandMonitorList.innerHTML = '<p class="text-red-600 p-2">Error cargando conversaciones.</p>';
+    }
+  }
+
+  async function loadAlandMonitorAlerts() {
+    if (!alandMonitorAlerts) return;
+    try {
+      const res = await fetch('/aland/admin/monitor/alerts?limit=40', {
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin'
+      });
+      const data = await res.json();
+      if (data.success) renderMonitorAlerts(data.alerts || []);
+    } catch (_) { /* ignore */ }
+  }
+
+  async function openAlandMonitorChat(id) {
+    if (!id) return;
+    alandMonitorActiveId = id;
+    renderMonitorList(alandMonitorConvCache);
+    try {
+      const res = await fetch(`/aland/admin/monitor/conversations/${encodeURIComponent(id)}/messages`, {
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin'
+      });
+      const data = await res.json();
+      if (!data.success) return;
+      const c = data.conversation || {};
+      if (alandMonitorTitle) {
+        alandMonitorTitle.textContent = `${c.clientName || 'Cliente'} · ${c.serviceName || ''} · ${formatTokens(c.tokensTotal)} tok${c.injectionCount ? ` · ${c.injectionCount} inj.` : ''}`;
+      }
+      if (alandMonitorThread) {
+        alandMonitorThread.innerHTML = (data.messages || []).map(renderMonitorMsg).join('');
+        alandMonitorThread.scrollTop = alandMonitorThread.scrollHeight;
+      }
+      if (window.io) {
+        socket.emit('aland_join', { conversationId: id, admin: true });
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  function upsertMonitorConversation(conv) {
+    if (!conv?.id) return;
+    const idx = alandMonitorConvCache.findIndex((c) => c.id === conv.id);
+    if (idx >= 0) alandMonitorConvCache[idx] = { ...alandMonitorConvCache[idx], ...conv };
+    else alandMonitorConvCache.unshift(conv);
+    const filter = alandMonitorFilter?.value || '';
+    let items = alandMonitorConvCache;
+    if (filter) items = items.filter((c) => c.status === filter);
+    else items = items.filter((c) => c.status !== 'closed').concat(items.filter((c) => c.status === 'closed').slice(0, 10));
+    renderMonitorList(items);
+  }
+
+  if (alandMonitor) {
+    loadAlandMonitorStats();
+    loadAlandMonitorList();
+    loadAlandMonitorAlerts();
+    setInterval(() => {
+      loadAlandMonitorStats();
+      loadAlandMonitorList();
+      loadAlandMonitorAlerts();
+    }, 30000);
+
+    alandMonitorFilter?.addEventListener('change', () => loadAlandMonitorList());
+
+    socket.on('aland_monitor_update', (payload) => {
+      if (payload?.conversation) upsertMonitorConversation(payload.conversation);
+      if (payload?.conversationId === alandMonitorActiveId && payload?.message && alandMonitorThread) {
+        alandMonitorThread.insertAdjacentHTML('beforeend', renderMonitorMsg(payload.message));
+        alandMonitorThread.scrollTop = alandMonitorThread.scrollHeight;
+      }
+      if (payload?.usage || payload?.securityAlert) loadAlandMonitorStats();
+      if (payload?.securityAlert) loadAlandMonitorAlerts();
+    });
+
+    socket.on('aland_security_alert', () => {
+      loadAlandMonitorStats();
+      loadAlandMonitorAlerts();
+      loadAlandMonitorList();
+    });
+
+    socket.on('aland_escalated', (payload) => {
+      if (payload?.conversation) upsertMonitorConversation(payload.conversation);
+      loadAlandMonitorList();
+    });
+
+    socket.on('aland_message', (payload) => {
+      if (payload?.conversationId === alandMonitorActiveId && payload?.message && alandMonitorThread) {
+        alandMonitorThread.insertAdjacentHTML('beforeend', renderMonitorMsg(payload.message));
+        alandMonitorThread.scrollTop = alandMonitorThread.scrollHeight;
+      }
+    });
+  }
+
   /* ——— Mensajes ——— */
   const mensajesList = document.getElementById('mensajesList');
   const mensajesThread = document.getElementById('mensajesChatThread');
@@ -1695,7 +1930,7 @@
     } else FundezNotify.show(data.error || 'Error', 'error');
   });
 
-  if (document.getElementById('alandConfigForm') || document.getElementById('mensajesList')) {
+  if (document.getElementById('alandConfigForm') || document.getElementById('alandMonitor') || document.getElementById('mensajesList')) {
     loadAlandAdmin();
     loadMensajesList();
     setInterval(loadMensajesList, 45000);

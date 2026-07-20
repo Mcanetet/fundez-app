@@ -525,6 +525,24 @@ async function migrate() {
 
   await ensurePromoExtraColumns();
   await ensureUserClientEnabledColumn();
+  await ensureAlandMonitorColumns();
+}
+
+async function ensureAlandMonitorColumns() {
+  const alters = [
+    'ALTER TABLE aland_conversations ADD COLUMN tokens_prompt INT NOT NULL DEFAULT 0',
+    'ALTER TABLE aland_conversations ADD COLUMN tokens_completion INT NOT NULL DEFAULT 0',
+    'ALTER TABLE aland_conversations ADD COLUMN tokens_total INT NOT NULL DEFAULT 0',
+    'ALTER TABLE aland_conversations ADD COLUMN injection_count INT NOT NULL DEFAULT 0',
+    'ALTER TABLE aland_conversations ADD COLUMN last_injection_at DATETIME NULL DEFAULT NULL'
+  ];
+  for (const statement of alters) {
+    try {
+      await db.raw(statement);
+    } catch (err) {
+      if (err.code !== 'ER_DUP_FIELDNAME' && err.code !== 'ER_NO_SUCH_TABLE') throw err;
+    }
+  }
 }
 
 async function ensureUserClientEnabledColumn() {
