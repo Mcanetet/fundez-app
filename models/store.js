@@ -1613,6 +1613,25 @@ async function authenticateUser(email, password, { allowedRoles } = {}) {
   return { user };
 }
 
+async function changeUserPassword(userId, currentPassword, newPassword) {
+  ensureReady();
+  const user = getUserById(userId);
+  if (!user) return { error: 'Usuario no encontrado.' };
+
+  const current = String(currentPassword || '');
+  const next = String(newPassword || '');
+  if (!current || !next) return { error: 'Completa la contraseña actual y la nueva.' };
+  if (next.length < 10) return { error: 'La nueva contraseña debe tener al menos 10 caracteres.' };
+  if (next === current) return { error: 'La nueva contraseña debe ser distinta a la actual.' };
+
+  const check = await verifyPassword(current, user.password);
+  if (!check.ok) return { error: 'La contraseña actual no es correcta.' };
+
+  user.password = await hashPassword(next);
+  await repository.saveUser(user);
+  return { success: true };
+}
+
 function generateReferralCode(name) {
   const base = (name || 'USER').replace(/[^a-zA-Z]/g, '').slice(0, 5).toUpperCase() || 'USER';
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -3878,6 +3897,7 @@ module.exports = {
   previewVisitPrice,
   getUserByEmail,
   authenticateUser,
+  changeUserPassword,
   registerUser,
   createTechnician,
   getTechniciansByProvider,

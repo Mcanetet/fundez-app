@@ -4,7 +4,7 @@ const store = require('../models/store');
 const aland = require('../lib/aland');
 const { requireRole } = require('../middleware/auth');
 const { requireModule } = require('../middleware/modules');
-const { requireAdminPermission } = require('../middleware/adminAccess');
+const { requireAdminPermission, requireFullAdminAccess } = require('../middleware/adminAccess');
 
 function emitIo(req, event, payload) {
   const io = req.app.get('io');
@@ -189,26 +189,46 @@ router.get('/admin/knowledge', requireRole('admin'), requireAdminPermission('ala
   res.json({ success: true, knowledge });
 });
 
-router.post('/admin/knowledge', requireRole('admin'), requireAdminPermission('aland.manage'), async (req, res) => {
+router.post('/admin/knowledge', requireRole('admin'), requireFullAdminAccess(), async (req, res) => {
   try {
     const id = await aland.saveKnowledge(req.body);
-    res.json({ success: true, id });
+    store.logSecurityEvent('aland_kb_create', id, req);
+    res.json({ success: true, id, knowledge: await aland.listKnowledge() });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ success: false, error: err.message });
   }
 });
 
-router.delete('/admin/knowledge/:id', requireRole('admin'), requireAdminPermission('aland.manage'), async (req, res) => {
-  await aland.deleteKnowledge(req.params.id);
-  res.json({ success: true });
+router.put('/admin/knowledge/:id', requireRole('admin'), requireFullAdminAccess(), async (req, res) => {
+  try {
+    const existing = (await aland.listKnowledge()).find((k) => k.id === req.params.id);
+    if (!existing) return res.status(404).json({ success: false, error: 'Entrada no encontrada.' });
+    await aland.saveKnowledge({
+      ...existing,
+      ...req.body,
+      id: req.params.id,
+      sourceType: req.body.sourceType || existing.sourceType || 'custom'
+    });
+    store.logSecurityEvent('aland_kb_update', req.params.id, req);
+    res.json({ success: true, knowledge: await aland.listKnowledge() });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
 });
 
-router.post('/admin/knowledge/sync', requireRole('admin'), requireAdminPermission('aland.manage'), async (req, res) => {
+router.delete('/admin/knowledge/:id', requireRole('admin'), requireFullAdminAccess(), async (req, res) => {
+  await aland.deleteKnowledge(req.params.id);
+  store.logSecurityEvent('aland_kb_delete', req.params.id, req);
+  res.json({ success: true, knowledge: await aland.listKnowledge() });
+});
+
+router.post('/admin/knowledge/sync', requireRole('admin'), requireFullAdminAccess(), async (req, res) => {
   try {
     const synced = await aland.syncKnowledgeFromApp(store);
+    store.logSecurityEvent('aland_kb_sync', String(synced), req);
     res.json({ success: true, synced, knowledge: await aland.listKnowledge() });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

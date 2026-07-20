@@ -51,6 +51,28 @@ function requireAdminPermission(...permissions) {
   };
 }
 
+function requireFullAdminAccess() {
+  return (req, res, next) => {
+    if (!req.session?.user || req.session.user.role !== 'admin') {
+      return res.redirect(adminUrl('/login'));
+    }
+    const { hasFullSystemAccess } = require('../lib/adminPermissions');
+    const access = getSessionAccess(req);
+    if (hasFullSystemAccess(access)) {
+      req.adminAccess = access;
+      return next();
+    }
+    if (req.xhr || (req.get('accept') || '').includes('application/json')) {
+      return res.status(403).json({ error: 'Solo superadmin o admin.mod pueden realizar esta acción.' });
+    }
+    return res.status(403).render('error', {
+      title: 'Acceso denegado',
+      message: 'Solo superadmin o admin.mod pueden modificar la base de conocimiento.',
+      code: 403
+    });
+  };
+}
+
 function refreshSessionAdminAccess(req, user) {
   const access = resolveAdminAccess(user);
   req.session.adminAccess = access;
@@ -65,6 +87,7 @@ module.exports = {
   getSessionAccess,
   attachAdminAccess,
   requireAdminPermission,
+  requireFullAdminAccess,
   refreshSessionAdminAccess,
   canAccessPanel,
   getFirstAccessiblePanel,

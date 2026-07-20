@@ -53,6 +53,8 @@
       <button type="submit" class="zilo-btn-primary !py-3"><%= t('client.profile.save') %></button>
     </form>
 
+    <%- include('../partials/password-form') %>
+
     <% const billing = profile.billing || { type: 'natural', rut: '', legalName: profile.name, giro: '', fiscalAddress: profile.address || '', invoiceEmail: profile.email }; %>
     <form id="billingForm" class="space-y-4 p-5 rounded-2xl zilo-card-premium zilo-page-enter-delay-2">
       <p class="zilo-label"><%= t('client.profile.billing') %></p>

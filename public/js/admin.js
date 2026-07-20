@@ -1407,19 +1407,70 @@
     if (alandForm.escalateKeywords) alandForm.escalateKeywords.value = (config.escalateKeywords || []).join('\n');
   }
 
+  function escapeHtml(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   function renderAlandKb(items) {
     if (!alandKbList) return;
+    const canEdit = alandKbList.dataset.canEdit === '1';
     if (!items?.length) {
       alandKbList.innerHTML = `<p class="text-gray-500 p-2">${ADMIN_JS.noKb || 'Sin entradas.'}</p>`;
       return;
     }
+    window.__alandKbItems = items;
     alandKbList.innerHTML = items.map((k) => `
-      <div class="p-2 rounded-lg bg-zilo-bg border border-gray-200">
-        <strong class="text-violet-600 uppercase text-[10px]">${k.sourceType}</strong>
-        <p class="font-medium">${k.title}</p>
-        <p class="text-gray-500 line-clamp-2">${k.content}</p>
+      <div class="p-2 rounded-lg bg-zilo-bg border border-gray-200" data-kb-id="${escapeHtml(k.id)}">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <strong class="text-violet-600 uppercase text-[10px]">${escapeHtml(k.sourceType)}</strong>
+            <p class="font-medium">${escapeHtml(k.title)}</p>
+            <p class="text-gray-500 line-clamp-2">${escapeHtml(k.content)}</p>
+          </div>
+          ${canEdit ? `<div class="flex flex-col gap-1 shrink-0">
+            <button type="button" class="btn-aland-kb-edit text-[10px] px-2 py-1 rounded bg-white border border-gray-200" data-id="${escapeHtml(k.id)}">Editar</button>
+            <button type="button" class="btn-aland-kb-del text-[10px] px-2 py-1 rounded bg-red-50 text-red-600 border border-red-100" data-id="${escapeHtml(k.id)}">Eliminar</button>
+          </div>` : ''}
+        </div>
       </div>
     `).join('');
+
+    alandKbList.querySelectorAll('.btn-aland-kb-edit').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const item = (window.__alandKbItems || []).find((x) => x.id === btn.dataset.id);
+        if (!item || !alandKbForm) return;
+        const idEl = document.getElementById('alandKbEditId');
+        const titleEl = document.getElementById('alandKbTitle');
+        const contentEl = document.getElementById('alandKbContent');
+        const submitBtn = document.getElementById('btnAlandAddKb');
+        const cancelBtn = document.getElementById('btnAlandKbCancel');
+        if (idEl) idEl.value = item.id;
+        if (titleEl) titleEl.value = item.title || '';
+        if (contentEl) contentEl.value = item.content || '';
+        if (submitBtn) submitBtn.textContent = 'Guardar cambios';
+        cancelBtn?.classList.remove('hidden');
+        alandKbForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    });
+
+    alandKbList.querySelectorAll('.btn-aland-kb-del').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('¿Eliminar esta entrada de conocimiento?')) return;
+        try {
+          const res = await fetch(`/aland/admin/knowledge/${encodeURIComponent(btn.dataset.id)}`, {
+            method: 'DELETE',
+            headers: { Accept: 'application/json' },
+            credentials: 'same-origin'
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.success) throw new Error(data.error || 'No se pudo eliminar');
+          FundezNotify.show('Entrada eliminada', 'success');
+          renderAlandKb(data.knowledge || []);
+        } catch (err) {
+          FundezNotify.show(err.message || 'Error', 'error');
+        }
+      });
+    });
   }
 
   async function loadAlandAdmin() {
@@ -1483,9 +1534,13 @@
       errEl.textContent = '';
     }
     const btn = document.getElementById('btnAlandAddKb');
+    const cancelBtn = document.getElementById('btnAlandKbCancel');
+    const idEl = document.getElementById('alandKbEditId');
+    const editId = (idEl?.value || '').trim();
     const fd = new FormData(alandKbForm);
     const title = String(fd.get('title') || '').trim();
     const content = String(fd.get('content') || '').trim();
+    const existing = editId ? (window.__alandKbItems || []).find((x) => x.id === editId) : null;
     if (!title || !content) {
       if (errEl) {
         errEl.textContent = 'Completa título y contenido (o una URL pública).';
@@ -1495,28 +1550,50 @@
     }
     if (btn) btn.disabled = true;
     try {
-      const res = await fetch('/aland/admin/knowledge', {
-        method: 'POST',
+      const url = editId
+        ? `/aland/admin/knowledge/${encodeURIComponent(editId)}`
+        : '/aland/admin/knowledge';
+      const res = await fetch(url, {
+        method: editId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ title, content, sourceType: 'custom', active: true })
+        body: JSON.stringify({
+          title,
+          content,
+          sourceType: existing?.sourceType || 'custom',
+          serviceId: existing?.serviceId || null,
+          active: true
+        })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
         throw new Error(data.error || `No se pudo guardar (${res.status})`);
       }
-      FundezNotify.show('Conocimiento agregado', 'success');
+      FundezNotify.show(editId ? 'Conocimiento actualizado' : 'Conocimiento agregado', 'success');
       alandKbForm.reset();
-      loadAlandAdmin();
+      if (idEl) idEl.value = '';
+      if (btn) btn.textContent = 'Agregar conocimiento';
+      cancelBtn?.classList.add('hidden');
+      renderAlandKb(data.knowledge || []);
+      if (!data.knowledge) loadAlandAdmin();
     } catch (err) {
       if (errEl) {
-        errEl.textContent = err.message || 'Error al agregar';
+        errEl.textContent = err.message || 'Error al guardar';
         errEl.classList.remove('hidden');
       }
-      FundezNotify.show(err.message || 'Error al agregar conocimiento', 'error');
+      FundezNotify.show(err.message || 'Error al guardar conocimiento', 'error');
     } finally {
       if (btn) btn.disabled = false;
     }
+  });
+
+  document.getElementById('btnAlandKbCancel')?.addEventListener('click', () => {
+    alandKbForm?.reset();
+    const idEl = document.getElementById('alandKbEditId');
+    if (idEl) idEl.value = '';
+    const btn = document.getElementById('btnAlandAddKb');
+    if (btn) btn.textContent = 'Agregar conocimiento';
+    document.getElementById('btnAlandKbCancel')?.classList.add('hidden');
   });
 
   /* ——— Mensajes ——— */

@@ -471,4 +471,22 @@ router.get('/logout', (req, res) => {
   });
 });
 
+router.post('/cuenta/password', async (req, res) => {
+  if (!req.session?.user?.id) {
+    return res.status(401).json({ success: false, error: 'Debes iniciar sesión.' });
+  }
+  try {
+    const result = await store.changeUserPassword(
+      req.session.user.id,
+      req.body.currentPassword || req.body.password,
+      req.body.newPassword
+    );
+    if (result.error) return res.status(400).json({ success: false, error: result.error });
+    store.logSecurityEvent('password_change', req.session.user.email || req.session.user.id, req);
+    res.json({ success: true, message: 'Contraseña actualizada.' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message || 'No se pudo cambiar la contraseña.' });
+  }
+});
+
 module.exports = router;

@@ -1475,16 +1475,25 @@ function hasPerm(key) {
       <div class="p-4 rounded-2xl bg-zilo-card border border-gray-200 mb-4">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
           <p class="text-sm font-semibold">Base de conocimiento</p>
+          <% if (adminAccess.isSuperAdmin || adminAccess.isFullAccess) { %>
           <button type="button" id="btnAlandSyncKb" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-700 border border-emerald-500/25">Sincronizar empresa y servicios</button>
+          <% } %>
         </div>
-        <div id="alandKnowledgeList" class="space-y-2 max-h-64 overflow-y-auto text-xs"></div>
+        <p class="text-[11px] text-gray-500 mb-2">Solo superadmin / admin.mod pueden agregar, editar o eliminar entradas.</p>
+        <div id="alandKnowledgeList" class="space-y-2 max-h-80 overflow-y-auto text-xs" data-can-edit="<%= (adminAccess.isSuperAdmin || adminAccess.isFullAccess) ? '1' : '0' %>"></div>
+        <% if (adminAccess.isSuperAdmin || adminAccess.isFullAccess) { %>
         <form id="alandKnowledgeForm" class="mt-3 pt-3 border-t border-gray-200 space-y-2">
+          <input type="hidden" name="id" id="alandKbEditId" value="">
           <p class="text-[11px] text-gray-500">Puedes pegar un link público de Fundez (ej. https://www.fundez.cl). No uses rutas de admin.</p>
-          <input type="text" name="title" placeholder="Título (ej. Servicios en la web)" class="w-full px-3 py-2 rounded-xl bg-zilo-bg border border-gray-200 text-sm" required>
-          <textarea name="content" rows="3" placeholder="Texto o URL pública https://www.fundez.cl …" class="w-full px-3 py-2 rounded-xl bg-zilo-bg border border-gray-200 text-sm" required></textarea>
-          <button type="submit" id="btnAlandAddKb" class="w-full py-2 rounded-xl bg-zilo-accent/15 text-zilo-accent text-sm font-medium">Agregar conocimiento</button>
+          <input type="text" name="title" id="alandKbTitle" placeholder="Título (ej. Servicios en la web)" class="w-full px-3 py-2 rounded-xl bg-zilo-bg border border-gray-200 text-sm" required>
+          <textarea name="content" id="alandKbContent" rows="3" placeholder="Texto o URL pública https://www.fundez.cl …" class="w-full px-3 py-2 rounded-xl bg-zilo-bg border border-gray-200 text-sm" required></textarea>
+          <div class="flex gap-2">
+            <button type="submit" id="btnAlandAddKb" class="flex-1 py-2 rounded-xl bg-zilo-accent/15 text-zilo-accent text-sm font-medium">Agregar conocimiento</button>
+            <button type="button" id="btnAlandKbCancel" class="hidden px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-600">Cancelar</button>
+          </div>
           <p id="alandKbFormError" class="hidden text-xs text-red-600"></p>
         </form>
+        <% } %>
       </div>
       <% } else { %>
       <p class="text-xs text-gray-500">No tienes permiso para editar Aland IA.</p>
@@ -1743,6 +1752,62 @@ function hasPerm(key) {
       <% if (typeof mfaError !== 'undefined' && mfaError) { %>
         <div class="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-700 text-sm"><%= mfaError %></div>
       <% } %>
+
+      <div class="p-4 rounded-2xl bg-zilo-card border border-gray-200 mb-4">
+        <h4 class="text-sm font-semibold mb-1">Cambiar contraseña</h4>
+        <p class="text-xs text-gray-500 mb-3">Actualiza la clave de tu cuenta de administración.</p>
+        <form id="passwordChangeForm" class="space-y-3">
+          <div>
+            <label class="text-[10px] text-gray-500 uppercase block mb-1">Contraseña actual</label>
+            <input type="password" name="currentPassword" required autocomplete="current-password" class="w-full px-3 py-2 rounded-xl bg-zilo-bg border border-gray-200 text-sm">
+          </div>
+          <div>
+            <label class="text-[10px] text-gray-500 uppercase block mb-1">Nueva contraseña</label>
+            <input type="password" name="newPassword" required minlength="10" autocomplete="new-password" class="w-full px-3 py-2 rounded-xl bg-zilo-bg border border-gray-200 text-sm">
+          </div>
+          <div>
+            <label class="text-[10px] text-gray-500 uppercase block mb-1">Confirmar</label>
+            <input type="password" name="confirmPassword" required minlength="10" autocomplete="new-password" class="w-full px-3 py-2 rounded-xl bg-zilo-bg border border-gray-200 text-sm">
+          </div>
+          <p id="passwordChangeError" class="hidden text-xs text-red-600"></p>
+          <button type="submit" class="w-full py-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-sm font-medium text-blue-700">Actualizar contraseña</button>
+        </form>
+      </div>
+      <script>
+      (function () {
+        const form = document.getElementById('passwordChangeForm');
+        if (!form || form.dataset.bound === '1') return;
+        form.dataset.bound = '1';
+        const errEl = document.getElementById('passwordChangeError');
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          if (errEl) { errEl.classList.add('hidden'); errEl.textContent = ''; }
+          const fd = new FormData(form);
+          const currentPassword = String(fd.get('currentPassword') || '');
+          const newPassword = String(fd.get('newPassword') || '');
+          const confirmPassword = String(fd.get('confirmPassword') || '');
+          if (newPassword !== confirmPassword) {
+            if (errEl) { errEl.textContent = 'Las contraseñas nuevas no coinciden.'; errEl.classList.remove('hidden'); }
+            return;
+          }
+          try {
+            const res = await fetch('/cuenta/password', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ currentPassword, newPassword })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) throw new Error(data.error || 'No se pudo actualizar');
+            form.reset();
+            if (window.FundezNotify) FundezNotify.show(data.message || 'Contraseña actualizada', 'success');
+          } catch (err) {
+            if (errEl) { errEl.textContent = err.message || 'Error'; errEl.classList.remove('hidden'); }
+            if (window.FundezNotify) FundezNotify.show(err.message || 'Error', 'error');
+          }
+        });
+      })();
+      </script>
 
       <div class="p-4 rounded-2xl bg-zilo-card border border-gray-200 mb-4">
         <div class="flex items-start justify-between gap-3 mb-3">
