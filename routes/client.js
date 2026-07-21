@@ -8,6 +8,106 @@ const { localizeServices } = require('../lib/i18n-admin');
 const { getPhotoTips } = require('../lib/photoTips');
 const { requireRole, requireVerifiedEmail } = require('../middleware/auth');
 const { requireModule } = require('../middleware/modules');
+const unassignedRequestWatcher = require('../lib/unassignedRequestWatcher');
+const aland = require('../lib/aland');
+const notifications = require('../lib/notifications');
+
+function canOpenNoProviderDecision(req, request) {
+  if (!request || request.noProviderDecisionStatus !== 'pending') return false;
+  if (req.session?.user?.role === 'client' && req.session.user.id === request.clientId) return true;
+  const token = String(req.query.token || req.body.token || '');
+  return Boolean(token && request.noProviderChoiceTokenHash === unassignedRequestWatcher.hashToken(token));
+}
+
+router.get('/solicitud/:id/sin-socio', (req, res) => {
+  const request = store.requests.find((item) => item.id === req.params.id);
+  if (!canOpenNoProviderDecision(req, request)) {
+    return res.status(404).render('error', {
+      title: 'Enlace no válido',
+      message: 'Este enlace venció o la solicitud ya fue respondida.',
+      code: 404
+    });
+  }
+  res.render('client/no-provider-choice', {
+    title: 'Elige cómo continuar — Fundez',
+    request,
+    token: String(req.query.token || ''),
+    selectedChoice: ['refund', 'continue'].includes(req.query.choice) ? req.query.choice : null
+  });
+});
+
+router.post('/solicitud/:id/sin-socio', async (req, res) => {
+  const request = store.requests.find((item) => item.id === req.params.id);
+  if (!canOpenNoProviderDecision(req, request)) {
+    const message = 'El enlace no es válido o la solicitud ya fue respondida.';
+    if (req.accepts('json') && !req.accepts('html')) return res.status(403).json({ error: message });
+    return res.status(403).render('error', { title: 'No autorizado', message, code: 403 });
+  }
+
+  const token = String(req.body.token || '');
+  const result = store.respondNoProviderChoice(req.params.id, {
+    clientId: req.session?.user?.id || null,
+    tokenHash: token ? unassignedRequestWatcher.hashToken(token) : null,
+    choice: req.body.choice
+  });
+  if (result.error) {
+    if (req.accepts('json') && !req.accepts('html')) return res.status(400).json(result);
+    return res.status(400).render('error', { title: 'No se pudo guardar', message: result.error, code: 400 });
+  }
+
+  const updated = result.request;
+  if (result.choice === 'refund') {
+    notifications.notify({
+      event: 'service.refund_requested',
+      to: company.supportEmail,
+      subject: `Devolución solicitada — ${updated.serviceName}`,
+      text: `El cliente ${updated.clientName} solicitó la devolución de la solicitud ${updated.id} porque no hubo socio disponible. Fecha comprometida: ${updated.refundScheduledDate}. Monto pagado: ${store.formatCLP(updated.visitPricePaid || updated.amountDue || 0)}. Procesar al mismo medio de pago.`,
+      requestId: updated.id,
+      userId: updated.clientId,
+      meta: { refundScheduledDate: updated.refundScheduledDate, reason: 'no_provider_available' }
+    }).catch(() => {});
+  }
+  let message = null;
+  if (updated.alandConversationId) {
+    const body = result.choice === 'refund'
+      ? `Recibí tu elección. La devolución de tu servicio ${updated.serviceName} quedó solicitada para el siguiente día hábil (${updated.refundScheduledDate}). Administración procesará el abono al mismo medio de pago.`
+      : `Recibí tu elección. Seguiremos intentando encontrar un socio para tu servicio ${updated.serviceName} y te avisaremos apenas alguien lo tome.`;
+    try {
+      message = await aland.addMessage({
+        conversationId: updated.alandConversationId,
+        senderType: 'aland',
+        senderName: 'Aland IA',
+        body,
+        meta: { type: 'no_provider_choice_response', requestId: updated.id, choice: result.choice }
+      });
+    } catch (_) { /* El estado de la solicitud ya quedó guardado. */ }
+  }
+
+  const io = req.app.get('io');
+  const payload = { request: store.enrichRequestForClient(updated, req.locale || 'es'), message };
+  if (io) {
+    io.to(`request_${updated.id}`).emit(`request_update_${updated.id}`, payload);
+    io.to(`aland_client_${updated.clientId}`).emit('no_provider_choice_resolved', payload);
+    io.to('aland_admin').emit('no_provider_choice_resolved', payload);
+    if (message) {
+      io.to(`aland_client_${updated.clientId}`).emit('aland_message', {
+        conversationId: updated.alandConversationId,
+        message
+      });
+    }
+  }
+
+  if (req.accepts('json') && !req.accepts('html')) {
+    return res.json({ success: true, choice: result.choice, request: payload.request });
+  }
+  res.render('client/no-provider-choice', {
+    title: 'Respuesta recibida — Fundez',
+    request: updated,
+    token: '',
+    selectedChoice: result.choice,
+    completed: true
+  });
+});
 
 router.use(requireRole('client'), requireVerifiedEmail);
 

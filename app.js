@@ -26,6 +26,7 @@ const documentosRoutes = require('./routes/documentos');
 const langRoutes = require('./routes/lang');
 const alandRoutes = require('./routes/aland');
 const aland = require('./lib/aland');
+const unassignedRequestWatcher = require('./lib/unassignedRequestWatcher');
 const { localizeServices } = require('./lib/i18n-admin');
 const { buildPageMeta, getSiteUrl } = require('./lib/seo');
 const seoRoutes = require('./routes/seo');
@@ -303,6 +304,9 @@ async function initDatabase() {
       await aland.syncKnowledgeFromApp(store);
       await backup.ensureStartupBackup(store);
       aland.startEscalationWatcher(store, io);
+      unassignedRequestWatcher.start(store, io, {
+        timeoutMinutes: parseInt(process.env.UNASSIGNED_REQUEST_TIMEOUT_MINUTES || '10', 10) || 10
+      });
       backup.startBackupScheduler(store, (event, detail) => {
         store.logSecurityEvent(event, detail, null);
       });

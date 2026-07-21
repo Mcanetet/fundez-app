@@ -41,6 +41,22 @@ router.post('/client/start', requireRole('client'), requireModule('client_aland'
     if (!config.enabled) return res.status(503).json({ error: 'Aland IA no está disponible' });
 
     const user = store.getUserById(req.session.user.id);
+    if (isSupport) {
+      const pendingRequest = store.getPendingNoProviderRequestForClient(user.id);
+      if (pendingRequest?.alandConversationId) {
+        const existing = await aland.getConversationById(pendingRequest.alandConversationId);
+        if (existing) {
+          return res.json({
+            success: true,
+            conversation: existing,
+            messages: await aland.listMessages(existing.id),
+            openaiConfigured: aland.openai.isConfigured(),
+            mode: 'support',
+            pendingRequestId: pendingRequest.id
+          });
+        }
+      }
+    }
     const conversation = await aland.createConversation({
       serviceId,
       serviceName,

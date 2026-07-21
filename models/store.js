@@ -10,7 +10,7 @@ const repository = require('./repository');
 const { getAppVersionInfo } = require('../lib/version');
 const { t: translate } = require('../lib/i18n');
 const { verifyPassword, hashPassword } = require('../lib/password');
-const { resolvePayoutSchedule, formatPayDate } = require('../lib/payoutSchedule');
+const { resolvePayoutSchedule, formatPayDate, nextBusinessDayIso } = require('../lib/payoutSchedule');
 const {
   generateSecret,
   buildOtpauthUrl,
@@ -1070,6 +1070,7 @@ function activateRequest(requestId) {
   if (['assigned', 'in_progress', 'completed', 'cancelled'].includes(request.status)) return null;
   if (request.paymentStatus !== 'approved') return null;
   request.status = 'searching';
+  request.searchingAt = request.searchingAt || new Date().toISOString();
   repository.persist(() => repository.saveRequest(request), `solicitud ${requestId}`);
   afterEvent((ev) => ev.onServiceSearching(request));
   return request;
@@ -2522,6 +2523,12 @@ function tryAcceptRequest(requestId, userId) {
     return { error: 'Rol no autorizado' };
   }
 
+  if (request.noProviderDecisionStatus === 'pending') {
+    request.noProviderDecisionStatus = 'resolved';
+    request.noProviderChoice = 'assigned';
+    request.noProviderRespondedAt = new Date().toISOString();
+    request.noProviderChoiceTokenHash = null;
+  }
   repository.persist(() => repository.saveRequest(request), `solicitud ${requestId}`);
   afterEvent((ev) => {
     ev.onProviderAssigned(request);
@@ -2577,6 +2584,12 @@ function assignProvider(requestId, providerId, { technicianId = null, actorRole 
   request.status = 'assigned';
   request.assignedAt = new Date().toISOString();
   request.assignedBy = actorRole;
+  if (request.noProviderDecisionStatus === 'pending') {
+    request.noProviderDecisionStatus = 'resolved';
+    request.noProviderChoice = 'assigned';
+    request.noProviderRespondedAt = new Date().toISOString();
+    request.noProviderChoiceTokenHash = null;
+  }
   if (tecnico) {
     request.technicianId = tecnico.id;
     request.technicianName = tecnico.name;
@@ -3143,6 +3156,76 @@ function setTechnicianOnline(tecnicoId, online) {
 
 function getRequestsByClient(clientId) {
   return requests.filter(r => r.clientId === clientId);
+}
+
+function getUnassignedRequestsAwaitingNotice(timeoutMinutes = 10, now = Date.now()) {
+  const timeoutMs = Math.max(1, Number(timeoutMinutes) || 10) * 60 * 1000;
+  return requests.filter((request) => {
+    if (request.status !== 'searching' || request.paymentStatus !== 'approved' || request.providerId) return false;
+    if (request.noProviderNotifiedAt) return false;
+    const startedAt = Date.parse(request.searchingAt || request.paidAt || request.createdAt || '');
+    return Number.isFinite(startedAt) && now - startedAt >= timeoutMs;
+  });
+}
+
+function markNoProviderNotice(requestId, { tokenHash, conversationId } = {}) {
+  const request = requests.find((item) => item.id === requestId);
+  if (!request || request.status !== 'searching' || request.providerId || request.noProviderNotifiedAt) return null;
+
+  request.noProviderNotifiedAt = new Date().toISOString();
+  request.noProviderDecisionStatus = 'pending';
+  request.noProviderChoiceTokenHash = tokenHash || null;
+  request.alandConversationId = conversationId || request.alandConversationId || null;
+  repository.persist(() => repository.saveRequest(request), `aviso sin socio ${requestId}`);
+  return request;
+}
+
+function respondNoProviderChoice(requestId, { clientId, tokenHash, choice } = {}) {
+  const request = requests.find((item) => item.id === requestId);
+  if (!request) return { error: 'Solicitud no encontrada.' };
+  if (clientId && request.clientId !== clientId) return { error: 'No autorizado.' };
+  if (tokenHash && request.noProviderChoiceTokenHash !== tokenHash) return { error: 'El enlace no es válido.' };
+  if (!clientId && !tokenHash) return { error: 'No autorizado.' };
+  if (request.noProviderDecisionStatus === 'resolved') {
+    return { success: true, already: true, choice: request.noProviderChoice, request };
+  }
+  if (request.noProviderDecisionStatus !== 'pending') {
+    return { error: 'Esta solicitud no tiene una decisión pendiente.' };
+  }
+
+  const normalizedChoice = String(choice || '').trim().toLowerCase();
+  const now = new Date().toISOString();
+  if (normalizedChoice === 'refund') {
+    request.status = 'cancelled';
+    request.cancelledAt = now;
+    request.cancelReason = 'no_provider_available';
+    request.refundStatus = 'requested';
+    request.refundRequestedAt = now;
+    request.refundScheduledDate = nextBusinessDayIso(new Date());
+  } else if (normalizedChoice === 'continue') {
+    if (request.status !== 'searching' || request.providerId) {
+      return { error: 'La solicitud ya cambió de estado.' };
+    }
+    request.searchingAt = now;
+  } else {
+    return { error: 'Opción no válida.' };
+  }
+
+  request.noProviderChoice = normalizedChoice;
+  request.noProviderDecisionStatus = 'resolved';
+  request.noProviderRespondedAt = now;
+  request.noProviderChoiceTokenHash = null;
+  repository.persist(() => repository.saveRequest(request), `respuesta sin socio ${requestId}`);
+  if (normalizedChoice === 'continue') {
+    afterEvent((ev) => ev.onServiceSearching(request));
+  }
+  return { success: true, choice: normalizedChoice, request };
+}
+
+function getPendingNoProviderRequestForClient(clientId) {
+  return requests
+    .filter((request) => request.clientId === clientId && request.noProviderDecisionStatus === 'pending')
+    .sort((a, b) => new Date(b.noProviderNotifiedAt || 0) - new Date(a.noProviderNotifiedAt || 0))[0] || null;
 }
 
 const REQUEST_STATUS_LABELS = {
@@ -3962,6 +4045,10 @@ module.exports = {
   computeEtaMinutes,
   setProviderOnline,
   getRequestsByClient,
+  getUnassignedRequestsAwaitingNotice,
+  markNoProviderNotice,
+  respondNoProviderChoice,
+  getPendingNoProviderRequestForClient,
   getActiveRequestsForClient,
   getLastCompletedRequest,
   getClientTrustStats,
