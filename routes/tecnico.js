@@ -5,6 +5,7 @@ const store = require('../models/store');
 const { requireRole, requireVerifiedEmail } = require('../middleware/auth');
 const { requireModule } = require('../middleware/modules');
 const { saveRequestFile } = require('../lib/uploads');
+const { getTechnicianOnboardingSteps, ATTENTION_CHECKLIST } = require('../lib/onboarding');
 
 router.use(requireRole('tecnico'), requireVerifiedEmail);
 
@@ -61,7 +62,8 @@ router.get('/', requireRole('tecnico'), (req, res) => {
     jobs,
     techLabels: getTechLabels(req.t),
     services: store.SERVICES,
-    formatCLP: store.formatCLP
+    formatCLP: store.formatCLP,
+    onboardingSteps: getTechnicianOnboardingSteps()
   });
 });
 
@@ -79,7 +81,8 @@ router.get('/trabajo/:requestId', requireRole('tecnico'), (req, res) => {
     request: serializeJob(request),
     returnUrl: req.session.user.role === 'provider' ? '/proveedor/mando' : '/tecnico',
     techLabels: getTechLabels(req.t),
-    formatCLP: store.formatCLP
+    formatCLP: store.formatCLP,
+    attentionChecklist: ATTENTION_CHECKLIST
   });
 });
 
@@ -238,7 +241,8 @@ router.post('/trabajo/:requestId/completar', requireRole('tecnico'), (req, res) 
   }
   const result = store.completeSiteWork(req.params.requestId, req.session.user.id, {
     workNotes: req.body.workNotes,
-    photoEnd: photoUrl
+    photoEnd: photoUrl,
+    attentionChecklist: req.body.attentionChecklist
   });
   if (result.error) return res.status(400).json({ success: false, error: result.error });
   req.app.get('io').emit(`request_update_${result.request.id}`, { request: result.request });

@@ -40,6 +40,7 @@
     });
     document.querySelectorAll('[data-request-id]').forEach(card => {
       const requestId = card.dataset.requestId;
+      let lastStatus = card.querySelector('[data-role="status"]')?.dataset?.status || null;
       socket.on(`request_update_${requestId}`, (payload) => {
         if (!payload?.request) return;
         const statusEl = card.querySelector('[data-role="status"]');
@@ -57,6 +58,18 @@
           completado: 'Completado'
         };
         if (statusEl && labels[ts]) statusEl.textContent = labels[ts];
+        if (ts && ts !== lastStatus && labels[ts] && window.FundezAlerts) {
+          const isDone = ts === 'completado';
+          FundezAlerts.notify({
+            type: isDone ? 'success' : 'update',
+            title: 'Actualización del servicio',
+            body: labels[ts],
+            tag: 'fundez-track-' + requestId
+          });
+          lastStatus = ts;
+        } else if (ts) {
+          lastStatus = ts;
+        }
       });
     });
   }

@@ -303,6 +303,7 @@ async function initDatabase() {
       await aland.ensureConfig();
       await aland.syncKnowledgeFromApp(store);
       await backup.ensureStartupBackup(store);
+      require('./lib/aland/journey').bind({ store, io });
       aland.startEscalationWatcher(store, io);
       unassignedRequestWatcher.start(store, io, {
         timeoutMinutes: parseInt(process.env.UNASSIGNED_REQUEST_TIMEOUT_MINUTES || '10', 10) || 10

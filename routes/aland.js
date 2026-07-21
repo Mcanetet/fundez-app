@@ -56,6 +56,34 @@ router.post('/client/start', requireRole('client'), requireModule('client_aland'
           });
         }
       }
+      // Preferir conversación del pedido activo (Aland journey)
+      const active = store.getActiveRequestsForClient(user.id);
+      const withConv = active.find((r) => r.alandConversationId);
+      if (withConv?.alandConversationId) {
+        const existing = await aland.getConversationById(withConv.alandConversationId);
+        if (existing) {
+          return res.json({
+            success: true,
+            conversation: existing,
+            messages: await aland.listMessages(existing.id),
+            openaiConfigured: aland.openai.isConfigured(),
+            mode: 'support',
+            activeRequestId: withConv.id
+          });
+        }
+      }
+      if (req.body.conversationId) {
+        const existing = await aland.getConversationById(String(req.body.conversationId));
+        if (existing && existing.clientId === user.id) {
+          return res.json({
+            success: true,
+            conversation: existing,
+            messages: await aland.listMessages(existing.id),
+            openaiConfigured: aland.openai.isConfigured(),
+            mode: 'support'
+          });
+        }
+      }
     }
     const conversation = await aland.createConversation({
       serviceId,

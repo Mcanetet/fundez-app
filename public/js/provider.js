@@ -71,7 +71,11 @@
 
   function startRepeatingAlert() {
     stopRepeatingAlert();
-    alertInterval = setInterval(playAlertSound, 2500);
+    if (window.FundezAlerts) FundezAlerts.vibrate('order');
+    alertInterval = setInterval(() => {
+      playAlertSound();
+      if (window.FundezAlerts) FundezAlerts.vibrate('order');
+    }, 2500);
   }
 
   function stopRepeatingAlert() {
@@ -458,7 +462,8 @@
       startLocationWatch();
       loadWorkWall();
       syncStickyBar();
-      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      if (window.FundezAlerts) FundezAlerts.ensurePermission();
+      else if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
         Notification.requestPermission();
       }
     } else {

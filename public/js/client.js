@@ -26,6 +26,8 @@
   const urgencyRadios = document.querySelectorAll('input[name="urgencyTier"]');
 
   let currentRequestId = trackingId || null;
+  let lastProviderAlertId = null;
+  let lastCompletionAlertId = null;
   let selectedUrgencyTier = document.querySelector('input[name="urgencyTier"]:checked')?.value || 'scheduled';
   let geocodeTimer = null;
   let addressCovered = null;
@@ -296,10 +298,12 @@
     }
   }
 
+  const SEARCH_TIMEOUT_MS = 10 * 60 * 1000;
+  const SEARCH_POLL_MS = 2000;
   const loaderSteps = [
     { id: 'step1', text: t('client.js.loader_step1_text'), sub: t('client.js.loader_step1_sub') },
-    { id: 'step2', text: t('client.service.found'), sub: t('client.service.found_sub') },
-    { id: 'step3', text: t('client.service.connecting'), sub: t('client.service.connecting_sub') }
+    { id: 'step2', text: t('client.js.loader_step2_text'), sub: t('client.js.loader_step2_sub') },
+    { id: 'step3', text: t('client.js.loader_step3_text'), sub: t('client.js.loader_step3_sub') }
   ];
 
   function setStepActive(stepId) {
@@ -312,14 +316,82 @@
 
   function animateLoader() {
     let step = 0;
+    setStepActive(loaderSteps[0].id);
+    document.getElementById('loaderText').textContent = loaderSteps[0].text;
+    document.getElementById('loaderSub').textContent = loaderSteps[0].sub;
     return setInterval(() => {
-      if (step < loaderSteps.length) {
-        setStepActive(loaderSteps[step].id);
-        document.getElementById('loaderText').textContent = loaderSteps[step].text;
-        document.getElementById('loaderSub').textContent = loaderSteps[step].sub;
-        step++;
+      // Solo avanza entre pasos de "buscando" (sin fingir "encontrado")
+      step = (step + 1) % loaderSteps.length;
+      setStepActive(loaderSteps[step].id);
+      document.getElementById('loaderText').textContent = loaderSteps[step].text;
+      document.getElementById('loaderSub').textContent = loaderSteps[step].sub;
+    }, 4000);
+  }
+
+  function showNoProviderChoice(request) {
+    if (!request?.id) return;
+    const panel = document.getElementById('noProviderChoicePanel');
+    if (!panel) return;
+    loaderOverlay?.classList.add('hidden');
+    requestForm?.classList.add('hidden');
+    providerCard?.classList.add('hidden');
+    const nameEl = document.getElementById('noProviderServiceName');
+    if (nameEl) nameEl.textContent = request.serviceName || '';
+    panel.dataset.requestId = request.id;
+    panel.classList.remove('hidden');
+    if (window.FundezAlerts) {
+      FundezAlerts.notify({
+        type: 'alert',
+        title: t('client.js.no_provider_title'),
+        body: t('client.js.no_provider_body'),
+        tag: 'fundez-no-provider-' + request.id,
+        requireInteraction: true
+      });
+    }
+  }
+
+  function hideNoProviderChoice() {
+    document.getElementById('noProviderChoicePanel')?.classList.add('hidden');
+  }
+
+  async function submitNoProviderChoice(choice, requestId) {
+    const panel = document.getElementById('noProviderChoicePanel');
+    const buttons = panel?.querySelectorAll('button') || [];
+    buttons.forEach((b) => { b.disabled = true; });
+    try {
+      const response = await fetch(`/cliente/solicitud/${encodeURIComponent(requestId)}/sin-socio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ choice })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || t('client.js.no_provider_error'));
+      hideNoProviderChoice();
+      if (choice === 'refund') {
+        if (window.FundezAlerts) FundezAlerts.notify({
+          type: 'success',
+          title: t('client.js.refund_requested_title'),
+          body: t('client.js.refund_requested_body'),
+          toast: 'success'
+        });
+        else FundezNotify.show(t('client.js.refund_requested_body'), 'success');
+        setTimeout(() => { window.location.href = '/cliente'; }, 1200);
+      } else {
+        if (window.FundezAlerts) FundezAlerts.notify({
+          type: 'update',
+          title: t('client.js.keep_searching_title'),
+          body: t('client.js.keep_searching_body'),
+          toast: 'info'
+        });
+        else FundezNotify.show(t('client.js.keep_searching_body'), 'info');
+        loaderOverlay?.classList.remove('hidden');
+        startTracking(requestId);
       }
-    }, 1800);
+    } catch (err) {
+      buttons.forEach((b) => { b.disabled = false; });
+      FundezNotify.show(err.message || t('client.js.no_provider_error'), 'error');
+    }
   }
 
   function advanceTripStep(step) {
@@ -343,15 +415,34 @@
     if (step === 'arrived') etaEl.textContent = t('client.js.arrived');
   }
 
+  let lastTripStepAlert = null;
+
   function syncTripFromRequest(request) {
     if (!request) return;
     const ts = request.techStatus;
-    if (['diagnostico', 'reparando', 'comprando', 'presupuesto_pendiente', 'presupuesto_aprobado', 'completado'].includes(ts)) {
-      advanceTripStep('arrived');
-    } else if (ts === 'en_camino' || ts === 'en_sitio') {
-      advanceTripStep('enroute');
+    let step = 'assigned';
+    if (['diagnostico', 'reparando', 'comprando', 'presupuesto_pendiente', 'presupuesto_aprobado', 'completado', 'en_sitio'].includes(ts)) {
+      step = 'arrived';
+    } else if (ts === 'en_camino') {
+      step = 'enroute';
     } else if (ts === 'aceptado' || ts === 'asignado' || request.providerId) {
-      advanceTripStep('assigned');
+      step = 'assigned';
+    } else {
+      return;
+    }
+    advanceTripStep(step);
+
+    if (lastTripStepAlert === step) return;
+    // Solo alertar en hitos de movimiento (no al asignar, eso ya lo hace showProvider)
+    if (step === 'enroute' || step === 'arrived') {
+      lastTripStepAlert = step;
+      if (step === 'enroute') {
+        if (window.FundezAlerts) FundezAlerts.notify({ type: 'update', title: t('client.js.enroute_alert_title'), body: t('client.js.enroute_home'), tag: 'fundez-enroute' });
+        else FundezNotify.show(t('client.js.enroute_home'), 'info');
+      } else {
+        if (window.FundezAlerts) FundezAlerts.notify({ type: 'update', title: t('client.js.arrived_alert_title'), body: t('client.js.arrived'), tag: 'fundez-arrived' });
+        else FundezNotify.show(t('client.js.arrived'), 'info');
+      }
     }
   }
 
@@ -436,9 +527,18 @@
       banner.classList.add('hidden');
       return;
     }
+    const wasHidden = banner.classList.contains('hidden');
     document.getElementById('budgetBannerText').textContent =
       t('client.js.budget_sent', { amount: fmtCLP(sr.budgetAmount), desc: sr.budgetDescription || '' });
     banner.classList.remove('hidden');
+    if (wasHidden && window.FundezAlerts) {
+      FundezAlerts.notify({
+        type: 'payment',
+        title: t('client.js.budget_alert_title'),
+        body: t('client.js.budget_sent', { amount: fmtCLP(sr.budgetAmount), desc: sr.budgetDescription || '' }),
+        tag: 'fundez-budget-' + (request.id || currentRequestId)
+      });
+    }
   }
 
   function showActivityChangeBanner(request) {
@@ -449,6 +549,7 @@
       banner.classList.add('hidden');
       return;
     }
+    const wasHidden = banner.classList.contains('hidden');
     const label = change.manual ? 'Servicio propuesto por el socio' : 'Cambio de subservicio';
     document.getElementById('activityChangeText').textContent =
       `${label}: ${change.fromActivityName || '—'} → ${change.toActivityName || '—'} · ${fmtCLP(change.proposedTotal)}\n${change.notes || ''}`;
@@ -460,6 +561,15 @@
       photo.classList.add('hidden');
     }
     banner.classList.remove('hidden');
+    if (wasHidden && window.FundezAlerts) {
+      FundezAlerts.notify({
+        type: 'alert',
+        title: t('client.js.activity_change_alert_title'),
+        body: `${label}: ${change.fromActivityName || '—'} → ${change.toActivityName || '—'}`,
+        tag: 'fundez-activity-' + (request.id || currentRequestId),
+        requireInteraction: true
+      });
+    }
   }
 
   function showAdditionalPaymentBanner(request) {
@@ -470,10 +580,20 @@
       banner.classList.add('hidden');
       return;
     }
+    const wasHidden = banner.classList.contains('hidden');
     document.getElementById('additionalPaymentText').textContent =
       `${charge.description || 'Ajuste de servicio'} · ${fmtCLP(charge.amountDue || 0)}`;
     document.getElementById('additionalPaymentLink').href = `/pagos/ajuste?ref=${request.id}`;
     banner.classList.remove('hidden');
+    if (wasHidden && window.FundezAlerts) {
+      FundezAlerts.notify({
+        type: 'payment',
+        title: t('client.js.additional_payment_alert_title'),
+        body: `${charge.description || 'Ajuste de servicio'} · ${fmtCLP(charge.amountDue || 0)}`,
+        tag: 'fundez-addpay-' + (request.id || currentRequestId),
+        requireInteraction: true
+      });
+    }
   }
 
   async function respondBudget(approved) {
@@ -588,43 +708,100 @@
     loaderOverlay.classList.add('hidden');
     providerCard.classList.remove('hidden');
     requestForm.classList.add('hidden');
-    FundezNotify.show(t('client.js.provider_found'), 'success');
+    hideNoProviderChoice();
+    if (trackingLoaderInterval) {
+      clearInterval(trackingLoaderInterval);
+      trackingLoaderInterval = null;
+    }
+    const providerReqId = request?.id || currentRequestId;
+    if (window.FundezAlerts && lastProviderAlertId !== providerReqId) {
+      lastProviderAlertId = providerReqId;
+      FundezAlerts.notify({
+        type: 'order',
+        title: t('client.js.provider_found'),
+        body: provider?.name ? t('client.js.provider_found_body', { name: provider.name }) : t('client.js.provider_found'),
+        tag: 'fundez-provider-' + providerReqId
+      });
+    } else {
+      FundezNotify.show(t('client.js.provider_found'), 'success');
+    }
   }
 
-  function pollForProvider(requestId, attempts = 0) {
-    if (attempts > 30) {
-      loaderOverlay.classList.add('hidden');
-      requestForm.classList.remove('hidden');
-      FundezNotify.show(t('client.js.no_providers_later'), 'warning');
-      return;
+  function pollForProvider(requestId, attempts = 0, startedAt = Date.now()) {
+    if (Date.now() - startedAt > SEARCH_TIMEOUT_MS + 15000) {
+      // El watcher backend ya debió emitir la elección; si no, dejamos el loader
+      // y esperamos el socket (no volvemos al formulario).
+      const sub = document.getElementById('loaderSub');
+      if (sub) sub.textContent = t('client.js.loader_still_searching');
     }
 
     fetch(`/cliente/solicitud/${requestId}`)
       .then(r => r.json())
       .then(data => {
-        if (data.provider) showProvider(data.provider, data.request);
-        else setTimeout(() => pollForProvider(requestId, attempts + 1), 2000);
+        if (data.provider) {
+          hideNoProviderChoice();
+          showProvider(data.provider, data.request);
+          return;
+        }
+        if (data.request?.noProviderDecisionStatus === 'pending') {
+          showNoProviderChoice(data.request);
+          return;
+        }
+        setTimeout(() => pollForProvider(requestId, attempts + 1, startedAt), SEARCH_POLL_MS);
+      })
+      .catch(() => {
+        setTimeout(() => pollForProvider(requestId, attempts + 1, startedAt), SEARCH_POLL_MS);
       });
   }
 
+  let trackingLoaderInterval = null;
+
   function startTracking(requestId) {
     currentRequestId = requestId;
-    const loaderInterval = animateLoader();
-    socket.emit('register_client', requestId);
+    if (window.FundezAlerts) FundezAlerts.ensurePermission();
+    if (trackingLoaderInterval) clearInterval(trackingLoaderInterval);
+    trackingLoaderInterval = animateLoader();
+    const joinRoom = () => socket.emit('register_client', requestId);
+    joinRoom();
+    if (!socket.__fundezClientReconnectBound) {
+      socket.__fundezClientReconnectBound = true;
+      socket.on('connect', () => {
+        if (currentRequestId) socket.emit('register_client', currentRequestId);
+      });
+    }
+
+    socket.off(`request_update_${requestId}`);
     socket.on(`request_update_${requestId}`, (payload) => {
       if (payload.provider) {
-        clearInterval(loaderInterval);
+        if (trackingLoaderInterval) clearInterval(trackingLoaderInterval);
+        hideNoProviderChoice();
         showProvider(payload.provider, payload.request);
       } else if (payload.request) {
+        if (payload.request.noProviderDecisionStatus === 'pending') {
+          if (trackingLoaderInterval) clearInterval(trackingLoaderInterval);
+          showNoProviderChoice(payload.request);
+          return;
+        }
         showBudgetBanner(payload.request);
         showActivityChangeBanner(payload.request);
         showAdditionalPaymentBanner(payload.request);
         syncTripFromRequest(payload.request);
-        if (payload.request.status === 'completed' || payload.request.techStatus === 'completado') {
+        const completed = payload.request.status === 'completed' || payload.request.techStatus === 'completado';
+        if (completed && lastCompletionAlertId !== requestId) {
+          lastCompletionAlertId = requestId;
+          if (window.FundezAlerts) FundezAlerts.notify({
+            type: 'success',
+            title: t('client.js.service_completed_title'),
+            body: t('client.js.service_completed_body'),
+            tag: 'fundez-complete-' + requestId
+          });
+          loadCompletionSummary(requestId);
+        } else if (completed) {
           loadCompletionSummary(requestId);
         }
       }
     });
+    socket.off(`provider_location_${requestId}`);
     socket.on(`provider_location_${requestId}`, (payload) => {
       const destLat = parseFloat(page.dataset.destLat);
       const destLng = parseFloat(page.dataset.destLng);
@@ -745,6 +922,26 @@
   }
 
   btnRequest.addEventListener('click', submitRequest);
+
+  document.getElementById('btnNoProviderContinue')?.addEventListener('click', () => {
+    const id = document.getElementById('noProviderChoicePanel')?.dataset?.requestId || currentRequestId;
+    if (id) submitNoProviderChoice('continue', id);
+  });
+  document.getElementById('btnNoProviderRefund')?.addEventListener('click', () => {
+    const id = document.getElementById('noProviderChoicePanel')?.dataset?.requestId || currentRequestId;
+    if (!id) return;
+    if (!confirm(t('client.js.no_provider_refund_confirm'))) return;
+    submitNoProviderChoice('refund', id);
+  });
+
+  socket.on('no_provider_choice_required', (payload) => {
+    const req = payload?.request;
+    if (req && (!currentRequestId || req.id === currentRequestId)) {
+      if (trackingLoaderInterval) clearInterval(trackingLoaderInterval);
+      showNoProviderChoice(req);
+    }
+  });
+
   document.getElementById('btnRequestSticky')?.addEventListener('click', submitRequest);
 
   const stickyBar = document.getElementById('stickyOrderBar');

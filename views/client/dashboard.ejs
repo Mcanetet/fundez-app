@@ -249,8 +249,15 @@
 
   socket.emit('aland_join', { clientId: '<%= user.id %>' });
   socket.on('no_provider_choice_required', () => {
-    FundezNotify.show('Aland IA necesita que elijas cómo continuar con tu solicitud.', 'warning');
-    setTimeout(() => location.reload(), 800);
+    if (window.FundezAlerts) FundezAlerts.notify({
+      type: 'alert',
+      title: 'Acción requerida',
+      body: 'Aland IA necesita que elijas cómo continuar con tu solicitud.',
+      tag: 'fundez-no-provider',
+      requireInteraction: true
+    });
+    else FundezNotify.show('Aland IA necesita que elijas cómo continuar con tu solicitud.', 'warning');
+    setTimeout(() => location.reload(), 1200);
   });
 
   document.querySelectorAll('[data-no-provider-choice]').forEach((button) => {

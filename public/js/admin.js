@@ -1085,18 +1085,31 @@
 
   const socket = io();
   socket.emit('aland_join', { admin: true });
+  if (window.FundezAlerts) FundezAlerts.ensurePermission();
   socket.on('aland_security_alert', (payload) => {
     const preview = (payload?.preview || '').slice(0, 80);
-    if (window.FundezNotify) {
-      FundezNotify.show(
-        `Alerta Aland IA (${payload?.type || 'seguridad'}): ${preview || payload?.conversationId || ''}`,
-        'warning'
-      );
+    if (window.FundezAlerts) {
+      FundezAlerts.notify({
+        type: 'alert',
+        title: `Alerta Aland IA (${payload?.type || 'seguridad'})`,
+        body: preview || payload?.conversationId || 'Nueva alerta de seguridad',
+        tag: 'fundez-admin-security',
+        requireInteraction: true
+      });
+    } else if (window.FundezNotify) {
+      FundezNotify.show(`Alerta Aland IA (${payload?.type || 'seguridad'}): ${preview || payload?.conversationId || ''}`, 'warning');
     }
   });
   socket.on('aland_payment_alert', (payload) => {
     const preview = (payload?.preview || '').slice(0, 60);
-    if (window.FundezNotify) {
+    if (window.FundezAlerts) {
+      FundezAlerts.notify({
+        type: 'payment',
+        title: 'Pagos Aland IA',
+        body: `${preview || 'Nueva consulta de pagos'} — revisa Mensajes`,
+        tag: 'fundez-admin-payment'
+      });
+    } else if (window.FundezNotify) {
       FundezNotify.show(`Pagos Aland: ${preview || 'Nueva consulta'} — revisa Mensajes`, 'warning');
     }
   });

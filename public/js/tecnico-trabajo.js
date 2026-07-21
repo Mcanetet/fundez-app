@@ -213,13 +213,30 @@
     const btn = document.getElementById('btnCompletar');
     const workNotes = document.getElementById('workNotes').value.trim();
     if (!workNotes) return notify('Escribe el resumen del trabajo', 'warning');
+
+    const checks = [...document.querySelectorAll('#attentionChecklist [data-checklist-id]')];
+    const items = {};
+    let missing = 0;
+    checks.forEach((el) => {
+      items[el.dataset.checklistId] = el.checked;
+      if (!el.checked) missing += 1;
+    });
+    if (missing > 0) {
+      const ok = confirm(`Faltan ${missing} ítem(s) del Procedimiento de atención Fundez. ¿Completar de todos modos?`);
+      if (!ok) return;
+    }
+
     btn.disabled = true;
     try {
       const photoData = await fileToBase64(photoEnd);
       const res = await fetch(`/tecnico/trabajo/${requestId}/completar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ workNotes, photoEnd: photoData })
+        body: JSON.stringify({
+          workNotes,
+          photoEnd: photoData,
+          attentionChecklist: { items, incompleteWarned: missing > 0 }
+        })
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Error');
@@ -265,8 +282,14 @@
   socket.on(`request_update_${requestId}`, (payload) => {
     const r = payload.request;
     if (r?.siteReport?.budgetStatus === 'approved' && r.techStatus === 'presupuesto_aprobado') {
-      notify('¡El cliente aprobó el presupuesto!', 'success');
-      setTimeout(() => location.reload(), 600);
+      if (window.FundezAlerts) FundezAlerts.notify({
+        type: 'payment',
+        title: 'Presupuesto aprobado',
+        body: 'El cliente aprobó el presupuesto. Puedes continuar el trabajo.',
+        tag: 'fundez-budget-approved-' + requestId
+      });
+      else notify('¡El cliente aprobó el presupuesto!', 'success');
+      setTimeout(() => location.reload(), 900);
     }
   });
 })();

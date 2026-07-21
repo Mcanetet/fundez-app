@@ -198,6 +198,18 @@
       <p class="zilo-label mb-1">Paso final · Cierre</p>
       <h2 class="text-sm font-semibold mb-3">Resumen de la visita</h2>
       <div class="space-y-3">
+        <details id="attentionChecklistBox" class="rounded-xl border border-zilo-border bg-zilo-bg/60 p-3" open>
+          <summary class="text-sm font-semibold cursor-pointer text-zilo-accent">Procedimiento de atención Fundez</summary>
+          <p class="text-[11px] text-zilo-muted mt-2 mb-2">Marca lo realizado. No bloquea el cierre, pero si faltan ítems te avisaremos.</p>
+          <div class="space-y-2" id="attentionChecklist">
+            <% (typeof attentionChecklist !== 'undefined' ? attentionChecklist : []).forEach(function(item) { %>
+            <label class="flex items-start gap-2 text-xs text-zilo-text">
+              <input type="checkbox" class="mt-0.5 accent-zilo-accent" data-checklist-id="<%= item.id %>">
+              <span><%= item.label %></span>
+            </label>
+            <% }); %>
+          </div>
+        </details>
         <div>
           <label class="text-xs text-zilo-muted">Trabajo realizado *</label>
           <textarea id="workNotes" rows="4" class="zilo-input w-full mt-1 resize-none" placeholder="Qué hiciste, qué quedó funcionando, recomendaciones..."></textarea>

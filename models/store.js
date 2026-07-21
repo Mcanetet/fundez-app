@@ -3065,7 +3065,7 @@ function addSiteMaterial(requestId, technicianId, { description, amount, receipt
   return { success: true, request, material: sr.materials[sr.materials.length - 1] };
 }
 
-function completeSiteWork(requestId, technicianId, { workNotes, photoEnd }) {
+function completeSiteWork(requestId, technicianId, { workNotes, photoEnd, attentionChecklist } = {}) {
   const request = getRequestForTechnician(requestId, technicianId);
   if (!request) return { error: 'Solicitud no encontrada.' };
 
@@ -3081,6 +3081,13 @@ function completeSiteWork(requestId, technicianId, { workNotes, photoEnd }) {
   const sr = ensureSiteReport(request);
   sr.workNotes = workNotes;
   sr.photoEnd = photoEnd;
+  if (attentionChecklist && typeof attentionChecklist === 'object') {
+    sr.attentionChecklist = {
+      items: attentionChecklist.items || attentionChecklist,
+      completedAt: new Date().toISOString(),
+      incompleteWarned: Boolean(attentionChecklist.incompleteWarned)
+    };
+  }
   request.techStatus = 'completado';
   request.status = 'completed';
   request.completedAt = new Date().toISOString();

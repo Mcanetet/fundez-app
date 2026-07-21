@@ -9,7 +9,7 @@
   </div>
   <% const isAdditionalPayment = typeof additionalPayment !== 'undefined' && additionalPayment; %>
   <h1 class="zilo-display text-3xl mb-2">Pago confirmado</h1>
-  <p class="text-zilo-muted text-sm mb-1"><%= isAdditionalPayment ? 'El ajuste fue pagado y el trabajo puede continuar' : 'Tu visita técnica está en proceso' %></p>
+  <p class="text-zilo-muted text-sm mb-1"><%= isAdditionalPayment ? 'El ajuste fue pagado y el trabajo puede continuar' : 'Estamos buscando un socio verificado (hasta ~10 min). Te avisamos en la app y por Aland IA.' %></p>
   <% if (request) { %>
     <p class="text-zilo-accent font-semibold text-lg mb-6"><%= formatCLP(isAdditionalPayment ? additionalPayment.amountDue : (request.amountDue ?? request.estimatedVisit)) %></p>
 
@@ -84,6 +84,11 @@
     <a href="/cliente/servicio/<%= request.serviceId %>?tracking=<%= request.id %>" class="zilo-btn-primary mb-3">
       Ver estado del servicio
     </a>
+    <% if (!isAdditionalPayment) { %>
+    <button type="button" data-open-aland class="w-full mb-3 py-3 rounded-xl zilo-btn-ghost text-sm font-semibold">
+      Hablar con Aland IA
+    </button>
+    <% } %>
     <a href="/cliente/hogar" class="text-sm text-zilo-accent hover:underline">Ver Pasaporte Hogar</a>
   <% } else { %>
     <a href="/cliente" class="zilo-btn-primary">Volver al inicio</a>

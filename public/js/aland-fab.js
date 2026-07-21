@@ -12,6 +12,7 @@
   let conversationId = null;
   let socket = null;
   let starting = false;
+  let clientId = null;
 
   function escapeHtml(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -39,6 +40,93 @@
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
+  function ensureSocket(joinClientId) {
+    if (!window.io) return null;
+    if (!socket) {
+      socket = io();
+      socket.on('aland_message', (payload) => {
+        if (!payload?.message) return;
+        if (payload.conversationId && conversationId && payload.conversationId !== conversationId) {
+          // Cambio de conversación por journey: adoptar y abrir
+          conversationId = payload.conversationId;
+          messagesEl.innerHTML = '';
+          appendMessage(payload.message);
+          openPanel(true);
+          notifyIncoming(payload.message, true);
+          return;
+        }
+        if (!conversationId || payload.conversationId === conversationId) {
+          if (!conversationId && payload.conversationId) conversationId = payload.conversationId;
+          appendMessage(payload.message);
+          notifyIncoming(payload.message, !panel || panel.classList.contains('hidden'));
+        }
+      });
+      socket.on('journey_update', async (payload) => {
+        if (payload?.conversationId && payload.conversationId !== conversationId) {
+          await adoptConversation(payload.conversationId, payload.message);
+        } else if (payload?.message) {
+          appendMessage(payload.message);
+        }
+        openPanel(true);
+        if (window.FundezAlerts && payload?.message) {
+          FundezAlerts.notify({
+            type: 'message',
+            title: 'Aland IA',
+            body: payload.message.body || 'Actualización de tu servicio',
+            tag: 'fundez-journey',
+            toast: false
+          });
+        }
+      });
+      socket.on('no_provider_choice_required', async (payload) => {
+        if (payload?.conversationId) await adoptConversation(payload.conversationId, payload.message);
+        openPanel(true);
+      });
+    }
+    if (joinClientId || clientId) {
+      clientId = joinClientId || clientId;
+      socket.emit('aland_join', { clientId, conversationId: conversationId || undefined });
+    }
+    return socket;
+  }
+
+  function notifyIncoming(msg, panelHidden) {
+    if (!msg || msg.senderType === 'client' || msg.senderType === 'system') return;
+    if (!window.FundezAlerts) return;
+    FundezAlerts.notify({
+      type: 'message',
+      title: msg.senderName || 'Aland IA',
+      body: msg.body || 'Tienes un mensaje nuevo',
+      tag: 'fundez-aland-msg',
+      system: panelHidden || document.hidden
+    });
+  }
+
+  async function adoptConversation(id, seedMessage) {
+    if (!id) return;
+    conversationId = id;
+    ensureSocket(clientId);
+    if (socket) socket.emit('aland_join', { conversationId: id, clientId });
+    try {
+      const res = await fetch(`/aland/client/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ mode: 'support', conversationId: id })
+      });
+      const data = await res.json();
+      if (data.success && data.messages) {
+        messagesEl.innerHTML = '';
+        data.messages.forEach(appendMessage);
+        return;
+      }
+    } catch (_) { /* fallback seed */ }
+    if (seedMessage) {
+      messagesEl.innerHTML = '';
+      appendMessage(seedMessage);
+    }
+  }
+
   async function startSupportChat() {
     if (conversationId || starting) return;
     starting = true;
@@ -52,18 +140,11 @@
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'No se pudo iniciar Aland IA');
       conversationId = data.conversation.id;
+      clientId = data.conversation.clientId;
       messagesEl.innerHTML = '';
       (data.messages || []).forEach(appendMessage);
-
-      if (window.io) {
-        socket = io();
-        socket.emit('aland_join', { conversationId, clientId: data.conversation.clientId });
-        socket.on('aland_message', (payload) => {
-          if (payload.conversationId === conversationId && payload.message) {
-            appendMessage(payload.message);
-          }
-        });
-      }
+      ensureSocket(clientId);
+      if (socket) socket.emit('aland_join', { conversationId, clientId });
 
       if (!data.openaiConfigured) {
         appendMessage({
@@ -77,9 +158,10 @@
     }
   }
 
-  async function openPanel() {
+  async function openPanel(skipStart) {
     panel.classList.remove('hidden');
-    if (!conversationId) {
+    if (window.FundezAlerts) FundezAlerts.ensurePermission();
+    if (!conversationId && !skipStart) {
       try {
         await startSupportChat();
       } catch (err) {
@@ -92,6 +174,12 @@
 
   function closePanel() {
     panel.classList.add('hidden');
+  }
+
+  // Escuchar journey incluso con el panel cerrado
+  if (window.io) {
+    const presetClientId = root.dataset.clientId || null;
+    ensureSocket(presetClientId);
   }
 
   toggle?.addEventListener('click', () => {
@@ -130,7 +218,6 @@
     }
   });
 
-  // Enlaces de soporte / concierge → abrir Aland
   document.addEventListener('click', (e) => {
     const a = e.target.closest('[data-open-aland], a[href="#aland-support"], #whatsappSupport, a[data-support-aland]');
     if (!a) return;
@@ -139,7 +226,7 @@
   });
 
   if (/[?&]aland=1\b/.test(location.search) || location.hash === '#aland-support') {
-    setTimeout(openPanel, 300);
+    setTimeout(() => openPanel(), 300);
   }
 
   window.FundezOpenAland = openPanel;

@@ -73,7 +73,11 @@
 
   function startRepeatingAlert() {
     stopRepeatingAlert();
-    alertInterval = setInterval(playAlertSound, 2500);
+    if (window.FundezAlerts) FundezAlerts.vibrate('order');
+    alertInterval = setInterval(() => {
+      playAlertSound();
+      if (window.FundezAlerts) FundezAlerts.vibrate('order');
+    }, 2500);
   }
 
   function stopRepeatingAlert() {
@@ -346,7 +350,13 @@
     });
 
     socket.on(`tecnico_assignment_${tecnicoId}`, () => {
-      setTimeout(() => location.reload(), 600);
+      if (window.FundezAlerts) FundezAlerts.notify({
+        type: 'order',
+        title: t('tecnico.js.push_title'),
+        body: t('tecnico.js.assignment_body'),
+        tag: 'fundez-tec-assignment'
+      });
+      setTimeout(() => location.reload(), 900);
     });
   }
 
@@ -368,7 +378,8 @@
       statusDot.className = 'w-3 h-3 rounded-full bg-zilo-success shadow-lg shadow-zilo-success/40 animate-pulse';
       statusText.textContent = t('tecnico.online');
       statusSub.textContent = t('tecnico.online_sub');
-      if (typeof Notification !== 'undefined' && Notification.permission === 'default') Notification.requestPermission();
+      if (window.FundezAlerts) FundezAlerts.ensurePermission();
+      else if (typeof Notification !== 'undefined' && Notification.permission === 'default') Notification.requestPermission();
       loadWorkWall();
       notify(data.synced > 0 ? t('provider.js.new_on_wall', { count: data.synced }) : t('tecnico.js.online_activated'), 'success');
     } else {

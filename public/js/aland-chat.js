@@ -50,6 +50,17 @@
       socket.on('aland_message', (payload) => {
         if (payload.conversationId === conversationId && payload.message) {
           appendMessage(payload.message);
+          const msg = payload.message;
+          const panelHidden = !panel || panel.classList.contains('hidden');
+          if (msg.senderType && msg.senderType !== 'client' && msg.senderType !== 'system' && window.FundezAlerts) {
+            FundezAlerts.notify({
+              type: 'message',
+              title: msg.senderName || 'Aland IA',
+              body: msg.body || 'Tienes un mensaje nuevo',
+              tag: 'fundez-aland-msg',
+              system: panelHidden || document.hidden
+            });
+          }
         }
       });
     }

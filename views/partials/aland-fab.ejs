@@ -1,6 +1,6 @@
 <!-- FAB + panel flotante Aland IA (soporte cliente) -->
 <% if (typeof user !== 'undefined' && user && user.role === 'client' && typeof mod === 'function' && mod('client_aland')) { %>
-<div id="alandFabRoot" class="fixed bottom-24 right-5 z-40 flex flex-col items-end gap-2" data-aland-fab>
+<div id="alandFabRoot" class="fixed bottom-24 right-5 z-40 flex flex-col items-end gap-2" data-aland-fab data-client-id="<%= user.id %>">
   <div id="alandFabPanel" class="hidden w-[min(100vw-2rem,22rem)] rounded-2xl border border-violet-200 bg-white shadow-xl overflow-hidden mb-1">
     <div class="flex items-center justify-between px-3 py-2.5 bg-violet-600 text-white">
       <div>

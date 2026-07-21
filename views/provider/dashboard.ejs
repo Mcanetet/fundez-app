@@ -319,18 +319,19 @@
 
 <%- include('../partials/guide-modal', {
   role: 'provider',
-  title: 'Guía del técnico',
+  title: 'Procedimiento de atención Fundez',
   steps: [
-    { title: 'Activar modo en línea', body: 'Usa el interruptor superior para ponerte en línea. Solo así recibirás solicitudes de clientes en tu zona y especialidad.', tip: 'Si cierras la app, vuelve a activarte al regresar.' },
-    { title: 'Recibir solicitudes', body: 'Las solicitudes aparecen en el muro de trabajos y en un aviso emergente. El primero que la toma se la queda — no hay límite de 15 segundos.', tip: 'Activa las notificaciones del navegador para escuchar alertas fuertes.' },
-    { title: 'Servicios de regalo', body: 'Si el cliente regaló la visita, verás el badge "Regalo" con el nombre del beneficiario, teléfono y mensaje. La dirección es donde se realizará el trabajo.', tip: 'El cliente pagó la visita; atiende al beneficiario indicado.' },
-    { title: 'Ejecutar el servicio', body: 'Tras aceptar, el trabajo aparece en "En curso". Actualiza el estado: En camino → y al terminar pulsa Completar.', tip: 'Completar el servicio actualiza el Pasaporte Hogar del cliente.' },
-    { title: 'Verificación Fundez', body: 'Antes de ponerte en línea debes subir tu carnet (frente y reverso), pasar la verificación facial con la cámara y activar el permiso de ubicación. Opcionalmente puedes subir certificados de estudios.', tip: 'Los clientes ven tus sellos de confianza y tu ubicación en tiempo real durante el servicio.' },
-    { title: 'Tu perfil', body: 'En Perfil editas correo, teléfono y biografía que ven los clientes. Las especialidades las asigna Fundez.', tip: 'Mantén correo y teléfono actualizados para que el cliente pueda contactarte.' }
+    { title: 'Activar modo en línea', body: 'Usa el interruptor superior para ponerte en línea. Solo así recibirás solicitudes. Activa las notificaciones del navegador (sonido y vibración).', tip: 'Si cierras la app, vuelve a activarte al regresar.' },
+    { title: 'Recibir y tomar trabajos', body: 'Las solicitudes aparecen en el muro y en un aviso. El primero que la toma se la queda. Revisa dirección, notas y fotos antes de aceptar.', tip: 'No prometas horarios que no puedas cumplir.' },
+    { title: 'Procedimiento en domicilio (nivel europeo)', body: '1) Puntualidad o aviso de demora. 2) Preséntate con nombre y Fundez. 3) Pide permiso de ingreso. 4) Explica el diagnóstico. 5) Pide aprobación antes de cualquier sobrecosto. 6) Foto de inicio y de cierre. 7) Deja el área limpia. 8) Despídete y pide calificación en la app.', tip: 'El técnico usa el checklist en la pantalla de trabajo.' },
+    { title: 'Servicios de regalo', body: 'Si el cliente regaló la visita, verás el badge "Regalo" con beneficiario y teléfono. Atiende a quien está en la dirección.', tip: 'El cliente pagó la visita; el beneficiario es quien recibe el servicio.' },
+    { title: 'Estados del servicio', body: 'Tras aceptar: En camino → En sitio → Diagnóstico → (presupuesto si aplica) → Completar. Actualiza cada estado a tiempo para que Aland IA informe al cliente.', tip: 'Completar actualiza el Pasaporte Hogar del cliente.' },
+    { title: 'Verificación y perfil', body: 'Carnet, rostro y ubicación son obligatorios para ir en línea. Mantén correo y teléfono actualizados.', tip: 'Los clientes ven tus sellos de confianza.' }
   ],
   extras: [
-    { title: 'Historial', body: 'Revisa tus trabajos recientes en el panel. El rating y reseñas mejoran tu visibilidad en nuevas asignaciones.' },
-    { title: 'Fuera de línea', body: 'Si no puedes atender, desactiva el modo en línea. No recibirás nuevas solicitudes hasta que vuelvas a activarte.' }
+    { title: 'Sin sesgos ni promesas', body: 'No asumas capacidad de pago ni urgencia inventada. Informa hechos: tiempos reales, costos y opciones.' },
+    { title: 'Fuera de línea', body: 'Si no puedes atender, desactiva el modo en línea. No recibirás nuevas solicitudes hasta reactivarte.' },
+    { title: 'Historial', body: 'Revisa trabajos recientes. Rating y reseñas mejoran tu visibilidad.' }
   ]
 }) %>
 
