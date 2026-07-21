@@ -66,6 +66,21 @@ public/             → CSS, JS, iconos SVG
 - Privacidad / DPD: **privacidad@fundez.cl**
 - Consentimiento de datos (Ley 21.719)
 - Auditoría de ciberseguridad
+- Florencia IA: estrategia, agenda editorial, imágenes, email marketing y publicación con aprobación humana
+
+### Conectar Florencia IA
+
+Florencia usa `OPENAI_API_KEY` para texto e imágenes. Las redes se habilitan con
+variables seguras del servidor (ver `.env.example`):
+
+- Meta: página de Facebook, cuenta Instagram Business vinculada y token con permisos de publicación.
+- LinkedIn: organización, OAuth y permiso `w_organization_social`.
+- X: token OAuth de usuario con `tweet.write` (no sirve un token app-only).
+- TikTok: requiere Content Posting API y auditoría antes de publicar contenido público.
+- Email: SMTP configurado; solo se envía a clientes con consentimiento de marketing vigente.
+
+Toda pieza queda en “Por aprobar”. Al aprobarla, el scheduler la publica en su
+fecha; el administrador también puede publicarla inmediatamente.
 
 ## Legal
 

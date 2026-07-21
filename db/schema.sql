@@ -307,6 +307,26 @@ CREATE TABLE IF NOT EXISTS coverage_regions (
   INDEX idx_coverage_regions_enabled (enabled)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS florencia_marketing_items (
+  id VARCHAR(64) PRIMARY KEY,
+  kind VARCHAR(32) NOT NULL DEFAULT 'content',
+  title VARCHAR(220) NOT NULL,
+  channel VARCHAR(32) NOT NULL,
+  status VARCHAR(32) NOT NULL DEFAULT 'draft',
+  scheduled_at DATETIME NULL,
+  content LONGTEXT NOT NULL,
+  image_url VARCHAR(1024) NULL,
+  external_id VARCHAR(512) NULL,
+  error TEXT NULL,
+  approved_by VARCHAR(64) NULL,
+  approved_at DATETIME NULL,
+  published_at DATETIME NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  INDEX idx_florencia_status_date (status, scheduled_at),
+  INDEX idx_florencia_channel (channel)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 ALTER TABLE users ADD COLUMN address_lat DECIMAL(10, 7) NULL;
 ALTER TABLE users ADD COLUMN address_lng DECIMAL(10, 7) NULL;
 ALTER TABLE users ADD COLUMN address_place_id VARCHAR(32) NULL;

@@ -33,6 +33,7 @@ const events = require('../lib/events');
 const { adminUrl, getPublicStatus, canToggleModeFromAdmin, isProductionMode } = require('../lib/appMode');
 const appModeStore = require('../lib/appModeStore');
 const { resolveAdminAccess, hasFullSystemAccess } = require('../lib/adminPermissions');
+const florencia = require('../lib/florencia');
 
 router.use(adminIpAllowlist());
 router.use(attachAdminAccess);
@@ -328,6 +329,7 @@ router.get('/', requireRole('admin'), async (req, res) => {
     adminProfiles: getProfilesList(),
     adminPermissionGroups: getPermissionGroups(),
     managedUsers: store.getManagedUsers({ limit: 30 }),
+    florenciaConnections: florencia.connectionsStatus(),
     canAccessPanel: (panelId) => canAccessPanel(access, panelId),
     initialTab
   });
@@ -339,6 +341,112 @@ router.get('/', requireRole('admin'), async (req, res) => {
       message: 'No se pudo cargar el panel de administración. Si acabas de actualizar, redeploya la app completa en Hostinger.',
       code: 500
     });
+  }
+});
+
+// ——— Florencia IA: marketing con aprobación humana ———
+
+router.get('/florencia/items', requireRole('admin'), requireAdminPermission('florencia.view'), async (req, res) => {
+  try {
+    const items = await florencia.listItems({
+      status: req.query.status || undefined,
+      channel: req.query.channel || undefined,
+      limit: req.query.limit || 200
+    });
+    res.json({ success: true, items, connections: florencia.connectionsStatus() });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/florencia/generate-plan', requireRole('admin'), requireAdminPermission('florencia.manage'), async (req, res) => {
+  try {
+    const result = await florencia.generatePlan(store, {
+      objective: req.body.objective,
+      audience: req.body.audience,
+      budget: req.body.budget,
+      days: req.body.days
+    });
+    store.logSecurityEvent('florencia_plan_generated', `${result.items.length} piezas`, req);
+    req.app.get('io')?.to('aland_admin').emit('florencia_update', { type: 'plan', count: result.items.length });
+    res.json({ success: true, ...result });
+    if (req.body.autoImages !== false && req.body.autoImages !== 'false') {
+      const io = req.app.get('io');
+      (async () => {
+        for (const item of result.items.filter((entry) => entry.content?.imagePrompt)) {
+          try {
+            const updated = await florencia.generateImage(item);
+            io?.to('aland_admin').emit('florencia_update', { type: 'image', item: updated });
+          } catch (imageError) {
+            console.error(`[florencia-image] ${item.id}:`, imageError.message);
+          }
+        }
+      })().catch(() => {});
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/florencia/items/:id/image', requireRole('admin'), requireAdminPermission('florencia.manage'), async (req, res) => {
+  try {
+    const item = await florencia.getItem(req.params.id);
+    if (!item) return res.status(404).json({ success: false, error: 'Pieza no encontrada' });
+    const updated = await florencia.generateImage(item);
+    res.json({ success: true, item: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.put('/florencia/items/:id', requireRole('admin'), requireAdminPermission('florencia.manage'), async (req, res) => {
+  try {
+    const content = req.body.content && typeof req.body.content === 'object'
+      ? req.body.content
+      : undefined;
+    const item = await florencia.updateItem(req.params.id, {
+      title: req.body.title,
+      channel: req.body.channel,
+      scheduledAt: req.body.scheduledAt,
+      content
+    });
+    if (!item) return res.status(404).json({ success: false, error: 'Pieza no encontrada' });
+    res.json({ success: true, item });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/florencia/items/:id/approve', requireRole('admin'), requireAdminPermission('florencia.approve'), async (req, res) => {
+  try {
+    const item = await florencia.setStatus(req.params.id, 'approved', {
+      approvedBy: req.session.user.id,
+      approvedAt: new Date()
+    });
+    res.json({ success: true, item });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/florencia/items/:id/reject', requireRole('admin'), requireAdminPermission('florencia.approve'), async (req, res) => {
+  try {
+    const item = await florencia.setStatus(req.params.id, 'rejected', {
+      error: String(req.body.reason || 'Rechazada por administración').slice(0, 1000)
+    });
+    res.json({ success: true, item });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/florencia/items/:id/publish', requireRole('admin'), requireAdminPermission('florencia.publish'), async (req, res) => {
+  try {
+    const item = await florencia.publishItem(req.params.id, store);
+    store.logSecurityEvent('florencia_item_published', `${item.channel}:${item.id}`, req);
+    res.json({ success: true, item });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
   }
 });
 

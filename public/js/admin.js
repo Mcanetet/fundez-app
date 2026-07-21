@@ -19,6 +19,7 @@
     reclamos: 'Reclamos',
     whatsapp: 'WhatsApp',
     aland: 'Aland IA',
+    florencia: 'Florencia IA',
     mensajes: 'Mensajes',
     usuarios: 'Clientes y socios',
     datos: 'Datos',
@@ -1947,6 +1948,217 @@
     loadAlandAdmin();
     loadMensajesList();
     setInterval(loadMensajesList, 45000);
+  }
+
+  /* ——— Florencia IA ——— */
+  const florenciaAgenda = document.getElementById('florenciaAgenda');
+  const florenciaForm = document.getElementById('florenciaPlanForm');
+  const florenciaFilter = document.getElementById('florenciaStatusFilter');
+  const canFlorenciaManage = florenciaAgenda?.dataset.canManage === '1';
+  const canFlorenciaApprove = florenciaAgenda?.dataset.canApprove === '1';
+  const canFlorenciaPublish = florenciaAgenda?.dataset.canPublish === '1';
+
+  function florenciaDate(value) {
+    if (!value) return 'Sin fecha';
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? 'Sin fecha' : d.toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  function florenciaStatusLabel(status) {
+    return {
+      draft: 'Borrador',
+      pending_approval: 'Por aprobar',
+      approved: 'Aprobado',
+      publishing: 'Publicando',
+      published: 'Publicado',
+      rejected: 'Rechazado',
+      failed: 'Error'
+    }[status] || status;
+  }
+
+  function renderFlorenciaAgenda(items, connections = {}) {
+    if (!florenciaAgenda) return;
+    const strategyBox = document.getElementById('florenciaStrategy');
+    const strategy = items.find((item) => item.content?.strategy)?.content?.strategy;
+    if (strategyBox && strategy) {
+      const list = (label, values) => Array.isArray(values) && values.length
+        ? `<div><p class="text-[10px] uppercase text-gray-500">${label}</p><p class="text-xs">${values.map(escapeHtml).join(' · ')}</p></div>`
+        : '';
+      strategyBox.innerHTML = `<p class="text-sm font-semibold mb-2">Plan estratégico de Florencia</p>
+        ${strategy.positioning ? `<p class="text-xs text-gray-700 mb-3">${escapeHtml(strategy.positioning)}</p>` : ''}
+        <div class="grid sm:grid-cols-2 gap-3">
+          ${list('Objetivos', strategy.objectives)}
+          ${list('Audiencias', strategy.audiences)}
+          ${list('Pilares', strategy.pillars)}
+          ${list('Indicadores', strategy.kpis)}
+        </div>`;
+      strategyBox.classList.remove('hidden');
+    } else {
+      strategyBox?.classList.add('hidden');
+    }
+    if (!items.length) {
+      florenciaAgenda.innerHTML = '<div class="p-5 rounded-2xl border border-dashed border-gray-300 text-center text-xs text-gray-500">Florencia todavía no creó piezas. Genera el primer plan.</div>';
+      return;
+    }
+    florenciaAgenda.innerHTML = items.map((item) => {
+      const c = item.content || {};
+      const hashtags = (c.hashtags || []).map((h) => `#${String(h).replace(/^#/, '')}`).join(' ');
+      const image = item.imageUrl
+        ? `<img src="${escapeHtml(item.imageUrl)}" alt="" class="w-full sm:w-36 h-36 object-cover rounded-xl border border-gray-200 shrink-0">`
+        : '<div class="w-full sm:w-36 h-24 sm:h-36 rounded-xl bg-gradient-to-br from-fuchsia-100 to-violet-100 flex items-center justify-center text-xs text-fuchsia-700 shrink-0">Imagen pendiente</div>';
+      const manage = canFlorenciaManage && item.status !== 'published'
+        ? `<button data-florencia-image="${item.id}" class="px-2.5 py-1.5 rounded-lg border border-fuchsia-200 text-fuchsia-700 text-xs">${item.imageUrl ? 'Regenerar imagen' : 'Generar imagen'}</button>
+           <button data-florencia-edit="${item.id}" class="px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs">Editar</button>`
+        : '';
+      const approve = canFlorenciaApprove && item.status === 'pending_approval'
+        ? `<button data-florencia-approve="${item.id}" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs">Aprobar</button>
+           <button data-florencia-reject="${item.id}" class="px-2.5 py-1.5 rounded-lg border border-red-200 text-red-700 text-xs">Rechazar</button>`
+        : '';
+      const publish = canFlorenciaPublish && item.status === 'approved' && connections[item.channel]
+        ? `<button data-florencia-publish="${item.id}" class="px-2.5 py-1.5 rounded-lg bg-fuchsia-600 text-white text-xs">Publicar ahora</button>`
+        : (item.status === 'approved' && !connections[item.channel]
+          ? '<span class="text-[10px] text-amber-700 self-center">Aprobada · descarga/carga manual o configura la conexión</span>'
+          : '');
+      return `<article class="p-4 rounded-2xl bg-zilo-card border border-gray-200" data-florencia-item="${item.id}">
+        <div class="flex flex-col sm:flex-row gap-4">
+          ${image}
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap justify-between gap-2 mb-2">
+              <div>
+                <span class="text-[10px] uppercase font-semibold text-fuchsia-700">${escapeHtml(item.channel)}</span>
+                <h4 class="text-sm font-semibold">${escapeHtml(item.title)}</h4>
+              </div>
+              <div class="text-right">
+                <span class="text-[10px] px-2 py-1 rounded-full bg-gray-100">${escapeHtml(florenciaStatusLabel(item.status))}</span>
+                <p class="text-[10px] text-gray-500 mt-1">${escapeHtml(florenciaDate(item.scheduledAt))}</p>
+              </div>
+            </div>
+            ${c.subject ? `<p class="text-xs font-semibold mb-1">Asunto: ${escapeHtml(c.subject)}</p>` : ''}
+            <p class="text-xs text-gray-700 whitespace-pre-wrap mb-2">${escapeHtml(c.copy || '')}</p>
+            ${c.cta ? `<p class="text-xs font-semibold text-zilo-accent">${escapeHtml(c.cta)}</p>` : ''}
+            ${hashtags ? `<p class="text-[11px] text-fuchsia-700 mt-1">${escapeHtml(hashtags)}</p>` : ''}
+            ${item.error ? `<p class="text-[11px] text-red-600 mt-2">${escapeHtml(item.error)}</p>` : ''}
+            <div class="flex flex-wrap gap-2 mt-3">${manage}${approve}${publish}</div>
+          </div>
+        </div>
+      </article>`;
+    }).join('');
+  }
+
+  async function loadFlorenciaAgenda() {
+    if (!florenciaAgenda) return;
+    const status = florenciaFilter?.value || '';
+    try {
+      const res = await adminFetch(`/florencia/items${status ? `?status=${encodeURIComponent(status)}` : ''}`, {
+        headers: { Accept: 'application/json' }
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'No se pudo cargar');
+      renderFlorenciaAgenda(data.items || [], data.connections || {});
+    } catch (err) {
+      florenciaAgenda.innerHTML = `<p class="text-xs text-red-600">${escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  florenciaForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = florenciaForm.querySelector('button[type="submit"]');
+    button.disabled = true;
+    button.textContent = 'Florencia está creando el plan…';
+    try {
+      const form = new FormData(florenciaForm);
+      const payload = Object.fromEntries(form.entries());
+      payload.autoImages = form.has('autoImages');
+      const res = await adminFetch('/florencia/generate-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'No se pudo generar');
+      FundezNotify.show(`Florencia creó ${data.items?.length || 0} piezas para aprobación`, 'success');
+      await loadFlorenciaAgenda();
+    } catch (err) {
+      FundezNotify.show(err.message || 'Error al generar el plan', 'error');
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Generar estrategia y agenda';
+    }
+  });
+
+  florenciaAgenda?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button');
+    if (!button) return;
+    const id = button.dataset.florenciaImage
+      || button.dataset.florenciaApprove
+      || button.dataset.florenciaReject
+      || button.dataset.florenciaPublish
+      || button.dataset.florenciaEdit;
+    if (!id) return;
+
+    if (button.dataset.florenciaEdit) {
+      const card = button.closest('[data-florencia-item]');
+      const copy = prompt('Edita el texto de la pieza:', card?.querySelector('.whitespace-pre-wrap')?.textContent || '');
+      if (copy == null) return;
+      button.disabled = true;
+      try {
+        const currentRes = await adminFetch(`/florencia/items?id=${encodeURIComponent(id)}`);
+        const currentData = await currentRes.json();
+        const item = (currentData.items || []).find((x) => x.id === id);
+        const res = await adminFetch(`/florencia/items/${encodeURIComponent(id)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: { ...(item?.content || {}), copy } })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || 'No se pudo editar');
+        await loadFlorenciaAgenda();
+      } catch (err) {
+        FundezNotify.show(err.message, 'error');
+        button.disabled = false;
+      }
+      return;
+    }
+
+    let endpoint;
+    if (button.dataset.florenciaImage) endpoint = 'image';
+    if (button.dataset.florenciaApprove) endpoint = 'approve';
+    if (button.dataset.florenciaReject) endpoint = 'reject';
+    if (button.dataset.florenciaPublish) {
+      if (!confirm('¿Publicar/enviar esta pieza ahora? Esta acción usa la conexión real configurada.')) return;
+      endpoint = 'publish';
+    }
+    let body = {};
+    if (endpoint === 'reject') {
+      const reason = prompt('Motivo del rechazo:');
+      if (reason == null) return;
+      body = { reason };
+    }
+    button.disabled = true;
+    const original = button.textContent;
+    button.textContent = endpoint === 'image' ? 'Generando…' : 'Procesando…';
+    try {
+      const res = await adminFetch(`/florencia/items/${encodeURIComponent(id)}/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'No se pudo completar');
+      FundezNotify.show(endpoint === 'publish' ? 'Pieza publicada' : 'Pieza actualizada', 'success');
+      await loadFlorenciaAgenda();
+    } catch (err) {
+      FundezNotify.show(err.message, 'error');
+      button.disabled = false;
+      button.textContent = original;
+    }
+  });
+
+  florenciaFilter?.addEventListener('change', loadFlorenciaAgenda);
+  document.getElementById('btnFlorenciaReload')?.addEventListener('click', loadFlorenciaAgenda);
+  if (florenciaAgenda) {
+    loadFlorenciaAgenda();
+    socket.on('florencia_update', loadFlorenciaAgenda);
   }
 
   document.querySelectorAll('.btn-retry-dte').forEach((btn) => {

@@ -1562,6 +1562,82 @@ function hasPerm(key) {
       <% } %>
     </section>
 
+    <!-- FLORENCIA IA -->
+    <section class="<%= panelClass('florencia') %>" data-panel="florencia">
+      <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div>
+          <p class="zilo-label text-fuchsia-700 mb-1">Directora de marketing</p>
+          <h3 class="text-xl font-semibold">Florencia IA</h3>
+          <p class="text-xs text-gray-500 mt-1">Crea estrategia, agenda, textos, imágenes y email marketing. Nada se publica sin tu aprobación.</p>
+        </div>
+        <span class="px-3 py-1.5 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/25 text-xs font-semibold text-fuchsia-700">Aprobación humana obligatoria</span>
+      </div>
+
+      <div class="p-4 rounded-2xl bg-zilo-card border border-gray-200 mb-4">
+        <p class="text-sm font-semibold mb-3">Conexiones oficiales</p>
+        <div id="florenciaConnections" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          <% ['instagram','facebook','linkedin','x','tiktok','email'].forEach(function(channel) { const connected = florenciaConnections && florenciaConnections[channel]; %>
+          <div class="p-2.5 rounded-xl border <%= connected ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200' %>">
+            <p class="text-xs font-semibold capitalize"><%= channel %></p>
+            <p class="text-[10px] <%= connected ? 'text-emerald-700' : 'text-gray-500' %>"><%= connected ? 'Conectado' : (channel === 'tiktok' ? 'Requiere auditoría oficial' : 'Falta configurar') %></p>
+          </div>
+          <% }); %>
+        </div>
+        <p class="text-[11px] text-gray-500 mt-3">Las credenciales se guardan como variables seguras del servidor; nunca se muestran en el panel.</p>
+      </div>
+
+      <% if (hasPerm('florencia.manage')) { %>
+      <form id="florenciaPlanForm" class="p-4 rounded-2xl bg-gradient-to-br from-fuchsia-50 to-violet-50 border border-fuchsia-200 mb-4 space-y-3">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="text-sm font-semibold">Crear plan de marketing</p>
+            <p class="text-[11px] text-gray-500">Florencia analizará los servicios y generará una agenda completa.</p>
+          </div>
+          <select name="days" class="px-3 py-2 rounded-xl bg-white border border-gray-200 text-sm">
+            <option value="14">14 días</option>
+            <option value="30" selected>30 días</option>
+            <option value="60">60 días</option>
+            <option value="90">90 días</option>
+          </select>
+        </div>
+        <input name="objective" class="w-full px-3 py-2 rounded-xl bg-white border border-gray-200 text-sm" placeholder="Objetivo: captar clientes, lanzar servicio, retención…" required>
+        <input name="audience" class="w-full px-3 py-2 rounded-xl bg-white border border-gray-200 text-sm" placeholder="Audiencia: hogares, administradores de edificios…">
+        <input name="budget" class="w-full px-3 py-2 rounded-xl bg-white border border-gray-200 text-sm" placeholder="Presupuesto y restricciones">
+        <label class="flex items-center gap-2 text-xs text-gray-700">
+          <input type="checkbox" name="autoImages" value="true" checked class="accent-fuchsia-600">
+          Generar automáticamente las imágenes de las piezas (usa OpenAI Images)
+        </label>
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-fuchsia-600 text-white text-sm font-semibold">Generar estrategia y agenda</button>
+      </form>
+      <% } %>
+
+      <div id="florenciaStrategy" class="hidden p-4 rounded-2xl bg-zilo-card border border-gray-200 mb-4"></div>
+
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div>
+          <p class="text-sm font-semibold">Agenda editorial</p>
+          <p class="text-[11px] text-gray-500">Edita, genera imagen, aprueba y publica cada pieza.</p>
+        </div>
+        <div class="flex gap-2">
+          <select id="florenciaStatusFilter" class="px-2 py-1.5 rounded-lg bg-zilo-bg border border-gray-200 text-xs">
+            <option value="">Todos</option>
+            <option value="pending_approval">Pendientes</option>
+            <option value="approved">Aprobados</option>
+            <option value="published">Publicados</option>
+            <option value="failed">Con error</option>
+            <option value="rejected">Rechazados</option>
+          </select>
+          <button type="button" id="btnFlorenciaReload" class="px-3 py-1.5 rounded-lg border border-gray-200 text-xs">Actualizar</button>
+        </div>
+      </div>
+      <div id="florenciaAgenda" class="space-y-3"
+        data-can-manage="<%= hasPerm('florencia.manage') ? '1' : '0' %>"
+        data-can-approve="<%= hasPerm('florencia.approve') ? '1' : '0' %>"
+        data-can-publish="<%= hasPerm('florencia.publish') ? '1' : '0' %>">
+        <p class="text-xs text-gray-500">Cargando agenda…</p>
+      </div>
+    </section>
+
     <!-- MENSAJES -->
     <section class="<%= panelClass('mensajes') %>" data-panel="mensajes">
       <h3 class="text-lg font-semibold mb-1"><%= t('admin.mensajes.title') %></h3>

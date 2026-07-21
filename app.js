@@ -300,6 +300,9 @@ async function initDatabase() {
     try {
       await store.init();
       global.__ziloInitError = null;
+      const florencia = require('./lib/florencia');
+      await florencia.ensureSchema();
+      florencia.startScheduler(store, io);
       await aland.ensureConfig();
       await aland.syncKnowledgeFromApp(store);
       await backup.ensureStartupBackup(store);
