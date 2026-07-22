@@ -1,24 +1,53 @@
 <%- include('../partials/head') %>
+<% const isObserver = typeof observerMode !== 'undefined' && observerMode; %>
+<% const chatBase = typeof chatApiBase !== 'undefined' ? chatApiBase : '/tecnico'; %>
 
 <div class="max-w-lg mx-auto min-h-screen flex flex-col zilo-page-enter" id="trabajoPage"
   data-request-id="<%= request.id %>"
   data-tech-status="<%= request.techStatus %>"
-  data-return-url="<%= typeof returnUrl !== 'undefined' ? returnUrl : '/tecnico' %>">
+  data-return-url="<%= typeof returnUrl !== 'undefined' ? returnUrl : '/tecnico' %>"
+  data-observer="<%= isObserver ? '1' : '0' %>"
+  data-chat-base="<%= chatBase %>"
+  data-dest-lat="<%= request.coords && request.coords.lat != null ? request.coords.lat : '' %>"
+  data-dest-lng="<%= request.coords && request.coords.lng != null ? request.coords.lng : '' %>">
 
   <header class="sticky top-0 z-50 bg-zilo-bg/90 backdrop-blur-xl border-b border-zilo-border px-5 py-4">
     <div class="flex items-center gap-3">
       <a href="<%= typeof returnUrl !== 'undefined' ? returnUrl : '/tecnico' %>" class="zilo-icon-btn" title="Volver">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
       </a>
-      <div class="min-w-0">
-        <p class="zilo-label !text-[9px]">Visita en terreno</p>
+      <div class="min-w-0 flex-1">
+        <p class="zilo-label !text-[9px]"><%= isObserver ? 'Vista del socio' : 'Visita en terreno' %></p>
         <h1 class="text-base font-semibold truncate"><%= request.serviceName %></h1>
       </div>
+      <button type="button" id="btnOpenFieldChat" class="zilo-icon-btn !text-zilo-accent" title="Chat con el cliente" aria-label="Chat">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      </button>
     </div>
   </header>
 
-  <main class="flex-1 px-5 py-5 pb-10 space-y-4">
-  <!-- Info cliente -->
+  <main class="flex-1 px-5 py-5 pb-28 space-y-4">
+    <% if (isObserver) { %>
+      <div class="p-3 rounded-2xl border border-zilo-accent/25 bg-zilo-accent/5">
+        <p class="text-sm font-semibold text-zilo-accent">Modo supervisión</p>
+        <p class="text-xs text-zilo-muted mt-0.5">Ves lo mismo que el técnico en terreno. Puedes chatear con el cliente como <strong>Socio Fundez</strong>. Las acciones de visita las ejecuta el técnico.</p>
+        <% if (request.technicianName) { %>
+          <p class="text-[11px] text-zilo-muted mt-2">Técnico asignado: <strong><%= request.technicianName %></strong></p>
+        <% } else { %>
+          <p class="text-[11px] text-amber-700 mt-2">Aún sin técnico asignado.</p>
+        <% } %>
+      </div>
+    <% } %>
+
+    <section class="zilo-card-premium rounded-2xl p-4 overflow-hidden">
+      <div class="flex items-center justify-between mb-2">
+        <p class="zilo-label !text-[9px]">Ubicación en vivo</p>
+        <span id="fieldLiveBadge" class="text-[10px] text-zilo-muted">Esperando GPS…</span>
+      </div>
+      <div id="fieldMap" class="w-full h-44 rounded-xl overflow-hidden border border-zilo-border bg-zilo-bg"></div>
+      <p class="text-[11px] text-zilo-muted mt-2">El cliente ve el avance del técnico en el mapa de su pedido.</p>
+    </section>
+
     <section class="zilo-card-premium rounded-2xl p-4">
       <div class="flex justify-between items-start mb-2">
         <div>
@@ -259,6 +288,36 @@
       <a href="<%= typeof returnUrl !== 'undefined' ? returnUrl : '/tecnico' %>" class="mt-4 block w-full text-center py-3 rounded-xl zilo-btn-primary">Volver al panel</a>
     </section>
   </main>
+
+  <div class="fixed bottom-0 inset-x-0 z-40 pointer-events-none">
+    <div class="max-w-lg mx-auto px-5 pb-5 pointer-events-auto">
+      <button type="button" id="btnOpenFieldChatFab" class="w-full py-3.5 rounded-2xl zilo-btn-primary shadow-lg flex items-center justify-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        Mensajes con el cliente
+      </button>
+    </div>
+  </div>
 </div>
 
-<%- include('../partials/footer', { pageScript: '/js/tecnico-trabajo.js' }) %>
+<div id="jobChatModal" class="fixed inset-0 z-[80] hidden">
+  <div class="absolute inset-0 bg-black/40" data-role="chat-backdrop"></div>
+  <div class="absolute inset-x-0 bottom-0 max-w-lg mx-auto bg-white rounded-t-3xl border border-zilo-border shadow-xl flex flex-col" style="max-height: 85vh;">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-zilo-border">
+      <div>
+        <p class="zilo-label !text-[9px]">Chat del servicio</p>
+        <h2 id="jobChatTitle" class="text-sm font-semibold">Cliente</h2>
+        <p class="text-[10px] text-zilo-muted mt-0.5">Escribes como <%= isObserver ? 'Socio Fundez' : 'Técnico Fundez' %></p>
+      </div>
+      <button type="button" class="zilo-icon-btn" data-role="chat-close" aria-label="Cerrar">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="jobChatThread" class="flex-1 overflow-y-auto px-5 py-4 space-y-2 min-h-[220px]"></div>
+    <form id="jobChatForm" class="p-4 border-t border-zilo-border flex gap-2">
+      <input id="jobChatInput" type="text" maxlength="1000" autocomplete="off" placeholder="Escribe al cliente…" class="zilo-input flex-1 !py-2.5 text-sm">
+      <button type="submit" class="zilo-btn-primary !py-2.5 !px-4 !text-sm shrink-0">Enviar</button>
+    </form>
+  </div>
+</div>
+
+<%- include('../partials/footer', { pageScript: '/js/tecnico-trabajo.js', extraScripts: ['/js/map.js'] }) %>

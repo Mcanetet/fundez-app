@@ -6,6 +6,7 @@ const { requireRole, requireVerifiedEmail } = require('../middleware/auth');
 const { requireModule } = require('../middleware/modules');
 const { saveRequestFile } = require('../lib/uploads');
 const { getTechnicianOnboardingSteps, ATTENTION_CHECKLIST } = require('../lib/onboarding');
+const { serializeFieldJob } = require('../lib/fieldJob');
 
 router.use(requireRole('tecnico'), requireVerifiedEmail);
 
@@ -25,26 +26,7 @@ function getTechLabels(t) {
 }
 
 function serializeJob(request) {
-  const service = store.getServiceById(request.serviceId);
-  return {
-    id: request.id,
-    serviceId: request.serviceId,
-    serviceName: request.serviceName || (service ? service.name : request.serviceId),
-    activityId: request.activityId || null,
-    activityName: request.activityName || null,
-    clientName: request.clientName || '—',
-    address: request.address || '',
-    notes: request.notes || '',
-    clientPhotoUrl: request.clientPhotoUrl || null,
-    clientBrandPhotoUrl: request.clientBrandPhotoUrl || null,
-    brandNotVisible: Boolean(request.brandNotVisible),
-    status: request.status,
-    techStatus: request.techStatus || 'asignado',
-    siteReport: request.siteReport || null,
-    coords: request.coords || null,
-    isGift: !!request.isGift,
-    beneficiaryName: request.beneficiaryName || null
-  };
+  return serializeFieldJob(store, request);
 }
 
 router.get('/', requireRole('tecnico'), (req, res) => {
@@ -79,11 +61,31 @@ router.get('/trabajo/:requestId', requireRole('tecnico'), (req, res) => {
     user: req.session.user,
     tecnico,
     request: serializeJob(request),
-    returnUrl: req.session.user.role === 'provider' ? '/proveedor/mando' : '/tecnico',
+    returnUrl: '/tecnico',
+    observerMode: false,
+    chatApiBase: '/tecnico',
     techLabels: getTechLabels(req.t),
     formatCLP: store.formatCLP,
     attentionChecklist: ATTENTION_CHECKLIST
   });
+});
+
+router.get('/chat/:requestId', requireRole('tecnico'), (req, res) => {
+  const result = store.getRequestChat(req.params.requestId, req.session.user);
+  if (result.error) return res.status(result.error === 'No autorizado' ? 403 : 404).json(result);
+  res.json(result);
+});
+
+router.post('/chat/:requestId', requireRole('tecnico'), (req, res) => {
+  const result = store.postRequestChatMessage(req.params.requestId, req.session.user, req.body?.body || req.body?.message);
+  if (result.error) return res.status(400).json(result);
+  const io = req.app.get('io');
+  io.emit(`request_chat_${result.requestId}`, { message: result.message });
+  io.emit(`request_update_${result.requestId}`, {
+    request: store.requests.find((r) => r.id === result.requestId),
+    chatMessage: result.message
+  });
+  res.json(result);
 });
 
 router.get('/muro', requireRole('tecnico'), (req, res) => {

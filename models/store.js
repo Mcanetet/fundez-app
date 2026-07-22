@@ -1980,6 +1980,7 @@ async function createTechnician(socioId, { name, email, password, phone, special
     name,
     role: 'tecnico',
     parentId: socioId,
+    parentIds: [socioId],
     phone: (phone || '').trim() || null,
     specialties: cleanSpecialties,
     rating: null,
@@ -2019,12 +2020,51 @@ async function createTechnician(socioId, { name, email, password, phone, special
   return { success: true, tecnico };
 }
 
+function getTechnicianParentIds(tecnico) {
+  if (!tecnico) return [];
+  const list = [];
+  if (Array.isArray(tecnico.parentIds)) list.push(...tecnico.parentIds);
+  if (tecnico.parentId) list.push(tecnico.parentId);
+  return [...new Set(list.map((id) => String(id || '').trim()).filter(Boolean))];
+}
+
+function technicianBelongsToProvider(tecnico, socioId) {
+  if (!tecnico || tecnico.role !== 'tecnico' || !socioId) return false;
+  return getTechnicianParentIds(tecnico).includes(socioId);
+}
+
 function getTechniciansByProvider(socioId) {
-  return USERS.filter(u => u.role === 'tecnico' && u.parentId === socioId);
+  return USERS.filter((u) => technicianBelongsToProvider(u, socioId));
 }
 
 function getTechnicianForProvider(socioId, tecnicoId) {
-  return USERS.find(u => u.id === tecnicoId && u.role === 'tecnico' && u.parentId === socioId) || null;
+  return USERS.find((u) => u.id === tecnicoId && technicianBelongsToProvider(u, socioId)) || null;
+}
+
+/** Vincula un técnico existente (por correo) a otro socio. */
+function linkTechnicianToProvider(socioId, { email, specialties } = {}) {
+  const socio = getUserById(socioId);
+  if (!socio || socio.role !== 'provider') return { error: 'Cuenta de socio no válida.' };
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized) return { error: 'Ingresa el correo del técnico.' };
+  const tecnico = USERS.find((u) => u.role === 'tecnico' && String(u.email || '').toLowerCase() === normalized);
+  if (!tecnico) return { error: 'No existe un técnico con ese correo. Créalo o pídele que se registre con otro socio primero.' };
+  if (technicianBelongsToProvider(tecnico, socioId)) {
+    return { error: 'Este técnico ya forma parte de tu equipo.' };
+  }
+  const ids = getTechnicianParentIds(tecnico);
+  ids.push(socioId);
+  tecnico.parentIds = ids;
+  if (!tecnico.parentId) tecnico.parentId = socioId;
+
+  if (specialties) {
+    const wanted = filterSpecialtiesToProvider(socio, specialties);
+    const current = Array.isArray(tecnico.specialties) ? tecnico.specialties : [];
+    tecnico.specialties = [...new Set([...current, ...wanted])];
+  }
+
+  repository.persist(() => repository.saveUser(tecnico), `vincular técnico ${tecnico.id} → ${socioId}`);
+  return { success: true, tecnico };
 }
 
 function ensureTechnicianDossier(tecnico) {
@@ -2441,9 +2481,11 @@ function getOnlineTechnicians(serviceId) {
     if (u.role !== 'tecnico' || !u.online || u.active === false) return false;
     if (!Array.isArray(u.specialties) || !u.specialties.includes(serviceId)) return false;
     if (!canTechnicianOperate(u).ok) return false;
-    const socio = u.parentId ? getUserById(u.parentId) : null;
-    if (!socio || !Array.isArray(socio.specialties) || !socio.specialties.includes(serviceId)) return false;
-    return true;
+    const parentIds = getTechnicianParentIds(u);
+    return parentIds.some((pid) => {
+      const socio = getUserById(pid);
+      return socio && Array.isArray(socio.specialties) && socio.specialties.includes(serviceId);
+    });
   });
 }
 
@@ -2459,12 +2501,14 @@ function getWorkWallItems(userId) {
         return hasTechnicianCoverage(user.id, r.serviceId);
       }
       if (user.role === 'tecnico') {
-        if (user.parentId && r.clientId === user.parentId) return false;
+        const parentIds = getTechnicianParentIds(user);
+        if (parentIds.includes(r.clientId)) return false;
         if (!canTechnicianOperate(user).ok) return false;
-        const socio = user.parentId ? getUserById(user.parentId) : null;
-        if (!socio || !Array.isArray(socio.specialties) || !socio.specialties.includes(r.serviceId)) {
-          return false;
-        }
+        const hasSocioCoverage = parentIds.some((pid) => {
+          const socio = getUserById(pid);
+          return socio && Array.isArray(socio.specialties) && socio.specialties.includes(r.serviceId);
+        });
+        if (!hasSocioCoverage) return false;
       }
       return true;
     })
@@ -2483,8 +2527,11 @@ function tryAcceptRequest(requestId, userId) {
   if (request.clientId === userId) {
     return { error: 'No puedes tomar tu propia solicitud' };
   }
-  if (user.role === 'tecnico' && user.parentId && request.clientId === user.parentId) {
-    return { error: 'No puedes tomar una solicitud de tu propio socio' };
+  if (user.role === 'tecnico') {
+    const parentIds = getTechnicianParentIds(user);
+    if (parentIds.includes(request.clientId)) {
+      return { error: 'No puedes tomar una solicitud de tu propio socio' };
+    }
   }
 
   if (user.role === 'provider') {
@@ -2503,14 +2550,14 @@ function tryAcceptRequest(requestId, userId) {
     if (!Array.isArray(user.specialties) || !user.specialties.includes(request.serviceId)) {
       return { error: 'No tienes esta especialidad' };
     }
-    if (!user.parentId) return { error: 'Sin socio asignado' };
+    const parentIds = getTechnicianParentIds(user);
+    if (!parentIds.length) return { error: 'Sin socio asignado' };
     const operational = canTechnicianOperate(user);
     if (!operational.ok) return { error: `Expediente incompleto: ${operational.missing.join(', ')}` };
-    const socio = getUserById(user.parentId);
-    if (!socio) return { error: 'Socio no encontrado' };
-    if (!Array.isArray(socio.specialties) || !socio.specialties.includes(request.serviceId)) {
-      return { error: 'Tu socio no ofrece este servicio actualmente.' };
-    }
+    const socio = parentIds
+      .map((id) => getUserById(id))
+      .find((s) => s && Array.isArray(s.specialties) && s.specialties.includes(request.serviceId));
+    if (!socio) return { error: 'Ninguno de tus socios ofrece este servicio actualmente.' };
 
     request.providerId = socio.id;
     request.technicianId = user.id;
@@ -2578,8 +2625,16 @@ function canAccessRequestChat(request, user) {
   if (user.role === 'client' && request.clientId === user.id) return true;
   if (user.role === 'provider' && request.providerId === user.id) return true;
   if (user.role === 'tecnico' && request.technicianId === user.id) return true;
-  if (user.role === 'tecnico' && user.parentId && request.providerId === user.parentId) return true;
+  if (user.role === 'tecnico' && technicianBelongsToProvider(user, request.providerId)) return true;
   return false;
+}
+
+function chatDisplayName(senderType) {
+  if (senderType === 'provider') return 'Socio Fundez';
+  if (senderType === 'tecnico') return 'Técnico Fundez';
+  if (senderType === 'client') return 'Cliente';
+  if (senderType === 'system') return 'Fundez';
+  return 'Fundez';
 }
 
 function getRequestChat(requestId, user) {
@@ -2592,7 +2647,7 @@ function getRequestChat(requestId, user) {
     requestId: request.id,
     messages: request.chatMessages,
     peerName: user.role === 'client'
-      ? (getUserById(request.providerId)?.name || 'Socio')
+      ? (request.technicianId ? 'Técnico Fundez' : 'Socio Fundez')
       : (getUserById(request.clientId)?.name || request.clientName || 'Cliente')
   };
 }
@@ -2608,7 +2663,7 @@ function postRequestChatMessage(requestId, user, body) {
   const message = appendChatMessage(request, {
     senderType,
     senderId: user.id,
-    senderName: user.name,
+    senderName: chatDisplayName(senderType),
     body
   });
   if (!message) return { error: 'Escribe un mensaje.' };
@@ -2864,6 +2919,39 @@ function updateTechStatus(requestId, technicianId, techStatus) {
 
 function getRequestForTechnician(requestId, technicianId) {
   return requests.find(r => r.id === requestId && r.technicianId === technicianId) || null;
+}
+
+function getRequestForProvider(requestId, providerId) {
+  return requests.find((r) => r.id === requestId && r.providerId === providerId) || null;
+}
+
+function getLiveTrackingLocation(request) {
+  if (!request) return null;
+  if (request.technicianId) {
+    const tech = getUserById(request.technicianId);
+    if (tech?.locationShare?.lat != null && tech.locationShare.lng != null) {
+      return {
+        lat: tech.locationShare.lat,
+        lng: tech.locationShare.lng,
+        updatedAt: tech.locationShare.updatedAt || null,
+        actor: 'tecnico',
+        label: 'Técnico Fundez'
+      };
+    }
+  }
+  if (request.providerId) {
+    const provider = getUserById(request.providerId);
+    if (provider?.locationShare?.lat != null && provider.locationShare.lng != null) {
+      return {
+        lat: provider.locationShare.lat,
+        lng: provider.locationShare.lng,
+        updatedAt: provider.locationShare.updatedAt || null,
+        actor: 'provider',
+        label: 'Socio Fundez'
+      };
+    }
+  }
+  return null;
 }
 
 function ensureSiteReport(request) {
@@ -4099,6 +4187,9 @@ module.exports = {
   registerUser,
   createTechnician,
   getTechniciansByProvider,
+  linkTechnicianToProvider,
+  technicianBelongsToProvider,
+  getTechnicianParentIds,
   getTechnicianForProvider,
   canTechnicianOperate,
   saveTechnicianDocument,
@@ -4141,6 +4232,8 @@ module.exports = {
   assignTechnician,
   updateTechStatus,
   getRequestForTechnician,
+  getRequestForProvider,
+  getLiveTrackingLocation,
   recordSiteArrival,
   setSiteAction,
   submitSiteBudget,

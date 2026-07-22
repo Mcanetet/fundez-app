@@ -169,22 +169,28 @@
       <% } else { %>
         <div class="space-y-2">
           <% myRequests.forEach(req => { %>
-            <div class="flex justify-between items-center p-4 rounded-xl zilo-card-premium">
-              <div class="min-w-0 flex-1">
-                <strong class="text-sm block"><%= req.serviceName %></strong>
-                <span class="text-xs text-zilo-muted block truncate"><%= req.clientName %></span>
-                <span class="text-[10px] text-zilo-muted"><%= formatDate(req.createdAt, { day: 'numeric', month: 'short' }) %></span>
+            <div class="p-4 rounded-xl zilo-card-premium">
+              <div class="flex justify-between items-start gap-3">
+                <div class="min-w-0 flex-1">
+                  <strong class="text-sm block"><%= req.serviceName %></strong>
+                  <span class="text-xs text-zilo-muted block truncate"><%= req.clientName %></span>
+                  <span class="text-[10px] text-zilo-muted"><%= formatDate(req.createdAt, { day: 'numeric', month: 'short' }) %></span>
+                </div>
+                <div class="text-right shrink-0">
+                  <span class="zilo-badge zilo-badge-muted block mb-1"><%= req.statusLabel || req.status %></span>
+                  <% if (req.providerPayout != null) { %>
+                    <span class="text-xs text-zilo-success font-medium block"><%= formatCLP(req.providerPayout) %></span>
+                  <% } %>
+                </div>
               </div>
-              <div class="text-right shrink-0 ml-3">
-                <span class="zilo-badge zilo-badge-muted block mb-1"><%= req.statusLabel || req.status %></span>
-                <% if (req.providerPayout != null) { %>
-                  <span class="text-xs text-zilo-success font-medium block"><%= formatCLP(req.providerPayout) %></span>
-                <% } %>
-                <% if (req.status === 'completed' && req.financialsVisible && req.financialsVisible.completed) { %>
+              <% if (['assigned', 'in_progress'].includes(req.status)) { %>
+                <a href="/proveedor/trabajo/<%= req.id %>" class="mt-3 block text-center zilo-btn-primary !py-2.5 !text-sm">Abrir pedido · chat y terreno</a>
+              <% } %>
+              <% if (req.status === 'completed' && req.financialsVisible && req.financialsVisible.completed) { %>
                   <% const fin = req.financialsVisible; %>
-                  <details class="mt-1 text-left">
+                  <details class="mt-2 text-left">
                     <summary class="text-[10px] text-zilo-muted cursor-pointer"><%= t('provider.settlement') %></summary>
-                    <div class="text-[10px] text-zilo-muted mt-1 space-y-0.5 max-w-[11rem]">
+                    <div class="text-[10px] text-zilo-muted mt-1 space-y-0.5">
                       <p><%= t('provider.settlement_charged') %>: <%= formatCLP(fin.grandTotal) %></p>
                       <p><%= t('provider.settlement_app') %> <%= Math.round((fin.laborCommissionRate || 0) * 100) %>%: −<%= formatCLP(fin.laborCommission) %></p>
                       <% if (fin.materialsCommission) { %><p><%= t('provider.settlement_materials') %>: −<%= formatCLP(fin.materialsCommission) %></p><% } %>
@@ -194,43 +200,9 @@
                       <p class="text-zilo-success font-medium"><%= t('provider.js.your_payout') %>: <%= formatCLP(fin.providerPayout) %></p>
                     </div>
                   </details>
-                  <% const jobVoucher = (req.vouchers || []).find(v => v.phase === 'job_settlement'); %>
-                  <% if (jobVoucher) { %>
-                    <a href="<%= jobVoucher.url %>" target="_blank" class="text-[10px] text-zilo-accent underline block mt-1">Voucher del trabajo</a>
-                  <% } %>
-                  <% if (req.payoutScheduledDate) { %>
-                    <p class="text-[10px] text-zilo-muted mt-1">Pago: <strong><%= req.payoutScheduledLabel || req.payoutScheduledDate %></strong></p>
-                  <% } %>
-                  <% if (req.providerInvoicePlan) { %>
-                    <details class="mt-2 text-left max-w-[13rem]">
-                      <summary class="text-[10px] text-zilo-accent cursor-pointer">Facturación al cliente</summary>
-                      <div class="mt-2 p-2 rounded-lg bg-zilo-bg border border-zilo-border text-[10px] space-y-1">
-                        <p>Debes emitir: <strong><%= formatCLP(req.providerInvoicePlan.amount) %></strong></p>
-                        <p>Cliente: <%= req.providerInvoicePlan.recipient.legalName %></p>
-                        <p>RUT: <%= req.providerInvoicePlan.recipient.rut || 'Consumidor final' %></p>
-                        <p>Email: <%= req.providerInvoicePlan.recipient.invoiceEmail || '—' %></p>
-                        <% if (req.providerInvoicePlan.status === 'issued') { %>
-                          <p class="text-zilo-success font-medium"><%= req.providerInvoicePlan.documentType %> N° <%= req.providerInvoicePlan.folio %> registrada</p>
-                          <% if (req.providerInvoicePlan.url) { %><a href="<%= req.providerInvoicePlan.url %>" target="_blank" class="text-zilo-accent underline">Ver documento</a><% } %>
-                        <% } else { %>
-                          <div class="space-y-1 pt-1 provider-invoice-form" data-request-id="<%= req.id %>">
-                            <select class="zilo-input !py-1 !text-[10px]" data-role="invoice-type">
-                              <option value="boleta">Boleta</option>
-                              <option value="factura">Factura</option>
-                            </select>
-                            <input class="zilo-input !py-1 !text-[10px]" data-role="invoice-folio" placeholder="Folio emitido">
-                            <input type="file" accept="image/*,application/pdf" data-role="invoice-file" class="block w-full text-[9px]">
-                            <button type="button" class="zilo-btn-ghost !py-1 !text-[10px] w-full" data-role="register-invoice">Registrar emisión</button>
-                          </div>
-                        <% } %>
-                        <p class="text-[9px] text-zilo-muted">Emítelo en tu sistema tributario con tu RUT. Fundez no emite por terceros.</p>
-                      </div>
-                    </details>
-                  <% } %>
-                <% } else if (req.status !== 'completed' && req.providerPayout != null) { %>
-                  <p class="text-[9px] text-zilo-muted mt-0.5"><%= t('provider.payout_until_complete') %></p>
-                <% } %>
-              </div>
+              <% } else if (req.providerPayout != null && req.status !== 'completed') { %>
+                <p class="text-[10px] text-zilo-muted mt-2"><%= t('provider.payout_until_complete') %></p>
+              <% } %>
             </div>
           <% }); %>
         </div>

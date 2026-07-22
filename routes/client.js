@@ -448,6 +448,16 @@ router.get('/solicitud/:id', requireRole('client'), (req, res) => {
   let provider = null;
   if (request.providerId) {
     provider = store.getPublicProviderProfile(store.getUserById(request.providerId));
+    const live = store.getLiveTrackingLocation(request);
+    if (provider && live) {
+      provider.location = {
+        lat: live.lat,
+        lng: live.lng,
+        updatedAt: live.updatedAt,
+        actor: live.actor,
+        label: live.label
+      };
+    }
   }
   res.json({ request: store.enrichRequestForClient(request, req.locale || 'es'), provider });
 });

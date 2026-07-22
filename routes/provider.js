@@ -19,6 +19,8 @@ const {
 } = require('../lib/contracts');
 const company = require('../config/company');
 const { CONSENT_DEFINITIONS, POLICY_VERSION } = require('../lib/consent-policy');
+const { serializeFieldJob } = require('../lib/fieldJob');
+const { ATTENTION_CHECKLIST } = require('../lib/onboarding');
 
 router.use(requireRole('provider'), requireVerifiedEmail);
 
@@ -390,6 +392,30 @@ router.post('/servicios', requireRole('provider'), requireModule('provider_equip
   res.json({ success: true, specialties: result.specialties, services: result.services });
 });
 
+router.post('/equipo/vincular', requireRole('provider'), requireModule('provider_equipo'), (req, res) => {
+  const result = store.linkTechnicianToProvider(req.session.user.id, {
+    email: req.body.email,
+    specialties: req.body.specialties
+  });
+  if (result.error) {
+    const provider = store.getUserById(req.session.user.id);
+    return res.status(400).render('provider/equipo', {
+      title: 'Servicios y equipo — Fundez',
+      user: req.session.user,
+      provider,
+      technicians: store.getTechniciansByProvider(provider.id).map((tecnico) => ({
+        ...tecnico,
+        dossierCheck: store.canTechnicianOperate(tecnico)
+      })),
+      serviceStatus: store.getProviderServicesStatus(provider.id),
+      services: store.SERVICES,
+      error: result.error
+    });
+  }
+  store.logSecurityEvent('tecnico_vinculado', result.tecnico.email, req);
+  res.redirect('/proveedor/equipo');
+});
+
 router.post('/equipo', requireRole('provider'), requireModule('provider_equipo'), async (req, res) => {
   const { name, email, password, phone } = req.body;
   const rawSpecs = req.body.specialties || [];
@@ -466,6 +492,37 @@ router.get('/mando', requireRole('provider'), requireModule('provider_mando'), (
     workflowStep: 3,
     services: store.SERVICES,
     formatCLP: store.formatCLP
+  });
+});
+
+router.get('/trabajo/:requestId', requireRole('provider'), requireModule('provider_mando'), (req, res) => {
+  const request = store.getRequestForProvider(req.params.requestId, req.session.user.id);
+  if (!request) return res.redirect('/proveedor/mando');
+
+  const techLabels = {
+    asignado: req.t('status.tech.asignado'),
+    aceptado: req.t('status.tech.aceptado'),
+    en_camino: req.t('status.tech.en_camino'),
+    en_sitio: req.t('status.tech.en_sitio'),
+    diagnostico: req.t('status.tech.diagnostico_label'),
+    reparando: req.t('status.tech.reparando'),
+    comprando: req.t('status.tech.comprando'),
+    presupuesto_pendiente: req.t('status.tech.presupuesto_pendiente'),
+    presupuesto_aprobado: req.t('status.tech.presupuesto_aprobado'),
+    completado: req.t('status.tech.completado')
+  };
+
+  res.render('tecnico/trabajo', {
+    title: 'Pedido en terreno — Fundez',
+    user: req.session.user,
+    tecnico: request.technicianId ? store.getUserById(request.technicianId) : null,
+    request: serializeFieldJob(store, request),
+    returnUrl: '/proveedor/mando',
+    observerMode: true,
+    chatApiBase: '/proveedor',
+    techLabels,
+    formatCLP: store.formatCLP,
+    attentionChecklist: ATTENTION_CHECKLIST
   });
 });
 

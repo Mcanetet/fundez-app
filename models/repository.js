@@ -173,6 +173,7 @@ const SEED_USERS = [
     name: 'Luis Demo',
     role: 'tecnico',
     parentId: 'provider-pedro',
+    parentIds: ['provider-pedro'],
     phone: '+56 9 2234 5679',
     specialties: demoServiceIds(),
     rating: 4.7,
@@ -303,6 +304,15 @@ function parseJson(value, fallback) {
   }
 }
 
+function normalizeParentIds(raw, primaryId) {
+  const fromJson = Array.isArray(raw)
+    ? raw
+    : (typeof raw === 'string' ? parseJson(raw, []) : []);
+  const list = [...(Array.isArray(fromJson) ? fromJson : [])];
+  if (primaryId) list.unshift(primaryId);
+  return [...new Set(list.map((id) => String(id || '').trim()).filter(Boolean))];
+}
+
 function rowToUser(row) {
   const user = {
     id: row.id,
@@ -311,6 +321,7 @@ function rowToUser(row) {
     name: row.name,
     role: row.role,
     parentId: row.parent_id || null,
+    parentIds: normalizeParentIds(row.parent_ids, row.parent_id),
     phone: row.phone,
     address: row.address,
     addressLat: row.address_lat != null ? Number(row.address_lat) : null,
@@ -371,6 +382,9 @@ function userToRow(user) {
     name: user.name,
     role: user.role,
     parent_id: user.parentId || null,
+    parent_ids: JSON.stringify(
+      normalizeParentIds(user.parentIds, user.parentId)
+    ),
     phone: user.phone || null,
     address: user.address || null,
     address_lat: user.addressLat ?? null,
@@ -567,7 +581,25 @@ async function migrate() {
 
   await ensurePromoExtraColumns();
   await ensureUserClientEnabledColumn();
+  await ensureUserParentIdsColumn();
   await ensureAlandMonitorColumns();
+}
+
+async function ensureUserParentIdsColumn() {
+  try {
+    await db.raw('ALTER TABLE users ADD COLUMN parent_ids JSON DEFAULT NULL');
+  } catch (err) {
+    if (err.code !== 'ER_DUP_FIELDNAME') throw err;
+  }
+  try {
+    await db.query(
+      `UPDATE users
+       SET parent_ids = JSON_ARRAY(parent_id)
+       WHERE role = 'tecnico'
+         AND parent_id IS NOT NULL
+         AND (parent_ids IS NULL OR parent_ids = CAST('null' AS JSON) OR JSON_LENGTH(parent_ids) = 0)`
+    );
+  } catch (_) { /* entornos sin JSON_LENGTH o sin filas */ }
 }
 
 async function ensureAlandMonitorColumns() {
@@ -1085,19 +1117,20 @@ async function saveUser(user) {
   const row = userToRow(user);
   await db.query(
     `INSERT INTO users (
-      id, email, password, name, role, parent_id, phone, address, address_lat, address_lng, address_place_id, referral_code,
+      id, email, password, name, role, parent_id, parent_ids, phone, address, address_lat, address_lng, address_place_id, referral_code,
       zilo_points, credits_clp, referrals_count, services_count,
       used_welcome_promo, used_referral, member_since,
       onboarding_completed, onboarding_completed_at,
       specialties, rating, reviews_count, online, avatar, bio, reviews, verification, location_share, billing, mfa, admin_access, provider_contract, active,
       email_verified_at, email_verification_code_hash, email_verification_expires_at, email_verification_sent_at, client_enabled
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       email = VALUES(email),
       password = VALUES(password),
       name = VALUES(name),
       role = VALUES(role),
       parent_id = VALUES(parent_id),
+      parent_ids = VALUES(parent_ids),
       phone = VALUES(phone),
       address = VALUES(address),
       address_lat = VALUES(address_lat),
@@ -1133,7 +1166,7 @@ async function saveUser(user) {
       email_verification_sent_at = VALUES(email_verification_sent_at),
       client_enabled = VALUES(client_enabled)`,
     [
-      row.id, row.email, row.password, row.name, row.role, row.parent_id, row.phone, row.address, row.address_lat, row.address_lng, row.address_place_id, row.referral_code,
+      row.id, row.email, row.password, row.name, row.role, row.parent_id, row.parent_ids, row.phone, row.address, row.address_lat, row.address_lng, row.address_place_id, row.referral_code,
       row.zilo_points, row.credits_clp, row.referrals_count, row.services_count,
       row.used_welcome_promo ? 1 : 0, row.used_referral ? 1 : 0, row.member_since,
       row.onboarding_completed ? 1 : 0, row.onboarding_completed_at,

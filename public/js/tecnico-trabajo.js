@@ -291,5 +291,163 @@
       else notify('¡El cliente aprobó el presupuesto!', 'success');
       setTimeout(() => location.reload(), 900);
     }
+    if (payload?.chatMessage) appendChat(payload.chatMessage);
   });
+
+  const isObserver = page.dataset.observer === '1';
+  const chatBase = page.dataset.chatBase || '/tecnico';
+  const myChatRole = isObserver ? 'provider' : 'tecnico';
+  const chatModal = document.getElementById('jobChatModal');
+  const chatThread = document.getElementById('jobChatThread');
+  const chatTitle = document.getElementById('jobChatTitle');
+  const chatForm = document.getElementById('jobChatForm');
+  const chatInput = document.getElementById('jobChatInput');
+
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function formatTime(iso) {
+    try {
+      return new Date(iso).toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function renderChatMsg(msg) {
+    const isSystem = msg.senderType === 'system';
+    const isMine = !isSystem && msg.senderType === myChatRole;
+    const cls = isSystem ? 'job-chat-bubble--system' : (isMine ? 'job-chat-bubble--mine' : 'job-chat-bubble--theirs');
+    const meta = isSystem ? '' : `<span class="job-chat-meta">${escapeHtml(msg.senderName || '')} · ${escapeHtml(formatTime(msg.createdAt))}</span>`;
+    return `<div class="job-chat-bubble ${cls}" data-msg-id="${escapeHtml(msg.id)}">${meta}${escapeHtml(msg.body)}</div>`;
+  }
+
+  function appendChat(msg) {
+    if (!chatThread || !msg?.id) return;
+    if (chatThread.querySelector(`[data-msg-id="${msg.id}"]`)) return;
+    chatThread.insertAdjacentHTML('beforeend', renderChatMsg(msg));
+    chatThread.scrollTop = chatThread.scrollHeight;
+  }
+
+  async function openChat() {
+    if (!chatModal) return;
+    chatModal.classList.remove('hidden');
+    try {
+      const res = await fetch(`${chatBase}/chat/${requestId}`);
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'No se pudo abrir el chat');
+      if (chatTitle && data.peerName) chatTitle.textContent = data.peerName;
+      if (chatThread) {
+        chatThread.innerHTML = (data.messages || []).map(renderChatMsg).join('')
+          || '<p class="text-xs text-zilo-muted text-center">Coordina llegada, acceso y detalles del servicio.</p>';
+        chatThread.scrollTop = chatThread.scrollHeight;
+      }
+      socket.emit('register_client', requestId);
+      chatInput?.focus();
+    } catch (err) {
+      notify(err.message || 'No se pudo abrir el chat', 'error');
+      chatModal.classList.add('hidden');
+    }
+  }
+
+  function closeChat() {
+    chatModal?.classList.add('hidden');
+  }
+
+  document.getElementById('btnOpenFieldChat')?.addEventListener('click', openChat);
+  document.getElementById('btnOpenFieldChatFab')?.addEventListener('click', openChat);
+  chatModal?.querySelector('[data-role="chat-close"]')?.addEventListener('click', closeChat);
+  chatModal?.querySelector('[data-role="chat-backdrop"]')?.addEventListener('click', closeChat);
+  socket.on(`request_chat_${requestId}`, (payload) => {
+    if (payload?.message) appendChat(payload.message);
+  });
+
+  chatForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = chatInput?.value.trim();
+    if (!body) return;
+    chatInput.value = '';
+    try {
+      const res = await fetch(`${chatBase}/chat/${requestId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ body })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'No se pudo enviar');
+      appendChat(data.message);
+    } catch (err) {
+      notify(err.message || 'No se pudo enviar', 'error');
+    }
+  });
+
+  if (isObserver) {
+    document.querySelectorAll('#trabajoPage button, #trabajoPage input, #trabajoPage textarea, #trabajoPage select')
+      .forEach((el) => {
+        if (el.closest('#jobChatModal') || el.id === 'btnOpenFieldChat' || el.id === 'btnOpenFieldChatFab') return;
+        if (el.closest('a')) return;
+        el.disabled = true;
+      });
+  }
+
+  // Mapa + GPS en vivo (técnico envía; socio solo observa)
+  const destLat = parseFloat(page.dataset.destLat);
+  const destLng = parseFloat(page.dataset.destLng);
+  const mapEl = document.getElementById('fieldMap');
+  const liveBadge = document.getElementById('fieldLiveBadge');
+  if (mapEl && typeof FundezMap !== 'undefined' && !isNaN(destLat) && !isNaN(destLng)) {
+    FundezMap.initTracking(mapEl, {
+      destLat,
+      destLng,
+      destLabel: 'Domicilio',
+      providerLat: null,
+      providerLng: null
+    });
+  }
+
+  if (!isObserver && navigator.geolocation) {
+    navigator.geolocation.watchPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        if (liveBadge) {
+          liveBadge.textContent = 'En vivo · Técnico Fundez';
+          liveBadge.className = 'text-[10px] text-zilo-success font-medium';
+        }
+        if (typeof FundezMap !== 'undefined' && !isNaN(destLat)) {
+          FundezMap.updateProviderLocation('fieldMap', lat, lng, destLat, destLng);
+        }
+        fetch('/tecnico/ubicacion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat, lng, requestId })
+        }).catch(() => {});
+      },
+      () => {
+        if (liveBadge) liveBadge.textContent = 'Activa el GPS para que el cliente te vea';
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+    );
+  } else if (isObserver && liveBadge) {
+    liveBadge.textContent = 'Supervisión · el técnico envía su ubicación';
+  }
+
+  socket.on(`provider_location_${requestId}`, (payload) => {
+    if (!payload || payload.lat == null) return;
+    if (liveBadge) {
+      liveBadge.textContent = payload.etaMinutes
+        ? `En vivo · ETA ${payload.etaMinutes} min`
+        : 'En vivo';
+      liveBadge.className = 'text-[10px] text-zilo-success font-medium';
+    }
+    if (typeof FundezMap !== 'undefined' && !isNaN(destLat)) {
+      FundezMap.updateProviderLocation('fieldMap', payload.lat, payload.lng, destLat, destLng);
+    }
+  });
+  socket.emit('register_client', requestId);
 })();

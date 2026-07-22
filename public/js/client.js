@@ -808,7 +808,11 @@
       const locStatus = document.getElementById('providerLocationStatus');
       if (locStatus) {
         locStatus.classList.toggle('hidden', !prov);
-        if (prov) locStatus.textContent = t('client.js.tech_live_location');
+        if (prov) {
+          locStatus.textContent = provider.location?.label
+            ? `${provider.location.label} en vivo`
+            : t('client.js.tech_live_location');
+        }
       }
     }
 
@@ -922,8 +926,14 @@
       }
       const locStatus = document.getElementById('providerLocationStatus');
       if (locStatus) {
-        locStatus.textContent = t('client.js.tech_live_location');
+        locStatus.textContent = payload.etaMinutes
+          ? `${t('client.js.tech_live_location')} · ETA ${payload.etaMinutes} min`
+          : t('client.js.tech_live_location');
         locStatus.classList.remove('hidden');
+      }
+      const tripEta = document.getElementById('tripEta');
+      if (tripEta && payload.etaMinutes) {
+        tripEta.textContent = `ETA ${payload.etaMinutes} min`;
       }
       advanceTripStep('enroute');
     });
